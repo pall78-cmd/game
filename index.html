@@ -6,7 +6,7 @@
     <title>Oracle v17.9 - Harmony Enhanced</title>
     <meta name="theme-color" content="#050508" />
     
-    <!-- Scripts: Tailwind & Babel (Compiler di Browser) -->
+    <!-- Scripts: Tailwind & Babel -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
@@ -46,6 +46,10 @@
             position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
             background: #000; z-index: 9999; transition: opacity 0.5s;
         }
+
+        /* Utility animations */
+        @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
     </style>
 
     <script type="importmap">
@@ -65,11 +69,11 @@
     <div id="loader" class="font-header text-gold text-xs tracking-[5px] animate-pulse">INITIATING ORACLE...</div>
     <div id="root"></div>
 
-    <!-- Menjalankan TSX langsung dengan Babel -->
+    <!-- Hanya satu script Babel untuk seluruh aplikasi -->
     <script type="text/babel" data-type="module" src="./index.tsx"></script>
 
     <script>
-        // Sembunyikan loader setelah aplikasi siap
+        // Sembunyikan loader setelah 3 detik (memberi waktu Babel untuk compile)
         window.addEventListener('load', () => {
             setTimeout(() => {
                 const loader = document.getElementById('loader');
@@ -77,7 +81,7 @@
                     loader.style.opacity = '0';
                     setTimeout(() => loader.remove(), 500);
                 }
-            }, 2000);
+            }, 3000);
         });
     </script>
 </body>
