@@ -4,22 +4,44 @@ import { Message, Layer } from './types.ts';
 import { initDeck, drawCard, Intensity } from './utils/deck.ts';
 import Bubble from './components/Bubble.tsx';
 
+/**
+ * Helper to safely access localStorage to prevent crashes in restricted environments.
+ */
+const safeStorage = {
+  get: (key: string) => {
+    try { return localStorage.getItem(key); } catch { return null; }
+  },
+  set: (key: string, value: string) => {
+    try { localStorage.setItem(key, value); } catch { /* ignore */ }
+  }
+};
+
 export default function App() {
-  const [isAdult, setIsAdult] = useState(() => localStorage.getItem('oracle_adult') === 'true');
-  const [layer, setLayer] = useState<Layer>(() => localStorage.getItem('oracle_adult') !== null ? 'SECURITY' : 'AGE');
-  const [username, setUsername] = useState(() => localStorage.getItem('oracle_user') || '');
+  const [isAdult, setIsAdult] = useState(() => safeStorage.get('oracle_adult') === 'true');
+  const [layer, setLayer] = useState<Layer>(() => safeStorage.get('oracle_adult') !== null ? 'SECURITY' : 'AGE');
+  const [username, setUsername] = useState(() => safeStorage.get('oracle_user') || '');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [fateMode, setFateMode] = useState(false);
   const feedRef = useRef<HTMLDivElement>(null);
   const deckRef = useRef(initDeck());
 
-  // Registration for Service Worker
+  // Registration for Service Worker with Origin Check
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js')
-        .then(() => console.log('Service Worker Registered'))
-        .catch(err => console.error('Service Worker Failed', err));
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const isProduction = window.location.hostname.includes('github.io');
+    
+    // Only register Service Worker if on production or localhost, and protocol is correct
+    if ('serviceWorker' in navigator && (isProduction || isLocalhost || window.location.protocol === 'https:')) {
+      // Avoid registering in AI Studio preview environments to prevent Origin Mismatch errors
+      if (!window.location.hostname.includes('usercontent.goog') && !window.location.hostname.includes('ai.studio')) {
+        navigator.serviceWorker.register('./sw.js')
+          .then(() => console.log('Oracle: Service Worker Active'))
+          .catch(err => {
+             // Silently fail to avoid console noise in restricted frames
+             console.debug('Service Worker Registration Skipped/Failed', err);
+          });
+      }
     }
   }, []);
 
@@ -40,7 +62,7 @@ export default function App() {
                 if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
             }, 500);
         } catch (err) {
-            console.error("Error fetching messages:", err);
+            console.error("Supabase connection error:", err);
         }
     };
 
@@ -51,17 +73,17 @@ export default function App() {
             const newMsg = p.new as Message;
             setMessages(prev => [...prev, newMsg]);
             
-            // Push Notification if app is hidden
-            if (document.hidden && newMsg.nama !== username) {
+            // Push Notification trigger via Service Worker postMessage
+            if (document.hidden && newMsg.nama !== username && 'serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(reg => {
                     reg.active?.postMessage({
                         type: 'SHOW_NOTIFICATION',
                         payload: {
                             sender: newMsg.nama,
-                            body: newMsg.teks.startsWith('[IMG]') ? 'Mengirim gambar' : newMsg.teks
+                            body: newMsg.teks.startsWith('[IMG]') ? 'Sent an image' : newMsg.teks
                         }
                     });
-                });
+                }).catch(() => {});
             }
 
             setTimeout(() => {
@@ -94,23 +116,23 @@ export default function App() {
         await sendMessage(username, text);
     } catch (err) {
         console.error("Send error:", err);
-        setInputText(text); // revert if failed
+        setInputText(text);
     }
   };
 
   if (layer === 'AGE') return (
-    <div className="h-screen bg-black flex flex-col items-center justify-center p-6 text-center space-y-8">
+    <div className="h-screen bg-black flex flex-col items-center justify-center p-6 text-center space-y-8 animate-fade-in">
         <h1 className="font-header text-gold text-2xl tracking-widest">VERIFIKASI USIA</h1>
         <p className="font-mystic text-white/60 italic">Berapa lama jiwamu telah berkelana?</p>
         <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
-            <button onClick={() => { setIsAdult(false); localStorage.setItem('oracle_adult', 'false'); setLayer('SECURITY'); }} className="p-4 border border-white/20 rounded-xl hover:bg-white/5 active:scale-95 transition-all">DI BAWAH 18</button>
-            <button onClick={() => { setIsAdult(true); localStorage.setItem('oracle_adult', 'true'); setLayer('SECURITY'); }} className="p-4 border border-gold/40 rounded-xl text-gold hover:bg-gold/5 active:scale-95 transition-all">18+ TAHUN</button>
+            <button onClick={() => { setIsAdult(false); safeStorage.set('oracle_adult', 'false'); setLayer('SECURITY'); }} className="p-4 border border-white/20 rounded-xl hover:bg-white/5 active:scale-95 transition-all">DI BAWAH 18</button>
+            <button onClick={() => { setIsAdult(true); safeStorage.set('oracle_adult', 'true'); setLayer('SECURITY'); }} className="p-4 border border-gold/40 rounded-xl text-gold hover:bg-gold/5 active:scale-95 transition-all">18+ TAHUN</button>
         </div>
     </div>
   );
 
   if (layer === 'SECURITY') return (
-    <div className="h-screen bg-black flex flex-col items-center justify-center p-6 space-y-6">
+    <div className="h-screen bg-black flex flex-col items-center justify-center p-6 space-y-6 animate-fade-in">
         <h1 className="font-header text-gold tracking-[10px]">GATEWAY</h1>
         <input 
             type="password" 
@@ -127,7 +149,7 @@ export default function App() {
   );
 
   if (layer === 'NAME') return (
-    <div className="h-screen bg-black flex flex-col items-center justify-center p-6 space-y-10">
+    <div className="h-screen bg-black flex flex-col items-center justify-center p-6 space-y-10 animate-fade-in">
         <h1 className="font-header text-gold tracking-[5px]">SIAPA NAMAMU?</h1>
         <input 
             type="text" 
@@ -139,7 +161,7 @@ export default function App() {
         <button 
             onClick={() => { 
                 if (username.trim()) {
-                    localStorage.setItem('oracle_user', username); 
+                    safeStorage.set('oracle_user', username); 
                     setLayer('MAIN'); 
                 }
             }} 
@@ -151,7 +173,7 @@ export default function App() {
   );
 
   return (
-    <div className="h-screen bg-void flex flex-col relative overflow-hidden">
+    <div className="h-screen bg-void flex flex-col relative overflow-hidden animate-fade-in">
         <div id="universe"></div>
         <header className="p-4 border-b border-white/5 bg-black/80 backdrop-blur-md z-10 flex justify-between items-center">
             <div className="font-header text-gold text-xs tracking-widest">ORACLE v17.9</div>
