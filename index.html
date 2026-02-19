@@ -5,18 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Oracle v17.9 - Harmony Enhanced</title>
     <meta name="theme-color" content="#050508" />
+    
+    <!-- Scripts: Tailwind & Babel (Compiler di Browser) -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    
     <style>
-        :root {
-            --gold: #D4AF37;
-            --void: #050508;
-            --wild: #a855f7;
-            --temp: #ef4444;
-            --arcana: #0ea5e9;
-            --glass: rgba(20, 20, 25, 0.85);
-            --border: rgba(212,175,55,0.2);
-        }
+        :root { --gold: #D4AF37; --void: #050508; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body {
             background-color: var(--void);
@@ -27,14 +24,12 @@
             overflow: hidden;
             margin: 0;
             position: fixed;
-            user-select: none;
         }
         .font-header { font-family: 'Cinzel', serif; }
         .font-mystic { font-family: 'Cormorant Garamond', serif; }
         #universe {
             position: fixed; inset:0; z-index:0;
             background: radial-gradient(circle at center, #1a0b2e 0%, #000 100%);
-            overflow: hidden;
         }
         #universe::before {
             content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
@@ -46,10 +41,14 @@
             opacity: 0.4;
         }
         @keyframes cosmicDrift { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        #loader {
+            position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+            background: #000; z-index: 9999; transition: opacity 0.5s;
+        }
     </style>
-<script type="importmap">
+
+    <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@19.0.0",
@@ -63,7 +62,23 @@
 </script>
 </head>
 <body>
+    <div id="loader" class="font-header text-gold text-xs tracking-[5px] animate-pulse">INITIATING ORACLE...</div>
     <div id="root"></div>
-    <script type="module" src="./index.tsx"></script>
+
+    <!-- Menjalankan TSX langsung dengan Babel -->
+    <script type="text/babel" data-type="module" src="./index.tsx"></script>
+
+    <script>
+        // Sembunyikan loader setelah aplikasi siap
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                const loader = document.getElementById('loader');
+                if (loader) {
+                    loader.style.opacity = '0';
+                    setTimeout(() => loader.remove(), 500);
+                }
+            }, 2000);
+        });
+    </script>
 </body>
 </html>
