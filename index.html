@@ -70,8 +70,27 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Hide Scrollbar */
         ::-webkit-scrollbar { display: none; }
+        
+        .locked-chaos {
+            filter: grayscale(1) brightness(0.5);
+            opacity: 0.15;
+            cursor: not-allowed;
+            pointer-events: none;
+            position: relative;
+        }
+        .locked-chaos::after {
+            content: "🔒 Restricted";
+            position: absolute;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 7px;
+            color: #ef4444;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: 'Cinzel', serif;
+        }
     </style>
 
     <script type="importmap">
@@ -334,7 +353,6 @@
             useEffect(() => {
                 const l = document.getElementById('loader');
                 if (l) {
-                    // Paksa loader hilang setelah React terpasang (mencegah terjebak)
                     setTimeout(() => { 
                         l.style.opacity = '0'; 
                         setTimeout(() => l.remove(), 800); 
@@ -366,6 +384,7 @@
             };
 
             const handleFate = async (int) => {
+                if (int === 'CHAOS' && !isAdult) return;
                 setFateMode(false);
                 setLoading('Invoking Fate...');
                 const deck = DECKS[int.toLowerCase()];
@@ -416,10 +435,44 @@
 
             if (layer === 'AGE') return (
                 <div className="h-screen bg-black flex flex-col items-center justify-center p-8 space-y-12 z-[100] relative">
-                    <h1 className="font-header text-gold text-2xl tracking-[10px] text-center">ETERNAL GATE</h1>
-                    <div className="flex flex-col gap-4 w-full max-w-xs">
-                        <button onClick={() => { setIsAdult(true); safeStorage.set('oracle_adult', 'true'); setLayer('SECURITY'); }} className="p-5 border border-gold/40 text-gold font-header tracking-widest text-xs glass active:scale-95 transition-all">18+ YEARS</button>
-                        <button onClick={() => { setIsAdult(false); safeStorage.set('oracle_adult', 'false'); setLayer('SECURITY'); }} className="p-5 border border-white/10 text-white/40 font-header tracking-widest text-xs active:scale-95 transition-all">UNDER 18</button>
+                    <div className="absolute inset-0 security-mesh opacity-20"></div>
+                    <div className="relative z-10 flex flex-col items-center gap-2">
+                        <div className="text-gold text-[8px] tracking-[12px] font-header opacity-50 uppercase">The Portal of Age</div>
+                        <h1 className="font-header text-white text-3xl tracking-[8px] text-center">ETERNAL GATE</h1>
+                    </div>
+                    
+                    <div className="flex flex-col gap-6 w-full max-w-xs relative z-10">
+                        <button 
+                            onClick={() => { 
+                                setLoading('Binding Maturity...');
+                                setTimeout(() => {
+                                    setIsAdult(true); 
+                                    safeStorage.set('oracle_adult', 'true'); 
+                                    setLayer('SECURITY'); 
+                                    setLoading(null);
+                                }, 800);
+                            }} 
+                            className="p-6 border border-gold/40 text-gold font-header tracking-[6px] text-xs glass active:scale-95 transition-all hover:bg-gold/5"
+                        >
+                            I AM 18+ YEARS
+                        </button>
+                        <button 
+                            onClick={() => { 
+                                setLoading('Binding Innocence...');
+                                setTimeout(() => {
+                                    setIsAdult(false); 
+                                    safeStorage.set('oracle_adult', 'false'); 
+                                    setLayer('SECURITY'); 
+                                    setLoading(null);
+                                }, 800);
+                            }} 
+                            className="p-6 border border-white/10 text-white/40 font-header tracking-[6px] text-xs active:scale-95 transition-all hover:text-white/60"
+                        >
+                            I AM UNDER 18
+                        </button>
+                    </div>
+                    <div className="absolute bottom-12 text-[7px] text-zinc-600 font-header tracking-widest uppercase text-center max-w-[200px]">
+                        Choose truthfully. The Oracle sees all paths.
                     </div>
                 </div>
             );
@@ -547,7 +600,7 @@
                                                         level === 'LIGHT' ? 'border-blue-500/30 text-blue-400 bg-blue-500/5' :
                                                         level === 'DEEP' ? 'border-purple-500/30 text-purple-400 bg-purple-500/5' :
                                                         'border-red-500/40 text-red-500 bg-red-500/5'
-                                                    } ${level === 'CHAOS' && !isAdult ? 'opacity-20 grayscale cursor-not-allowed' : ''}`}
+                                                    } ${level === 'CHAOS' && !isAdult ? 'locked-chaos' : ''}`}
                                                 >
                                                     {level}
                                                 </button>
@@ -590,7 +643,6 @@
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
 
-        // Perbaikan pendaftaran Service Worker untuk menghindari masalah Origin Cross-Domain di sandbox
         const isRestricted = window.location.hostname.includes('usercontent.goog') || 
                             window.location.hostname.includes('ai.studio');
         
