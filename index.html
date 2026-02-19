@@ -128,6 +128,7 @@
                 .replace(/\[VO\]/g, "")
                 .replace(/\[VN\]/g, "")
                 .replace(/\[REPLY:.*?\]/g, "")
+                .replace(/\[SHARED FATE\]/g, "")
                 .trim();
         };
 
@@ -151,9 +152,10 @@
             </div>
         );
 
-        const Bubble = ({ msg, isMe, username, onReply, onVO }) => {
+        const Bubble = ({ msg, isMe, username, onReply, onVO, onShare }) => {
             const [swipe, setSwipe] = useState(0);
             const isOracle = msg.nama === "ORACLE";
+            const isSharedFate = msg.teks.startsWith("[SHARED FATE]");
             const isVO = msg.teks.startsWith("[VO]");
             const isVN = msg.teks.startsWith("[VN]");
             const replyMatch = msg.teks.match(/\[REPLY:(.*?)\]/);
@@ -169,10 +171,13 @@
             const handleTouchEnd = () => { if (swipe > 75) onReply(msg); setSwipe(0); };
 
             let content = cleanText(msg.teks);
+            let oracleType = "FATE";
             if (isOracle) {
                 try {
                     const d = JSON.parse(msg.teks);
-                    content = cleanText(d.content);
+                    const parts = d.content.split(":");
+                    oracleType = parts[0] || "FATE";
+                    content = cleanText(parts.slice(1).join(":") || d.content);
                 } catch { content = "Mystic Event"; }
             }
 
@@ -196,6 +201,10 @@
                                 <span className="text-gold">➥</span> {replyTarget}
                             </div>
                         )}
+
+                        {isSharedFate && (
+                            <div className="mb-1 text-[7px] font-header text-gold/60 tracking-[2px] uppercase">Fate Shared</div>
+                        )}
                         
                         {isVO ? (
                             <button onClick={() => onVO(msg)} className="flex items-center gap-3 py-1 px-2 view-once-shimmer rounded-lg active:scale-95 transition-all">
@@ -213,13 +222,26 @@
                                 <span className="text-[8px] font-mono opacity-40">VN</span>
                             </div>
                         ) : isOracle ? (
-                            <div className="space-y-3 py-2">
-                                <div className="text-[10px] font-header text-gold tracking-[5px] uppercase opacity-40">TAKDIR</div>
-                                <p className="font-mystic text-lg italic text-white/90">"{content.split(':').slice(1).join(':') || content}"</p>
+                            <div className="space-y-3 py-2 relative">
+                                <div className="flex justify-center items-center gap-3">
+                                    <div className="text-[10px] font-header text-gold tracking-[5px] uppercase opacity-40">{oracleType}</div>
+                                    <button 
+                                        onClick={() => onShare(`${oracleType}: ${content}`)}
+                                        className="p-1 rounded-md hover:bg-gold/10 active:scale-90 transition-all text-gold/40 hover:text-gold"
+                                        title="Share results"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <p className="font-mystic text-lg italic text-white/90">"{content}"</p>
                                 <div className="text-[7px] opacity-30 font-header uppercase tracking-widest pt-2 border-t border-white/5">ORACLE AWAKENED</div>
                             </div>
                         ) : (
-                            <p className="font-mystic text-[16px] leading-relaxed break-words whitespace-pre-wrap">{content}</p>
+                            <p className={`font-mystic text-[16px] leading-relaxed break-words whitespace-pre-wrap ${isSharedFate ? 'italic text-gold/80' : ''}`}>
+                                {content}
+                            </p>
                         )}
                     </div>
                     <span className="text-[6px] opacity-20 mt-1 px-2 font-mono">
@@ -230,6 +252,7 @@
         };
 
         function App() {
+            const [isAdult, setIsAdult] = useState(() => safeStorage.get('oracle_adult') === 'true');
             const [layer, setLayer] = useState(() => safeStorage.get('oracle_adult') !== null ? 'SECURITY' : 'AGE');
             const [username, setUsername] = useState(() => safeStorage.get('oracle_user') || '');
             const [messages, setMessages] = useState([]);
@@ -267,7 +290,10 @@
                     const channel = supabase.channel('oracle_void_v17_harmony')
                         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'Pesan' }, (p) => {
                             const newMsg = p.new;
-                            setMessages(prev => [...prev, newMsg]);
+                            setMessages(prev => {
+                                if (prev.some(m => m.id === newMsg.id)) return prev;
+                                return [...prev, newMsg];
+                            });
                             
                             if (document.hidden && layer === 'MAIN' && newMsg.nama !== username) {
                                 if ('serviceWorker' in navigator) {
@@ -307,10 +333,14 @@
 
             useEffect(() => {
                 const l = document.getElementById('loader');
-                if (l && (layer === 'MAIN' || layer === 'AGE')) {
-                    setTimeout(() => { l.style.opacity = '0'; setTimeout(() => l.remove(), 800); }, 500);
+                if (l) {
+                    // Paksa loader hilang setelah React terpasang (mencegah terjebak)
+                    setTimeout(() => { 
+                        l.style.opacity = '0'; 
+                        setTimeout(() => l.remove(), 800); 
+                    }, 800);
                 }
-            }, [layer]);
+            }, []);
 
             const showToast = (msg, type='info') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
@@ -328,6 +358,11 @@
                 const { error } = await supabase.from('Pesan').insert([{ nama: username, teks: finalTeks }]);
                 if (error) showToast("Send Failed", 'error');
                 else { setInputText(''); setReplyingTo(null); setReviewBlob(null); }
+            };
+
+            const handleShareFate = (cardText) => {
+                handleSend(`[SHARED FATE] ${cardText}`);
+                showToast("Result Shared", "info");
             };
 
             const handleFate = async (int) => {
@@ -380,17 +415,17 @@
             const stopRecording = () => { if (mediaRecorder.current) mediaRecorder.current.stop(); };
 
             if (layer === 'AGE') return (
-                <div className="h-screen bg-black flex flex-col items-center justify-center p-8 space-y-12 z-[50] relative">
+                <div className="h-screen bg-black flex flex-col items-center justify-center p-8 space-y-12 z-[100] relative">
                     <h1 className="font-header text-gold text-2xl tracking-[10px] text-center">ETERNAL GATE</h1>
                     <div className="flex flex-col gap-4 w-full max-w-xs">
-                        <button onClick={() => { safeStorage.set('oracle_adult', 'true'); setLayer('SECURITY'); }} className="p-5 border border-gold/40 text-gold font-header tracking-widest text-xs glass active:scale-95 transition-all">18+ YEARS</button>
-                        <button onClick={() => showToast("Oracle is for mature souls")} className="p-5 border border-white/10 text-white/40 font-header tracking-widest text-xs active:scale-95 transition-all">UNDER 18</button>
+                        <button onClick={() => { setIsAdult(true); safeStorage.set('oracle_adult', 'true'); setLayer('SECURITY'); }} className="p-5 border border-gold/40 text-gold font-header tracking-widest text-xs glass active:scale-95 transition-all">18+ YEARS</button>
+                        <button onClick={() => { setIsAdult(false); safeStorage.set('oracle_adult', 'false'); setLayer('SECURITY'); }} className="p-5 border border-white/10 text-white/40 font-header tracking-widest text-xs active:scale-95 transition-all">UNDER 18</button>
                     </div>
                 </div>
             );
 
             if (layer === 'SECURITY') return (
-                <div className="h-screen bg-black flex flex-col items-center justify-center p-8 space-y-8 z-[50] relative">
+                <div className="h-screen bg-black flex flex-col items-center justify-center p-8 space-y-8 z-[100] relative">
                     {loading && <LoadingOverlay message={loading} />}
                     <h1 className="font-header text-gold tracking-[15px]">GATEWAY</h1>
                     <input type="password" placeholder="CODE" autoFocus onChange={(e) => { 
@@ -406,7 +441,7 @@
             );
 
             if (layer === 'NAME') return (
-                <div className="h-screen bg-black flex flex-col items-center justify-center p-8 space-y-12 z-[50] relative">
+                <div className="h-screen bg-black flex flex-col items-center justify-center p-8 space-y-12 z-[100] relative">
                     {loading && <LoadingOverlay message={loading} />}
                     <h1 className="font-header text-gold tracking-[5px]">WHO ART THOU?</h1>
                     <input type="text" maxLength={12} placeholder="..." value={username} onChange={(e) => setUsername(e.target.value.toUpperCase())} className="bg-transparent border-b border-white/20 text-center py-2 outline-none w-full max-w-[200px] font-mystic text-3xl text-white uppercase" />
@@ -449,6 +484,7 @@
                                 username={username}
                                 onReply={(msg) => setReplyingTo(msg)}
                                 onVO={(msg) => openViewOnce(msg)}
+                                onShare={handleShareFate}
                             />
                         ))}
                     </main>
@@ -505,18 +541,19 @@
                                             {['LIGHT', 'DEEP', 'CHAOS'].map(level => (
                                                 <button 
                                                     key={level}
+                                                    disabled={level === 'CHAOS' && !isAdult}
                                                     onClick={() => handleFate(level)}
                                                     className={`py-6 border rounded-2xl font-header text-[10px] tracking-widest transition-all active:scale-95 shadow-lg ${
                                                         level === 'LIGHT' ? 'border-blue-500/30 text-blue-400 bg-blue-500/5' :
                                                         level === 'DEEP' ? 'border-purple-500/30 text-purple-400 bg-purple-500/5' :
                                                         'border-red-500/40 text-red-500 bg-red-500/5'
-                                                    }`}
+                                                    } ${level === 'CHAOS' && !isAdult ? 'opacity-20 grayscale cursor-not-allowed' : ''}`}
                                                 >
                                                     {level}
                                                 </button>
                                             ))}
                                         </div>
-                                        <button onClick={() => setFateMode(false)} className="text-white/20 text-[9px] uppercase tracking-widest py-2">Return</button>
+                                        <button onClick={() => setFateMode(false)} className="text-white/20 text-[9px] uppercase tracking-widest py-2 active:scale-95">Return</button>
                                     </div>
                                 )}
                             </div>
@@ -526,7 +563,7 @@
                     <div className="p-4 pb-10 bg-black/80 backdrop-blur-2xl border-t border-white/5 z-[30] space-y-4 shrink-0">
                         {replyingTo && (
                             <div className="flex justify-between items-center glass p-2 px-4 rounded-xl mb-2 animate-slide-up bg-white/5">
-                                <span className="text-[9px] opacity-40 italic">➥ {replyingTo.nama}: "{cleanText(replyingTo.teks).substring(0, 20)}..."</span>
+                                <span className="text-[9px] opacity-40 italic truncate max-w-[80%]">➥ {replyingTo.nama}: "{cleanText(replyingTo.teks).substring(0, 20)}..."</span>
                                 <button onClick={() => setReplyingTo(null)} className="text-red-500 text-xs p-2">×</button>
                             </div>
                         )}
@@ -553,9 +590,14 @@
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
 
-        // Register Service Worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js').then(() => console.debug('Worker Bound'));
+        // Perbaikan pendaftaran Service Worker untuk menghindari masalah Origin Cross-Domain di sandbox
+        const isRestricted = window.location.hostname.includes('usercontent.goog') || 
+                            window.location.hostname.includes('ai.studio');
+        
+        if ('serviceWorker' in navigator && !isRestricted) {
+            navigator.serviceWorker.register('./sw.js')
+                .then(() => console.debug('Worker Bound'))
+                .catch(err => console.debug('SW Load skipped (Safe)'));
         }
     </script>
 </body>
