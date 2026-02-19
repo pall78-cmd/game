@@ -6,48 +6,72 @@
     <title>Oracle v17.9 - Harmony Enhanced</title>
     <meta name="theme-color" content="#050508" />
     
-    <!-- Frameworks -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
     
     <style>
-        :root { --gold: #D4AF37; --void: #050508; }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        :root { --gold: #D4AF37; --void: #050508; --ethereal: rgba(212, 175, 55, 0.1); }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
         body {
             background-color: var(--void);
             color: #f0f0f0;
             font-family: 'Montserrat', sans-serif;
-            height: 100dvh;
-            width: 100vw;
-            overflow: hidden;
-            margin: 0;
-            position: fixed;
+            height: 100dvh; width: 100vw; overflow: hidden; margin: 0; position: fixed;
+            -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
         }
         .font-header { font-family: 'Cinzel', serif; }
         .font-mystic { font-family: 'Cormorant Garamond', serif; }
+        
         #universe {
-            position: fixed; inset:0; z-index:0;
-            background: radial-gradient(circle at center, #1a0b2e 0%, #000 100%);
+            position: fixed; inset:0; z-index: 0;
+            background: radial-gradient(circle at 50% 50%, #1a0b2e 0%, #050508 100%);
+            pointer-events: none;
         }
         #universe::before {
             content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
             background-image: 
-                radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 3px),
-                radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 2px);
-            background-size: 550px 550px, 350px 350px;
-            animation: cosmicDrift 120s linear infinite;
-            opacity: 0.4;
+                radial-gradient(white, rgba(255,255,255,.2) 1px, transparent 2px),
+                radial-gradient(white, rgba(255,255,255,.1) 1px, transparent 2px);
+            background-size: 400px 400px, 250px 250px;
+            animation: cosmicDrift 180s linear infinite;
+            opacity: 0.3;
         }
         @keyframes cosmicDrift { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .gold-glow { box-shadow: 0 0 15px var(--ethereal); border: 1px solid rgba(212, 175, 55, 0.3); }
+        
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        
+        .view-once-shimmer {
+            background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.1), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer { from { background-position: -200% 0; } to { background-position: 200% 0; } }
+
+        .security-mesh {
+            background-image: repeating-linear-gradient(45deg, rgba(212, 175, 55, 0.02) 0px, rgba(212, 175, 55, 0.02) 1px, transparent 1px, transparent 10px),
+                              repeating-linear-gradient(-45deg, rgba(212, 175, 55, 0.02) 0px, rgba(212, 175, 55, 0.02) 1px, transparent 1px, transparent 10px);
+            pointer-events: none;
+        }
+
         #loader {
             position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: #000; z-index: 9999; transition: opacity 0.8s; gap: 20px;
+            background: #000; z-index: 1000; transition: opacity 0.8s; gap: 24px;
         }
-        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .mystic-spinner {
+            width: 40px; height: 40px; border: 2px solid rgba(212, 175, 55, 0.1);
+            border-top: 2px solid var(--gold); border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Hide Scrollbar */
+        ::-webkit-scrollbar { display: none; }
     </style>
 
     <script type="importmap">
@@ -64,18 +88,19 @@
 </head>
 <body>
     <div id="loader">
-        <div class="font-header text-gold text-xs tracking-[5px] animate-pulse">INITIATING ORACLE...</div>
-        <div id="error-display" class="hidden text-red-500 text-[10px] font-mono mt-4 text-center px-4"></div>
+        <div class="font-header text-gold text-sm tracking-[8px] animate-pulse">ORACLE v17.9</div>
+        <div class="w-48 h-[1px] bg-white/10 relative overflow-hidden">
+            <div class="absolute inset-0 bg-gold w-1/2 animate-[slide_2s_infinite_linear]"></div>
+        </div>
+        <style> @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(200%); } } </style>
     </div>
     <div id="root"></div>
 
-    <!-- SEMUA LOGIKA DIPINDAHKAN KE SINI -->
     <script type="text/babel" data-type="module">
-        import React, { useState, useEffect, useRef } from 'react';
+        import React, { useState, useEffect, useRef, useCallback } from 'react';
         import ReactDOM from 'react-dom/client';
         import { createClient } from '@supabase/supabase-js';
 
-        // --- CONFIG ---
         const SUPA_URL = 'https://rruxlxoeelxjjjmhafkc.supabase.co';
         const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJydXhseG9lZWx4ampqbWhhZmtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NDU5OTMsImV4cCI6MjA4NTMyMTk5M30.oR2hl_BDD1P6Dmtos2So-aJ_eoFl1-Kwybt6mQnvq0Q';
         const supabase = createClient(SUPA_URL, SUPA_KEY);
@@ -85,210 +110,452 @@
             set: (key, value) => { try { localStorage.setItem(key, value); } catch { } }
         };
 
-        const LIGHT_TRUTHS = ["Siapa selebriti crush pertamamu?", "Makanan aneh yang kamu suka?", "Kapan terakhir ngompol?", "Guru paling dibenci?", "Kebohongan terakhir?"];
-        const LIGHT_DARES = ["Kirim stiker teraneh.", "VN lagu nasional pakai 'O'.", "Foto lantai sekarang.", "Selfie ekspresi jelek."];
-        const LIGHT_WILDCARDS = ["Tunjuk siapa saja buat jawab Truth.", "Pilih member buat VN nyanyi.", "Semua kirim emoji buat kamu."];
+        const LIGHT_TRUTHS = ["Siapa selebriti crush pertamamu?", "Makanan aneh yang kamu suka?", "Kapan terakhir ngompol?", "Kartun masa kecil favorit?", "Uang 1M buat beli apa?", "Siapa yang paling typo?", "Barang termurah yang kamu pakai?", "Hal konyol yang kamu cari di Google?", "Ingin jadi hewan apa?", "Pernah pura-pura sakit?", "Lagu yang bikin malu?", "Karakter fiksi idaman?", "Nama panggilan paling aneh?", "Bakat terpendam gak berguna?", "Hal paling memalukan di umum?", "Guru paling dibenci?", "Naksir pacar teman?", "Kebohongan terakhir?", "Orang terakhir yang di-stalk?", "Password wifi rumah?", "Kentut di lift lalu tuduh orang?", "Mimpi teraneh?", "Pernah nyuri sesuatu?", "Siapa yang mau jadi asistenmu?", "Chat terakhir yang dihapus?", "Baju terbalik tanpa sadar?", "Ketakutan irasional?", "Kapan terakhir mandi?"];
+        const LIGHT_DARES = ["Kirim stiker teraneh.", "Ganti nama admin jadi 'Paduka Raja'.", "VN lagu nasional pakai 'O'.", "Foto lantai sekarang.", "Selfie ekspresi jelek.", "Ketik pakai hidung: 'Aku Oracle'.", "Screenshot wallpaper HP.", "Foto profil monyet 10 menit.", "Prank chat teman 'Aku hamil'.", "Spam stiker 5x.", "VN suara kambing.", "Foto isi kulkas.", "Status WA 'Butuh Perhatian'.", "Foto jari kaki.", "Chat ortu 'I love you'.", "Selfie zoom hidung.", "VN ketawa mak lampir.", "Sebut 3 hewan bahasa Inggris cepat.", "Tahan nafas 20 detik.", "Selfie filter alay.", "VN 'Aku cantik' 3x.", "Bio WA 'Open BO' 2 menit.", "Chat teman 'Pinjam Seratus'.", "Foto barang di sebelah kiri.", "VN nyanyi lagu nasional.", "Kirim emoji favorit 10x.", "Tulis nama pakai tangan kiri.", "Foto langit-langit kamar."];
+        const LIGHT_WILDCARDS = ["Tunjuk siapa saja buat jawab Truth.", "Pilih member buat VN nyanyi.", "Truth buat kamu atau Dare buat bawahmu.", "Semua kirim emoji buat kamu.", "Makan cabai atau push up 20x.", "Tukar foto profil 1 jam.", "Duel stiker, yang aneh menang.", "Batu gunting kertas sama admin.", "Pilih 2 orang duel stiker.", "Satu pertanyaan buat semua.", "Pilih Raja 10 menit.", "Semua wajib VN Selamat Pagi.", "Tunjuk orang buat selfie.", "Semua ganti bio WA.", "Kamu bebas giliran!", "Pilih teman buat dare bareng.", "Reverse! Balikin pertanyaan.", "Skip giliran lempar ke bawah.", "Semua puji foto profilmu.", "Pilih member baca puisi VN.", "Tunjuk orang cerita lelucon.", "Wajib Truth DAN Dare.", "Semua rate lagu pilihanmu.", "Semua kirim foto batre HP.", "Tunjuk yang paling sering online.", "Pilih pasangan game 3 putaran.", "Semua kirim 1 kata jadi kalimat.", "Tunjuk orang SS chat terakhir."];
+        
+        const DEEP_TRUTHS = ["Kapan terakhir menangis?", "Penyesalan terbesar tahun ini?", "Siapa yang paling dirindukan?", "Insecure bagian fisik mana?", "Pernah cinta tak berbalas?", "Ketakutan masa depan?", "Momen yang ingin diubah?", "Pernah merasa tak dianggap?", "Kebohongan ke ortu?", "Siapa yang paling mirip kamu?", "Mimpi buruk jadi nyata?", "Pernah doain teman putus?", "Hal sulit dimaafkan?", "Kapan merasa paling sepi?", "Pesan terakhir buat grup?", "Sifat toxic yang kamu punya?", "Sengaja nyakitin orang?", "Kenangan indah yang sakit?", "Orang yang berjasa tapi dicuekin?", "Bahagia dengan hidup sekarang?", "Trauma masa kecil?", "Ingin minta maaf ke siapa?", "Arti cinta buat kamu?", "Pernah mau kabur dari rumah?", "Kenapa hilang percaya orang?", "Siapa yang sering bikin kecewa?", "Pencapaian paling bangga?", "Hal yang tertahan di hati?"];
+        const DEEP_DARES = ["Chat mantan 'Aku kangen'.", "Ceritakan rahasia terdalam.", "VN terima kasih ke ortu.", "Tulis surat buat masa lalu.", "Foto masa kecil memalukan.", "Chat sahabat 'Makasih ya'.", "Hapus 1 kontak toxic.", "Post status galau hide ortu.", "VN nangis buatan.", "Cerita detail patah hati.", "Kirim foto orang dibenci.", "Sebut 3 sifat jelekmu.", "Chat ortu 'Maafin aku'.", "Lagu yang ngingetin mantan.", "Cerita hari terburuk.", "SS chat terakhir sama crush.", "Puisi sedih via VN.", "Ubah 1 hal dari fisikmu.", "Block 1 orang random.", "Unfollow akun toxic.", "Momen ngerasa gak berharga.", "Sebut nama orang yang dighosting.", "Akui kesalahan di grup.", "Foto selfie sedih.", "Sebut 5 hal disyukuri.", "Peluk guling kirim foto.", "Cerita cinta pertama.", "Janji yang diingkari."];
+        const DEEP_WILDCARDS = ["Semua jawab: Apa arti bahagia?", "Cerita aib atau puji musuh.", "Jawab member termuda atau selfie.", "Ungkap rahasia atau jujur rasa.", "Puji 1 orang di grup.", "Semua cerita ketakutan.", "Pilih member cerita spiritual.", "Tunjuk orang jujur soal crush.", "Semua kirim kenangan indah.", "Pilih member motivasi VN.", "Semua sebut goal tahun ini.", "Dunia kiamat mau ngapain?", "Lagu yang ubah hidup.", "Deskripsikan member 1 kata.", "Semua akuin 1 bohong.", "Tunjuk orang cerita mimpi.", "Semua setor foto langit.", "Member curhat 1 menit VN.", "Satu hal yang bikin bersyukur.", "Momen paling awkward.", "Cinta atau karir? Jelasin.", "Member cerita hewan kesayangan.", "Definisi sukses?", "Member cerita film favorit.", "Siapa role model hidupmu?", "Pengalaman hampir mati.", "Nasihat terbaik?", "Kebiasaan buruk?"];
 
-        const DEEP_TRUTHS = ["Kapan terakhir menangis?", "Penyesalan terbesar tahun ini?", "Siapa yang paling dirindukan?", "Ketakutan masa depan?"];
-        const DEEP_DARES = ["Chat mantan 'Aku kangen'.", "Ceritakan rahasia terdalam.", "VN terima kasih ke ortu.", "Foto masa kecil memalukan."];
-        const DEEP_WILDCARDS = ["Semua jawab: Apa arti bahagia?", "Ungkap rahasia atau jujur rasa.", "Puji 1 orang di grup."];
+        const CHAOS_TRUTHS = ["Bagian tubuh pasangan favorit?", "Fantasi terliar?", "Kapan terakhir turn on?", "Posisi favorit?", "Hal nakal di tempat umum?", "Ukuran atau teknik?", "Fetish teraneh?", "Suara yang disukai saat intim?", "Tempat berisiko yang dicoba?", "Warna pakaian dalam?", "Pernah kirim nudes?", "Foreplay atau langsung?", "Ilfeel saat ciuman karena?", "Imajinasi orang lain?", "Lampu nyala atau mati?", "Bagian tubuh paling sensitif?", "Pernah ketahuan solo?", "Tontonan dewasa favorit?", "Rekor terlama?", "Kasar atau lembut?", "Pernah pakai toys?", "Dirty talk favorit?", "Atas atau bawah?", "Main di luar ruangan?", "Pengalaman first time?", "Berbulu atau mulus?", "Pernah rekam aktivitas?", "Hal gila demi kepuasan?"];
+        const CHAOS_DARES = ["Foto leher View Once.", "VN kata-kata nakal.", "Eja nama pakai lidah video.", "Gigit bibir seksi pap.", "VN suara ciuman.", "Chat pasangan 'Aku gak pake baju'.", "Foto lidah ahegao.", "VN panggil Daddy/Mommy.", "Status WA 'Lagi pengen'.", "Foto tangan remas bantal.", "Desah nama member VN.", "Foto paha aman menggoda.", "Foto bibir close up.", "Jilat jari pap.", "VN suara nafas berat.", "Foto perut/abs.", "Chat random 'Aku keras'.", "Foto bayangan tubuh.", "VN ASMR makan es krim.", "Foto kaki (feet).", "Video goyang pinggul.", "Foto bekas gigitan.", "VN 'Sentuh aku'.", "Foto kasur berantakan.", "Pakai lipstik berantakan pap.", "VN suara minum menggoda.", "Foto punggung.", "Pap outfit tidur."];
+        const CHAOS_WILDCARDS = ["VN desah atau foto bibir.", "Cerita mimpi basah atau pap paha.", "Pap outfit tidur atau jujur lampu.", "Dominant atau Submissive?", "Satu kata soal nafsu.", "Pilih member desah VN.", "Cerita ciuman pertama.", "Spit or swallow?", "Pilih orang kirim foto leher.", "Turn on terbesar?", "Awkward saat intim?", "Pagi atau malam buat 'itu'?", "Member VN suara berat.", "Pernah FWB?", "SS galeri tersembunyi.", "Suka oral?", "Sebut ukuran ideal.", "Pernah sexting?", "Lokasi main impian.", "Suka lingerie warna apa?", "Pilih member kirim foto tangan.", "Pernah one night stand?", "Rate skill kissing (1-10).", "Zona erotis favorit?", "Tipe tubuh ideal?", "Mandi bareng atau sendiri?", "VN 'I want you'.", "Mainan atau natural?"];
 
-        const CHAOS_TRUTHS = ["Fantasi terliar?", "Kapan terakhir turn on?", "Posisi favorit?", "Warna pakaian dalam?"];
-        const CHAOS_DARES = ["Foto leher View Once.", "VN kata-kata nakal.", "VN suara ciuman.", "VN panggil Daddy/Mommy."];
-        const CHAOS_WILDCARDS = ["VN desah atau foto bibir.", "Cerita mimpi basah atau pap paha.", "Turn on terbesar?"];
-
-        const createFreshDeck = () => ({
-            light: { truths: [...LIGHT_TRUTHS], dares: [...LIGHT_DARES], wildcards: [...LIGHT_WILDCARDS] },
-            deep: { truths: [...DEEP_TRUTHS], dares: [...DEEP_DARES], wildcards: [...DEEP_WILDCARDS] },
-            chaos: { truths: [...CHAOS_TRUTHS], dares: [...CHAOS_DARES], wildcards: [...CHAOS_WILDCARDS] }
-        });
-
-        const initDeck = () => {
-            const saved = localStorage.getItem('oracle_deck_v17_9');
-            return saved ? JSON.parse(saved) : createFreshDeck();
+        const cleanText = (txt) => {
+            if (!txt) return "";
+            return txt
+                .replace(/\[VO\]/g, "")
+                .replace(/\[VN\]/g, "")
+                .replace(/\[REPLY:.*?\]/g, "")
+                .trim();
         };
 
-        const drawCard = (currentDeck, intensity) => {
-            const key = intensity.toLowerCase();
-            const roll = Math.random();
-            let type;
-            let prefix = "";
-
-            if (roll < 0.15) { type = 'wildcards'; prefix = "WILD: "; }
-            else if (roll < 0.57) { type = 'truths'; prefix = "TRUTH: "; }
-            else { type = 'dares'; prefix = "DARE: "; }
-
-            let pool = currentDeck[key][type];
-            if (!pool || pool.length === 0) pool = createFreshDeck()[key][type];
-
-            const idx = Math.floor(Math.random() * pool.length);
-            let card = pool[idx];
-            const newPool = [...pool]; newPool.splice(idx, 1);
-            const newDeck = { ...currentDeck, [key]: { ...currentDeck[key], [type]: newPool } };
-            localStorage.setItem('oracle_deck_v17_9', JSON.stringify(newDeck));
-            return { content: prefix + card, newDeck };
+        const DECKS = {
+            light: { truths: LIGHT_TRUTHS, dares: LIGHT_DARES, wildcards: LIGHT_WILDCARDS },
+            deep: { truths: DEEP_TRUTHS, dares: DEEP_DARES, wildcards: DEEP_WILDCARDS },
+            chaos: { truths: CHAOS_TRUTHS, dares: CHAOS_DARES, wildcards: CHAOS_WILDCARDS }
         };
 
-        // --- COMPONENTS ---
-        const Bubble = ({ msg, isMe, username }) => {
+        const Toast = ({ message, type }) => (
+            <div className={`fixed top-12 left-1/2 -translate-x-1/2 z-[200] px-6 py-2 rounded-full glass border-gold/20 flex items-center gap-3 animate-slide-up shadow-2xl pointer-events-none`}>
+                <div className={`w-2 h-2 rounded-full ${type === 'error' ? 'bg-red-500' : 'bg-gold'}`}></div>
+                <span className="text-[10px] font-header tracking-widest text-white/80 uppercase">{message}</span>
+            </div>
+        );
+
+        const LoadingOverlay = ({ message }) => (
+            <div className="fixed inset-0 z-[300] bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center gap-6">
+                <div className="mystic-spinner"></div>
+                <div className="font-header text-gold text-[10px] tracking-[6px] animate-pulse uppercase">{message || 'Processing Void...'}</div>
+            </div>
+        );
+
+        const Bubble = ({ msg, isMe, username, onReply, onVO }) => {
+            const [swipe, setSwipe] = useState(0);
             const isOracle = msg.nama === "ORACLE";
-            let content = msg.teks;
-            let invoker = "";
-            let type = "FATE";
+            const isVO = msg.teks.startsWith("[VO]");
+            const isVN = msg.teks.startsWith("[VN]");
+            const replyMatch = msg.teks.match(/\[REPLY:(.*?)\]/);
+            const replyTarget = replyMatch ? replyMatch[1] : null;
 
+            const handleTouchMove = (e) => {
+                const startX = parseFloat(e.currentTarget.dataset.startX);
+                const delta = e.touches[0].clientX - startX;
+                if (delta > 25) { setSwipe(Math.min(delta - 25, 100)); } else { setSwipe(0); }
+            };
+
+            const handleTouchStart = (e) => { e.currentTarget.dataset.startX = e.touches[0].clientX; };
+            const handleTouchEnd = () => { if (swipe > 75) onReply(msg); setSwipe(0); };
+
+            let content = cleanText(msg.teks);
             if (isOracle) {
                 try {
                     const d = JSON.parse(msg.teks);
-                    const parts = d.content.split(":");
-                    type = parts[0] || "FATE";
-                    content = parts.slice(1).join(":").trim() || d.content;
-                    invoker = d.invoker;
-                } catch { content = "Pesan Takdir Rusak"; }
+                    content = cleanText(d.content);
+                } catch { content = "Mystic Event"; }
             }
 
             return (
-                <div className={`flex flex-col mb-4 animate-fade-in ${isMe ? 'items-end' : 'items-start'}`}>
-                    {!isOracle && <span className={`text-[7px] font-header uppercase tracking-[2px] mb-1 px-3 ${isMe ? 'text-gold/50' : 'text-white/30'}`}>{msg.nama}</span>}
-                    <div className={`p-3 max-w-[85%] rounded-2xl border transition-all ${
-                        isOracle ? 'w-full max-w-full bg-transparent border-none' : 
+                <div 
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    className={`flex flex-col mb-5 relative transition-transform duration-75 ${isMe ? 'items-end' : 'items-start'}`}
+                    style={{ transform: `translateX(${swipe}px)` }}
+                >
+                    {!isOracle && <span className={`text-[8px] font-header uppercase tracking-[2px] mb-1 px-3 ${isMe ? 'text-gold/50' : 'text-white/30'}`}>{msg.nama}</span>}
+                    
+                    <div className={`p-3 max-w-[85%] rounded-2xl border relative ${
+                        isOracle ? 'w-full glass gold-glow text-center' : 
                         isMe ? 'bg-zinc-900/60 border-gold/20 text-gold/90 rounded-br-none shadow-xl' : 
-                        'bg-zinc-800/40 border-white/5 text-white/80 rounded-bl-none shadow-md'
+                        'bg-zinc-800/40 border-white/5 text-white/80 rounded-bl-none'
                     }`}>
-                        {isOracle ? (
-                            <div className="p-5 rounded-2xl border border-gold/40 bg-gradient-to-br from-black to-zinc-900 text-center space-y-4 shadow-2xl relative overflow-hidden">
-                                <div className="text-[9px] font-header text-gold tracking-[5px] uppercase opacity-60">{type}</div>
-                                <div className="font-mystic text-lg italic text-white/90 leading-relaxed px-2">"{content}"</div>
-                                <div className="pt-2 border-t border-white/5 text-[7px] opacity-40 uppercase tracking-widest font-header text-center w-full">Invoked by {invoker}</div>
+                        {replyTarget && (
+                            <div className="mb-2 pb-1 border-b border-white/5 opacity-40 italic text-[9px] flex items-center gap-2">
+                                <span className="text-gold">➥</span> {replyTarget}
+                            </div>
+                        )}
+                        
+                        {isVO ? (
+                            <button onClick={() => onVO(msg)} className="flex items-center gap-3 py-1 px-2 view-once-shimmer rounded-lg active:scale-95 transition-all">
+                                <span className="text-xl">👁️</span>
+                                <span className="text-[10px] font-header tracking-wider opacity-60 uppercase">Locked Thought</span>
+                            </button>
+                        ) : isVN ? (
+                            <div className="flex items-center gap-3 py-1 min-w-[180px]">
+                                <button className="w-10 h-10 rounded-full bg-gold/10 border border-gold/30 flex items-center justify-center text-gold text-xs shadow-lg active:scale-90 transition-all">▶</button>
+                                <div className="flex-1 flex items-end gap-[2px] h-6 px-1">
+                                    {[30, 60, 40, 80, 20, 50, 70, 40, 60, 30].map((h, i) => (
+                                        <div key={i} className="flex-1 bg-gold/20 rounded-t-sm" style={{ height: `${h}%` }}></div>
+                                    ))}
+                                </div>
+                                <span className="text-[8px] font-mono opacity-40">VN</span>
+                            </div>
+                        ) : isOracle ? (
+                            <div className="space-y-3 py-2">
+                                <div className="text-[10px] font-header text-gold tracking-[5px] uppercase opacity-40">TAKDIR</div>
+                                <p className="font-mystic text-lg italic text-white/90">"{content.split(':').slice(1).join(':') || content}"</p>
+                                <div className="text-[7px] opacity-30 font-header uppercase tracking-widest pt-2 border-t border-white/5">ORACLE AWAKENED</div>
                             </div>
                         ) : (
                             <p className="font-mystic text-[16px] leading-relaxed break-words whitespace-pre-wrap">{content}</p>
                         )}
                     </div>
+                    <span className="text-[6px] opacity-20 mt-1 px-2 font-mono">
+                        {new Date(msg.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                    </span>
                 </div>
             );
         };
 
         function App() {
-            const [isAdult, setIsAdult] = useState(() => safeStorage.get('oracle_adult') === 'true');
             const [layer, setLayer] = useState(() => safeStorage.get('oracle_adult') !== null ? 'SECURITY' : 'AGE');
             const [username, setUsername] = useState(() => safeStorage.get('oracle_user') || '');
             const [messages, setMessages] = useState([]);
             const [inputText, setInputText] = useState('');
+            const [replyingTo, setReplyingTo] = useState(null);
             const [fateMode, setFateMode] = useState(false);
+            const [toast, setToast] = useState(null);
+            const [loading, setLoading] = useState(null);
+            const [connectionStatus, setConnectionStatus] = useState('connecting');
+            
+            const [viewingVO, setViewingVO] = useState(null);
+            const [isHoldingVO, setIsHoldingVO] = useState(false);
+            
+            const [isRecording, setIsRecording] = useState(false);
+            const [recordingDuration, setRecordingDuration] = useState(0);
+            const [waveform, setWaveform] = useState(new Array(20).fill(5));
+            const [reviewBlob, setReviewBlob] = useState(null);
+            
             const feedRef = useRef(null);
-            const deckRef = useRef(initDeck());
+            const mediaRecorder = useRef(null);
+            const timerInterval = useRef(null);
+            const audioCtx = useRef(null);
+            const analyser = useRef(null);
+            const animationFrame = useRef(null);
+            const channelRef = useRef(null);
 
-            // Hilangkan loader saat aplikasi siap
+            const initializeSession = useCallback(async () => {
+                if (layer !== 'MAIN') return;
+                try {
+                    setConnectionStatus('connecting');
+                    const { data, error } = await supabase.from('Pesan').select('*').order('id', { ascending: true });
+                    if (error) throw error;
+                    if (data) setMessages(data);
+                    
+                    const channel = supabase.channel('oracle_void_v17_harmony')
+                        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'Pesan' }, (p) => {
+                            const newMsg = p.new;
+                            setMessages(prev => [...prev, newMsg]);
+                            
+                            if (document.hidden && layer === 'MAIN' && newMsg.nama !== username) {
+                                if ('serviceWorker' in navigator) {
+                                    navigator.serviceWorker.ready.then(reg => {
+                                        reg.active?.postMessage({
+                                            type: 'SHOW_NOTIFICATION',
+                                            payload: { 
+                                                sender: newMsg.nama, 
+                                                body: cleanText(newMsg.teks) || 'New Transmission'
+                                            }
+                                        });
+                                    }).catch(() => {});
+                                }
+                            }
+                            setTimeout(() => { if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight; }, 100);
+                        })
+                        .subscribe((status) => {
+                            if (status === 'SUBSCRIBED') setConnectionStatus('online');
+                            else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+                                setConnectionStatus('offline');
+                                setTimeout(initializeSession, 3000);
+                            }
+                        });
+                        
+                    channelRef.current = channel;
+                    setTimeout(() => { if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight; }, 500);
+                } catch (err) {
+                    setConnectionStatus('offline');
+                    setTimeout(initializeSession, 5000);
+                }
+            }, [layer, username]);
+
             useEffect(() => {
-                if (layer === 'MAIN' || layer === 'AGE') {
-                    const loader = document.getElementById('loader');
-                    if (loader) {
-                        setTimeout(() => {
-                            loader.style.opacity = '0';
-                            setTimeout(() => loader.remove(), 800);
-                        }, 500);
-                    }
+                initializeSession();
+                return () => { if (channelRef.current) supabase.removeChannel(channelRef.current); };
+            }, [initializeSession]);
+
+            useEffect(() => {
+                const l = document.getElementById('loader');
+                if (l && (layer === 'MAIN' || layer === 'AGE')) {
+                    setTimeout(() => { l.style.opacity = '0'; setTimeout(() => l.remove(), 800); }, 500);
                 }
             }, [layer]);
 
-            useEffect(() => {
-                if (layer !== 'MAIN') return;
-                const fetchMessages = async () => {
-                    const { data } = await supabase.from('Pesan').select('*').order('id', { ascending: true });
-                    if (data) setMessages(data);
-                    setTimeout(() => feedRef.current?.scrollTo(0, feedRef.current.scrollHeight), 500);
-                };
-                fetchMessages();
+            const showToast = (msg, type='info') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000); };
 
-                const sub = supabase.channel('msgs').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'Pesan' }, (p) => {
-                    setMessages(prev => [...prev, p.new]);
-                    setTimeout(() => feedRef.current?.scrollTo(0, feedRef.current.scrollHeight), 100);
-                }).subscribe();
-                return () => { supabase.removeChannel(sub); };
-            }, [layer]);
+            const openViewOnce = (msg) => { setViewingVO(msg); setIsHoldingVO(false); showToast("Hold to Reveal", "info"); };
+            const closeViewOnce = () => { setViewingVO(null); setIsHoldingVO(false); };
+
+            const handleSend = async (customTeks = null) => {
+                if (connectionStatus === 'offline') { showToast("No Connection", "error"); return; }
+                const txt = customTeks || inputText;
+                if (!txt.trim()) return;
+                
+                let finalTeks = txt;
+                if (replyingTo) finalTeks = `[REPLY:${replyingTo.nama}] ${txt}`;
+                
+                const { error } = await supabase.from('Pesan').insert([{ nama: username, teks: finalTeks }]);
+                if (error) showToast("Send Failed", 'error');
+                else { setInputText(''); setReplyingTo(null); setReviewBlob(null); }
+            };
 
             const handleFate = async (int) => {
                 setFateMode(false);
-                const { content, newDeck } = drawCard(deckRef.current, int);
-                deckRef.current = newDeck;
-                await supabase.from('Pesan').insert([{ nama: "ORACLE", teks: JSON.stringify({ content, invoker: username }) }]);
+                setLoading('Invoking Fate...');
+                const deck = DECKS[int.toLowerCase()];
+                const roll = Math.random();
+                let pool, prefix;
+                if (roll < 0.15) { pool = deck.wildcards; prefix = "WILD"; }
+                else if (roll < 0.55) { pool = deck.truths; prefix = "TRUTH"; }
+                else { pool = deck.dares; prefix = "DARE"; }
+                
+                const item = pool[Math.floor(Math.random() * pool.length)];
+                await supabase.from('Pesan').insert([{ nama: "ORACLE", teks: JSON.stringify({ content: `${prefix}: ${item}`, invoker: username }) }]);
+                setTimeout(() => setLoading(null), 1000);
             };
 
-            const handleSendText = async () => {
-                if (!inputText.trim()) return;
-                const t = inputText; setInputText('');
-                await supabase.from('Pesan').insert([{ nama: username, teks: t }]);
+            const startRecording = async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder.current = new MediaRecorder(stream);
+                    const chunks = [];
+                    mediaRecorder.current.ondataavailable = e => chunks.push(e.data);
+                    mediaRecorder.current.onstop = () => {
+                        const blob = new Blob(chunks, { type: 'audio/ogg' });
+                        setReviewBlob(blob);
+                        setIsRecording(false);
+                        cancelAnimationFrame(animationFrame.current);
+                        clearInterval(timerInterval.current);
+                    };
+                    audioCtx.current = new (window.AudioContext || window.webkitAudioContext)();
+                    analyser.current = audioCtx.current.createAnalyser();
+                    const source = audioCtx.current.createMediaStreamSource(stream);
+                    source.connect(analyser.current);
+                    analyser.current.fftSize = 64;
+                    const dataArray = new Uint8Array(analyser.current.frequencyBinCount);
+                    const updateWaveform = () => {
+                        analyser.current.getByteFrequencyData(dataArray);
+                        setWaveform(Array.from(dataArray).slice(0, 20).map(v => Math.max(5, (v / 255) * 100)));
+                        animationFrame.current = requestAnimationFrame(updateWaveform);
+                    };
+                    mediaRecorder.current.start();
+                    setIsRecording(true);
+                    setRecordingDuration(0);
+                    updateWaveform();
+                    timerInterval.current = setInterval(() => setRecordingDuration(d => d + 1), 1000);
+                } catch (err) { showToast("Mic Denied", "error"); }
             };
+
+            const stopRecording = () => { if (mediaRecorder.current) mediaRecorder.current.stop(); };
 
             if (layer === 'AGE') return (
-                <div className="h-screen bg-black flex flex-col items-center justify-center p-6 text-center space-y-8 relative z-20">
-                    <h1 className="font-header text-gold text-2xl tracking-widest">VERIFIKASI USIA</h1>
-                    <div className="grid grid-cols-2 gap-4 w-full max-w-[300px]">
-                        <button onClick={() => { setIsAdult(false); safeStorage.set('oracle_adult', 'false'); setLayer('SECURITY'); }} className="p-4 border border-white/20 rounded-xl text-xs active:scale-95 transition-transform">DI BAWAH 18</button>
-                        <button onClick={() => { setIsAdult(true); safeStorage.set('oracle_adult', 'true'); setLayer('SECURITY'); }} className="p-4 border border-gold/40 rounded-xl text-gold text-xs active:scale-95 transition-transform">18+ TAHUN</button>
+                <div className="h-screen bg-black flex flex-col items-center justify-center p-8 space-y-12 z-[50] relative">
+                    <h1 className="font-header text-gold text-2xl tracking-[10px] text-center">ETERNAL GATE</h1>
+                    <div className="flex flex-col gap-4 w-full max-w-xs">
+                        <button onClick={() => { safeStorage.set('oracle_adult', 'true'); setLayer('SECURITY'); }} className="p-5 border border-gold/40 text-gold font-header tracking-widest text-xs glass active:scale-95 transition-all">18+ YEARS</button>
+                        <button onClick={() => showToast("Oracle is for mature souls")} className="p-5 border border-white/10 text-white/40 font-header tracking-widest text-xs active:scale-95 transition-all">UNDER 18</button>
                     </div>
                 </div>
             );
 
             if (layer === 'SECURITY') return (
-                <div className="h-screen bg-black flex flex-col items-center justify-center p-6 space-y-6 relative z-20">
-                    <h1 className="font-header text-gold tracking-[10px]">GATEWAY</h1>
-                    <input type="password" placeholder="ACCESS CODE" autoFocus onChange={(e) => { if (e.target.value === '010304') setLayer(username ? 'MAIN' : 'NAME'); }} className="bg-transparent border-b border-gold text-center py-4 outline-none text-gold tracking-[10px] w-full max-w-[200px]" />
-                    <p className="text-[8px] opacity-20 uppercase tracking-widest">Identity Protected by Void</p>
+                <div className="h-screen bg-black flex flex-col items-center justify-center p-8 space-y-8 z-[50] relative">
+                    {loading && <LoadingOverlay message={loading} />}
+                    <h1 className="font-header text-gold tracking-[15px]">GATEWAY</h1>
+                    <input type="password" placeholder="CODE" autoFocus onChange={(e) => { 
+                        if (e.target.value === '010304') {
+                            setLoading('Opening Gate...');
+                            setTimeout(() => {
+                                setLayer(username ? 'MAIN' : 'NAME');
+                                setLoading(null);
+                            }, 1500);
+                        }
+                    }} className="bg-transparent border-b border-gold text-center py-4 outline-none text-gold tracking-[15px] w-48 text-2xl" />
                 </div>
             );
 
             if (layer === 'NAME') return (
-                <div className="h-screen bg-black flex flex-col items-center justify-center p-6 space-y-10 relative z-20">
-                    <h1 className="font-header text-gold tracking-[5px]">SIAPA NAMAMU?</h1>
-                    <input type="text" maxLength={12} placeholder="NAMA..." onChange={(e) => setUsername(e.target.value)} className="bg-transparent border-b border-white text-center py-2 outline-none w-full max-w-[250px] font-mystic text-xl text-white" />
-                    <button onClick={() => { if (username.trim()) { safeStorage.set('oracle_user', username); setLayer('MAIN'); } }} className="px-12 py-3 border border-gold text-gold font-header tracking-widest text-xs active:bg-gold active:text-black transition-all">MANIFEST</button>
+                <div className="h-screen bg-black flex flex-col items-center justify-center p-8 space-y-12 z-[50] relative">
+                    {loading && <LoadingOverlay message={loading} />}
+                    <h1 className="font-header text-gold tracking-[5px]">WHO ART THOU?</h1>
+                    <input type="text" maxLength={12} placeholder="..." value={username} onChange={(e) => setUsername(e.target.value.toUpperCase())} className="bg-transparent border-b border-white/20 text-center py-2 outline-none w-full max-w-[200px] font-mystic text-3xl text-white uppercase" />
+                    <button onClick={() => { 
+                        if (username.trim()) { 
+                            setLoading('Binding Name...');
+                            setTimeout(() => {
+                                safeStorage.set('oracle_user', username.toUpperCase());
+                                setLayer('MAIN');
+                                setLoading(null);
+                            }, 1500);
+                        } 
+                    }} className="px-16 py-4 border border-gold text-gold font-header tracking-widest text-xs glass active:bg-gold active:text-black transition-all">MANIFEST</button>
                 </div>
             );
 
             return (
                 <div className="h-screen bg-void flex flex-col relative overflow-hidden">
                     <div id="universe"></div>
-                    <header className="p-4 border-b border-white/5 bg-black/80 backdrop-blur-md z-10 flex justify-between items-center">
-                        <div className="font-header text-gold text-[10px] tracking-widest">ORACLE v17.9</div>
-                        <button onClick={async () => { if(confirm("Clear room?")) await supabase.from('Pesan').delete().neq('id', 0); }} className="text-[9px] text-red-500/40 uppercase">Clear</button>
+                    {toast && <Toast message={toast.msg} type={toast.type} />}
+                    {loading && <LoadingOverlay message={loading} />}
+
+                    <header className="p-5 border-b border-white/5 bg-black/60 backdrop-blur-xl z-[40] flex justify-between items-center shrink-0">
+                        <div className="flex flex-col">
+                            <span className="font-header text-gold text-[10px] tracking-[6px]">ORACLE</span>
+                            <div className="flex items-center gap-2">
+                                <div className={`w-1 h-1 rounded-full ${connectionStatus === 'online' ? 'bg-green-500 shadow-[0_0_5px_#22c55e]' : connectionStatus === 'offline' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
+                                <span className="text-[6px] opacity-30 uppercase font-mono tracking-tighter">Void: {connectionStatus}</span>
+                            </div>
+                        </div>
+                        <button onClick={() => { if(confirm("Purge void?")) supabase.from('Pesan').delete().neq('id', 0).then(() => location.reload()); }} className="text-[9px] text-red-500/30 uppercase tracking-widest p-2">Purge</button>
                     </header>
 
-                    <div ref={feedRef} className="flex-1 overflow-y-auto p-4 z-10 space-y-1 scroll-smooth">
-                        {messages.map(m => <Bubble key={m.id} msg={m} isMe={m.nama === username} username={username} />)}
-                    </div>
+                    <main ref={feedRef} className="flex-1 overflow-y-auto p-5 z-[10] space-y-2 scroll-smooth">
+                        {messages.map(m => (
+                            <Bubble 
+                                key={m.id} 
+                                msg={m} 
+                                isMe={m.nama === username} 
+                                username={username}
+                                onReply={(msg) => setReplyingTo(msg)}
+                                onVO={(msg) => openViewOnce(msg)}
+                            />
+                        ))}
+                    </main>
 
-                    {fateMode && (
-                        <div className="absolute inset-x-0 bottom-24 z-50 p-6 bg-black/95 border-t border-gold/20 flex flex-col gap-4 rounded-t-3xl backdrop-blur-xl animate-fade-in">
-                            <div className="grid grid-cols-3 gap-2">
-                                <button onClick={()=>handleFate('LIGHT')} className="py-4 border border-blue-500/30 text-blue-400 text-[10px] font-header rounded-lg active:bg-blue-500/10">LIGHT</button>
-                                <button onClick={()=>handleFate('DEEP')} className="py-4 border border-purple-500/30 text-purple-400 text-[10px] font-header rounded-lg active:bg-purple-500/10">DEEP</button>
-                                <button disabled={!isAdult} onClick={()=>handleFate('CHAOS')} className={`py-4 border border-red-500/30 text-red-500 text-[10px] font-header rounded-lg ${!isAdult ? 'opacity-10' : 'active:bg-red-500/10'}`}>CHAOS</button>
+                    {viewingVO && (
+                        <div 
+                            className="fixed inset-0 z-[200] bg-black backdrop-blur-3xl flex flex-col items-center justify-center p-10 text-center space-y-8 select-none touch-none"
+                            onTouchStart={() => setIsHoldingVO(true)}
+                            onMouseDown={() => setIsHoldingVO(true)}
+                            onTouchEnd={closeViewOnce}
+                            onMouseUp={closeViewOnce}
+                        >
+                            <div className="absolute inset-0 security-mesh"></div>
+                            <div className="relative z-10 space-y-2">
+                                <div className="font-header text-gold text-[10px] tracking-[10px] animate-pulse">SECRET TRANSMISSION</div>
+                                <div className="text-[8px] font-header text-white/20 uppercase tracking-widest">Hold to Reveal</div>
                             </div>
-                            <button onClick={()=>setFateMode(false)} className="text-white/20 text-[9px] uppercase tracking-widest">Close</button>
+                            <div className={`relative transition-all duration-500 transform ${isHoldingVO ? 'scale-100 blur-0 opacity-100' : 'scale-90 blur-2xl opacity-0'}`}>
+                                <p className="font-mystic text-3xl italic text-white leading-relaxed pointer-events-none">
+                                    "{cleanText(viewingVO.teks)}"
+                                </p>
+                            </div>
                         </div>
                     )}
 
-                    <div className="p-4 pb-8 bg-black/90 border-t border-white/5 z-20 space-y-4">
-                        <button onClick={()=>setFateMode(true)} className="w-full py-3 bg-gold/5 border border-gold/40 text-gold font-header text-[9px] tracking-[5px] uppercase rounded-lg active:scale-[0.98] transition-transform">Panggil Takdir</button>
-                        <div className="flex gap-3 items-center px-1">
-                            <input type="text" value={inputText} onChange={(e)=>setInputText(e.target.value)} onKeyDown={(e)=>e.key==='Enter' && handleSendText()} placeholder="Type something..." className="flex-1 bg-transparent border-b border-white/10 py-1 outline-none text-white text-sm font-mystic" />
-                            <button onClick={handleSendText} className="text-gold text-lg px-2 active:scale-125 transition-transform">➤</button>
+                    {(fateMode || isRecording || reviewBlob) && (
+                        <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm pointer-events-auto" onClick={() => { if(!isRecording) { setFateMode(false); if(!reviewBlob) setReplyingTo(null); } }}>
+                            <div className="absolute inset-x-0 bottom-0 pointer-events-auto" onClick={e => e.stopPropagation()}>
+                                {reviewBlob && !isRecording && (
+                                    <div className="p-6 glass border-t border-gold/20 flex flex-col gap-4 rounded-t-3xl animate-slide-up bg-black/95">
+                                        <div className="flex items-center justify-between px-2">
+                                            <span className="text-[10px] font-header text-gold tracking-widest uppercase">Recording Stored</span>
+                                            <span className="text-[10px] font-mono opacity-50 text-white">{recordingDuration}s</span>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <button onClick={() => setReviewBlob(null)} className="flex-1 py-4 border border-red-500/20 text-red-500 text-[10px] font-header tracking-widest rounded-xl active:bg-red-500/10 active:scale-95 transition-all">DELETE</button>
+                                            <button onClick={() => handleSend("[VN] Voice Sent")} className="flex-1 py-4 bg-gold/10 border border-gold/40 text-gold text-[10px] font-header tracking-widest rounded-xl active:bg-gold active:text-black active:scale-95 transition-all uppercase tracking-widest">Transmit</button>
+                                        </div>
+                                    </div>
+                                )}
+                                {isRecording && (
+                                    <div className="p-8 glass border-t border-red-500/20 flex flex-col items-center gap-8 rounded-t-[40px] animate-slide-up bg-black/95">
+                                        <div className="text-[20px] font-mono text-red-500 animate-pulse">{recordingDuration}s</div>
+                                        <div className="flex items-end gap-1 h-24 w-full px-4">
+                                            {waveform.map((h, i) => <div key={i} className="flex-1 bg-red-500/40 rounded-full" style={{ height: `${h}%` }}></div>)}
+                                        </div>
+                                        <button onClick={stopRecording} className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center text-black shadow-[0_0_30px_rgba(239,68,68,0.4)] active:scale-90 transition-all">■</button>
+                                    </div>
+                                )}
+                                {fateMode && !isRecording && !reviewBlob && (
+                                    <div className="p-6 glass border-t border-gold/20 flex flex-col gap-6 rounded-t-[40px] animate-slide-up bg-black/95">
+                                        <div className="text-center font-header text-gold text-[10px] tracking-[8px] opacity-40 uppercase">Invoking the Void</div>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            {['LIGHT', 'DEEP', 'CHAOS'].map(level => (
+                                                <button 
+                                                    key={level}
+                                                    onClick={() => handleFate(level)}
+                                                    className={`py-6 border rounded-2xl font-header text-[10px] tracking-widest transition-all active:scale-95 shadow-lg ${
+                                                        level === 'LIGHT' ? 'border-blue-500/30 text-blue-400 bg-blue-500/5' :
+                                                        level === 'DEEP' ? 'border-purple-500/30 text-purple-400 bg-purple-500/5' :
+                                                        'border-red-500/40 text-red-500 bg-red-500/5'
+                                                    }`}
+                                                >
+                                                    {level}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <button onClick={() => setFateMode(false)} className="text-white/20 text-[9px] uppercase tracking-widest py-2">Return</button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="p-4 pb-10 bg-black/80 backdrop-blur-2xl border-t border-white/5 z-[30] space-y-4 shrink-0">
+                        {replyingTo && (
+                            <div className="flex justify-between items-center glass p-2 px-4 rounded-xl mb-2 animate-slide-up bg-white/5">
+                                <span className="text-[9px] opacity-40 italic">➥ {replyingTo.nama}: "{cleanText(replyingTo.teks).substring(0, 20)}..."</span>
+                                <button onClick={() => setReplyingTo(null)} className="text-red-500 text-xs p-2">×</button>
+                            </div>
+                        )}
+                        <div className="flex gap-4 items-center">
+                            <button onClick={() => setFateMode(true)} className="w-12 h-12 shrink-0 rounded-2xl glass border-gold/40 flex items-center justify-center text-gold shadow-lg active:scale-90 transition-all">✨</button>
+                            <div className="flex-1 glass rounded-2xl flex items-center px-4 py-1 border-white/10 bg-white/5">
+                                <input 
+                                    type="text" value={inputText} 
+                                    onChange={(e) => setInputText(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                                    placeholder="Manifest thought..." 
+                                    className="flex-1 bg-transparent py-3 outline-none text-white text-sm font-mystic min-w-0" 
+                                />
+                                <button onClick={() => handleSend(`[VO] ${inputText}`)} className="p-3 opacity-30 hover:opacity-100 transition-opacity active:scale-125">👁️</button>
+                            </div>
+                            <button onClick={startRecording} className="w-12 h-12 shrink-0 rounded-full flex items-center justify-center bg-gold text-black active:scale-90 shadow-lg">🎤</button>
+                            <button onClick={() => handleSend()} className="text-gold text-2xl font-bold p-2 active:scale-125 transition-all">➤</button>
                         </div>
                     </div>
                 </div>
             );
         }
 
-        try {
-            const root = ReactDOM.createRoot(document.getElementById('root'));
-            root.render(<App />);
-        } catch (e) {
-            const errDisp = document.getElementById('error-display');
-            if(errDisp) {
-                errDisp.innerText = "Fatal: " + e.message;
-                errDisp.classList.remove('hidden');
-            }
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').then(() => console.debug('Worker Bound'));
         }
     </script>
 </body>

@@ -7,7 +7,7 @@ self.addEventListener('message', (e) => {
             body: payload.body,
             icon: 'https://cdn-icons-png.flaticon.com/512/3062/3062634.png',
             tag: 'oracle-msg',
-            data: { url: 'https://pall78-cmd.github.io/TOD/' }
+            data: { url: 'https://pall78-cmd.github.io/game/' }
         });
     }
 });
