@@ -545,7 +545,7 @@ export default function App() {
             <div className="space-y-3">
                 <label className="text-[10px] text-white/40 uppercase tracking-widest block text-center">Pilih Avatar</label>
                 <div className="grid grid-cols-4 gap-3">
-                    {['🔮', '🧿', '🕯️', '🌙', '☀️', '🌑', '🪐', '💀'].map(a => (
+                    {['🔮', '🧿', '🕯️', '🌙', '☀️', '🌑', '🪐', '💀', '👽', '👻', '🤖', '👾', '🤡', '👹', '👺', '🐲'].map(a => (
                         <button 
                             key={a}
                             onClick={() => setAvatar(a)}
@@ -559,8 +559,8 @@ export default function App() {
 
             <div className="space-y-3">
                 <label className="text-[10px] text-white/40 uppercase tracking-widest block text-center">Pilih Aura (Warna)</label>
-                <div className="flex justify-center gap-3">
-                    {['#D4AF37', '#DC2626', '#10B981', '#3B82F6', '#8B5CF6'].map(c => (
+                <div className="flex flex-wrap justify-center gap-3">
+                    {['#D4AF37', '#DC2626', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#6366F1', '#14B8A6', '#84CC16'].map(c => (
                         <button 
                             key={c}
                             onClick={() => setUserColor(c)}

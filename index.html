@@ -1,6 +1,24 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+    <script>
+        window.onerror = function(msg, url, line, col, error) {
+            var div = document.createElement('div');
+            div.style.cssText = 'position:fixed; top:0; left:0; right:0; background:rgba(255,0,0,0.9); color:white; padding:20px; z-index:99999; font-family:monospace; font-size:12px; white-space:pre-wrap; overflow:auto; max-height:50vh;';
+            div.innerHTML = '<strong>CRITICAL ERROR:</strong><br>' + msg + '<br><br>Location: ' + url + ':' + line;
+            document.body.appendChild(div);
+            
+            // Also update loader if present
+            var loader = document.getElementById('loader');
+            if (loader) {
+                var errText = document.createElement('div');
+                errText.style.color = 'red';
+                errText.style.marginTop = '20px';
+                errText.innerText = 'SYSTEM FAILURE: ' + msg;
+                loader.appendChild(errText);
+            }
+        };
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Oracle v17.9 - Harmony Game Edition</title>
