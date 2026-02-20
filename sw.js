@@ -4,14 +4,20 @@ self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
 self.addEventListener('message', (e) => {
     if (e.data?.type === 'SHOW_NOTIFICATION') {
         const payload = e.data.payload;
-        // Clean system tags from notification body
-        const cleanBody = payload.body
-            .replace(/\[VO\]/g, "")
-            .replace(/\[VN\]/g, "")
-            .replace(/\[REPLY:.*?\]/g, "")
-            .replace(/\[SHARED FATE\]/g, "")
-            .replace(/\[IMG\].*?(\|)?/g, "📷 Photo")
-            .trim();
+        let cleanBody = payload.body;
+
+        if (cleanBody.startsWith('[IMG]')) cleanBody = "📷 Photo";
+        else if (cleanBody.startsWith('[VN]')) cleanBody = "🎤 Voice Message";
+        else if (cleanBody.startsWith('[VO]')) cleanBody = "👁️ Secret Message";
+        else if (cleanBody.includes('[SHARED FATE]')) cleanBody = "🔮 Shared Fate";
+        else if (cleanBody.startsWith('[REPLY:{')) {
+            const endIdx = cleanBody.indexOf('}]');
+            if (endIdx !== -1) {
+                 cleanBody = "↩️ " + cleanBody.substring(endIdx + 2);
+            }
+        } else {
+             cleanBody = cleanBody.replace(/\[REPLY:.*?\]/g, "↩️ ").trim();
+        }
 
         self.registration.showNotification(payload.sender, {
             body: cleanBody || "New mystic transmission",

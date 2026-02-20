@@ -97,7 +97,7 @@ const FateCardDisplay: React.FC<{ raw: string, onShare: (t: string) => void }> =
                     </button>
                 </div>
 
-                <div className="font-mystic text-2xl italic text-white/95 leading-relaxed px-2 drop-shadow-md">"{content}"</div>
+                <div className="font-mystic text-2xl italic text-white/95 leading-relaxed px-2 drop-shadow-md break-words whitespace-pre-wrap">"{content}"</div>
                 
                 <div className="pt-2 border-t border-white/5 flex items-center justify-center gap-2">
                    <div className={`w-1 h-1 rounded-full ${isLight ? 'bg-blue-500' : isDeep ? 'bg-purple-500' : isChaos ? 'bg-red-500' : 'bg-gold'}/50`}></div>
@@ -111,16 +111,35 @@ const FateCardDisplay: React.FC<{ raw: string, onShare: (t: string) => void }> =
     }
 };
 
-const Bubble: React.FC<BubbleProps> = ({ msg, isMe, onReply, onViewOnce, onShare }) => {
+const Bubble: React.FC<BubbleProps> = ({ msg, isMe, onReply, onEdit, onViewOnce, onShare }) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const [swipeX, setSwipeX] = useState(0);
+    const [imgLoaded, setImgLoaded] = useState(false);
+    const touchStartRef = useRef(0);
+    const longPressTimerRef = useRef<any>(null);
+
+    // Parse Reply
+    let replyData = null;
+    let content = msg.teks;
+    if (msg.teks.startsWith('[REPLY:{')) {
+        const endIdx = msg.teks.indexOf('}]');
+        if (endIdx !== -1) {
+            try {
+                const jsonStr = msg.teks.substring(7, endIdx + 2);
+                replyData = JSON.parse(jsonStr);
+                content = msg.teks.substring(endIdx + 2);
+            } catch {}
+        }
+    }
+
     const isOracle = msg.nama === "ORACLE";
-    const isVO = msg.teks.startsWith("[VO]");
-    const isVN = msg.teks.startsWith("[VN]");
-    const isIMG = msg.teks.startsWith("[IMG]");
+    const isVO = content.startsWith("[VO]");
+    const isVN = content.startsWith("[VN]");
+    const isIMG = content.startsWith("[IMG]");
 
     const TEXT_LIMIT = 300;
-    const isLongText = !isOracle && !isVO && !isVN && !isIMG && msg.teks.length > TEXT_LIMIT;
-    const displayedText = isLongText && !isExpanded ? msg.teks.slice(0, TEXT_LIMIT) + "..." : msg.teks;
+    const isLongText = !isOracle && !isVO && !isVN && !isIMG && content.length > TEXT_LIMIT;
+    const displayedText = isLongText && !isExpanded ? content.slice(0, TEXT_LIMIT) + "..." : content;
 
     // Parse name, avatar, color
     const parseIdentity = (rawName: string) => {
@@ -134,8 +153,59 @@ const Bubble: React.FC<BubbleProps> = ({ msg, isMe, onReply, onViewOnce, onShare
 
     const identity = parseIdentity(msg.nama);
     
+    // Touch Handlers
+    const handleTouchStart = (e: React.TouchEvent) => {
+        touchStartRef.current = e.touches[0].clientX;
+        
+        // Long Press for Edit (only if isMe)
+        if (isMe && !isOracle && !isVO) {
+            longPressTimerRef.current = setTimeout(() => {
+                if (navigator.vibrate) navigator.vibrate(50);
+                onEdit(msg);
+            }, 500);
+        }
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        const diff = e.touches[0].clientX - touchStartRef.current;
+        
+        // Cancel Long Press if moved
+        if (Math.abs(diff) > 10 && longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+        }
+
+        // Swipe to Reply (Right Swipe)
+        if (diff > 0 && diff < 100) {
+            setSwipeX(diff);
+        }
+    };
+
+    const handleTouchEnd = () => {
+        if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+        }
+
+        if (swipeX > 50) {
+            if (navigator.vibrate) navigator.vibrate(20);
+            onReply(msg);
+        }
+        setSwipeX(0);
+    };
+
     return (
-        <div className={`flex flex-col mb-4 animate-fade-in ${isMe ? 'items-end' : 'items-start'}`}>
+        <div 
+            className={`flex flex-col mb-4 animate-fade-in relative ${isOracle ? 'items-center w-full' : isMe ? 'items-end' : 'items-start'}`}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            style={{ transform: `translateX(${swipeX}px)`, transition: swipeX === 0 ? 'transform 0.3s' : 'none' }}
+        >
+            {/* Reply Hint Icon */}
+            <div className={`absolute top-1/2 -translate-y-1/2 -left-8 text-gold transition-opacity ${swipeX > 30 ? 'opacity-100' : 'opacity-0'}`}>
+                ↩️
+            </div>
+
             {!isOracle && (
                 <div className={`flex items-center gap-1.5 mb-1 px-3 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                     <span className="text-xs">{identity.avatar}</span>
@@ -149,15 +219,33 @@ const Bubble: React.FC<BubbleProps> = ({ msg, isMe, onReply, onViewOnce, onShare
             )}
             <div 
                 className={`p-3 w-fit max-w-[85%] rounded-2xl border transition-all overflow-hidden ${
-                    isOracle ? 'w-full max-w-full bg-transparent border-none' : 
+                    isOracle ? 'w-full max-w-sm bg-transparent border-none' : 
                     isVO ? 'bg-red-950/20 border-red-500/30 text-red-400 cursor-pointer hover:bg-red-950/40' :
                     isMe ? 'bg-zinc-900/60 border-gold/20 text-gold/90 rounded-br-none shadow-xl' : 
                     'bg-zinc-800/40 border-white/5 text-white/80 rounded-bl-none'
                 }`}
                 onClick={() => isVO && onViewOnce(msg)}
             >
+                {/* Quoted Reply */}
+                {replyData && (
+                    <div className="mb-2 p-2 rounded bg-black/20 border-l-2 border-gold/50 text-[9px]">
+                        <div className="text-gold font-bold mb-0.5">{replyData.name}</div>
+                        <div className="text-white/60 truncate flex items-center gap-1">
+                            {replyData.text.startsWith('[IMG]') ? (
+                                <><span className="text-[10px]">📷</span> Photo</>
+                            ) : replyData.text.startsWith('[VO]') ? (
+                                <><span className="text-[10px]">👁️</span> Secret Message</>
+                            ) : replyData.text.startsWith('[VN]') ? (
+                                <><span className="text-[10px]">🎤</span> Voice Message</>
+                            ) : (
+                                replyData.text
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {isOracle ? (
-                    <FateCardDisplay raw={msg.teks} onShare={onShare} />
+                    <FateCardDisplay raw={content} onShare={onShare} />
                 ) : isVO ? (
                     <div className="flex items-center gap-3">
                         <span className="text-xl">👁️</span>
@@ -167,18 +255,24 @@ const Bubble: React.FC<BubbleProps> = ({ msg, isMe, onReply, onViewOnce, onShare
                         </div>
                     </div>
                 ) : isVN ? (
-                    <AudioPlayer url={msg.teks.replace("[VN]", "")} />
+                    <AudioPlayer url={content.replace("[VN]", "")} />
                 ) : isIMG ? (
-                    <div className="space-y-2">
+                    <div className="space-y-2 relative min-h-[150px] min-w-[200px] flex items-center justify-center bg-black/20 rounded-lg">
+                        {!imgLoaded && (
+                            <div className="absolute inset-0 flex items-center justify-center text-white/30 text-xs font-header uppercase tracking-widest animate-pulse">
+                                📷 Photo
+                            </div>
+                        )}
                         <img 
-                            src={msg.teks.split('\n')[0].replace("[IMG]", "")} 
-                            className="rounded-lg max-h-64 w-full object-contain border border-white/10" 
+                            src={content.split('\n')[0].replace("[IMG]", "")} 
+                            className={`rounded-lg max-h-64 w-full object-contain border border-white/10 transition-opacity duration-500 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`} 
                             alt="Visual" 
                             loading="lazy"
+                            onLoad={() => setImgLoaded(true)}
                         />
-                        {msg.teks.includes('\n') && (
+                        {content.includes('\n') && (
                             <p className="font-mystic text-[15px] leading-relaxed opacity-90 px-1">
-                                {msg.teks.split('\n').slice(1).join('\n')}
+                                {content.split('\n').slice(1).join('\n')}
                             </p>
                         )}
                     </div>
@@ -206,14 +300,6 @@ const Bubble: React.FC<BubbleProps> = ({ msg, isMe, onReply, onViewOnce, onShare
                 <span className="text-[6px] opacity-20 font-mono uppercase tracking-widest">
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
-                {!isOracle && (
-                    <button 
-                        onClick={() => onReply(msg)}
-                        className="text-[8px] text-white/10 hover:text-gold/40 uppercase tracking-widest font-header transition-colors"
-                    >
-                        Reply
-                    </button>
-                )}
             </div>
         </div>
     );

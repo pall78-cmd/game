@@ -32,9 +32,10 @@ export default function App() {
   const myIdentity = `${username}|${avatar}|${userColor}`;
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
+  const [isViewOnce, setIsViewOnce] = useState(false);
+  const [viewingSecret, setViewingSecret] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<Record<string, { name: string, avatar: string, color: string, timestamp: number }>>({});
   const [fateMode, setFateMode] = useState(false);
-  const [lastFate, setLastFate] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<{ file: File, url: string } | null>(null);
   const [imageCaption, setImageCaption] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -54,6 +55,7 @@ export default function App() {
   const feedRef = useRef<HTMLDivElement>(null);
   const deckRef = useRef(initDeck());
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastTypingRef = useRef(0);
 
   // Registrasi Service Worker yang lebih aman
   useEffect(() => {
@@ -70,23 +72,53 @@ export default function App() {
     }
   }, []);
 
-  const requestNotifPermission = async () => {
+  const [viewedMessages, setViewedMessages] = useState<Set<number>>(() => {
+    const saved = safeStorage.get('oracle_viewed_vo');
+    return new Set(saved ? JSON.parse(saved) : []);
+  });
+
+  // Remove loader on mount
+  useEffect(() => {
+    const loader = document.getElementById('loader');
+    if (loader) {
+      loader.style.opacity = '0';
+      setTimeout(() => loader.remove(), 500);
+    }
+  }, []);
+
+  async function requestNotifPermission() {
     if (!('Notification' in window)) return;
     const permission = await Notification.requestPermission();
     setNotifPermission(permission);
-  };
+  }
+
+  // Mandatory Notification Enforcer - REMOVED per user request to "just allow it"
+  // if (layer === 'MAIN' && notifPermission !== 'granted') {
+  //     return (
+  //         <div className="h-screen bg-black flex flex-col items-center justify-center p-8 text-center space-y-6 z-50">
+  //             ...
+  //         </div>
+  //     );
+  // }
 
   const parseForNotif = (text: string) => {
     if (text.startsWith('[IMG]')) return '📷 Photo';
-    if (text.startsWith('[VN]')) return '🎙️ Voice Note';
-    if (text.startsWith('[VO]')) return '👁️ Secret Glimpse';
-    if (text.startsWith('{')) {
-        try {
-            const d = JSON.parse(text);
-            return `🃏 Fate: ${d.content.split(':')[1] || d.content}`;
-        } catch { return '🃏 Fate Card'; }
+    if (text.startsWith('[VN]')) return '🎤 Voice Message';
+    if (text.startsWith('[VO]')) return '👁️ Secret Message';
+    if (text.includes('[SHARED FATE]')) return '🔮 Shared Fate';
+
+    // Handle Reply
+    if (text.startsWith('[REPLY:{')) {
+        const endIdx = text.indexOf('}]');
+        if (endIdx !== -1) {
+             return "↩️ " + text.substring(endIdx + 2);
+        }
     }
-    return text.replace(/\[SHARED FATE\]\s*/g, "").replace(/@\w+/g, (m) => m);
+
+    return text
+        .replace(/\[REPLY:.*?\]/g, "↩️ ")
+        .replace(/@(\w+)/g, "$1")
+        .substring(0, 50) + (text.length > 50 ? '...' : '');
   };
 
   useEffect(() => {
@@ -110,10 +142,6 @@ export default function App() {
             const newMsg = p.new as Message;
             setMessages(prev => [...prev, newMsg]);
             
-            if (newMsg.nama === "ORACLE") {
-                setLastFate(newMsg.teks);
-            }
-
             if (document.hidden && newMsg.nama !== username && 'serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(reg => {
                     const senderName = (newMsg.nama || "").split('|')[0] || "Unknown";
@@ -124,7 +152,13 @@ export default function App() {
                             body: parseForNotif(newMsg.teks)
                         }
                     });
-                }).catch(() => {});
+                }).catch(() => {
+                    // Fallback if SW fails
+                    new Notification(`Oracle: ${newMsg.nama.split('|')[0]}`, {
+                        body: parseForNotif(newMsg.teks),
+                        icon: '/icon-192.png'
+                    });
+                });
             }
 
             setTimeout(() => { if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight; }, 100);
@@ -193,19 +227,101 @@ export default function App() {
       }
   };
 
+  const handleViewOnce = async (m: Message) => {
+      if (viewedMessages.has(m.id)) return;
+
+      // 1. Show content in a secure overlay
+      const content = m.teks.replace('[VO]', '');
+      setViewingSecret(content);
+
+      // 2. Mark as viewed locally immediately
+      const newViewed = new Set(viewedMessages);
+      newViewed.add(m.id);
+      setViewedMessages(newViewed);
+      safeStorage.set('oracle_viewed_vo', JSON.stringify(Array.from(newViewed)));
+
+      // 3. Burn the message on server (Update to [OPENED])
+      try {
+          const { updateMessage } = await import('./services/supabase');
+          await updateMessage(m.id, '[OPENED]');
+      } catch (err) {
+          console.error("Failed to burn message:", err);
+      }
+  };
+
+  const [editingMsg, setEditingMsg] = useState<Message | null>(null);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // ... (existing useEffects)
+
+  const handleEdit = (m: Message) => {
+      setEditingMsg(m);
+      setInputText(m.teks);
+      if (fileInputRef.current) fileInputRef.current.focus();
+  };
+
   const handleSendText = async () => {
     if (!inputText.trim()) return;
-    const text = inputText;
+    let text = inputText;
+    
+    if (isViewOnce && !editingMsg) {
+        text = `[VO]${text}`;
+        setIsViewOnce(false);
+    }
+
+    if (replyingTo && !editingMsg) {
+        const replyContext = JSON.stringify({
+            id: replyingTo.id,
+            name: (replyingTo.nama || "").split('|')[0],
+            text: replyingTo.teks.substring(0, 50)
+        });
+        text = `[REPLY:${replyContext}]${text}`;
+        setReplyingTo(null);
+    }
+
     setInputText('');
-    try {
-        await sendMessage(myIdentity, text);
-    } catch (err) {
-        console.error("Send failed:", err);
-        setInputText(text);
+    
+    if (editingMsg) {
+        // Handle Edit
+        try {
+            const { updateMessage } = await import('./services/supabase');
+            
+            // Optimistic Update
+            const updatedMessages = messages.map(m => 
+                m.id === editingMsg.id ? { ...m, teks: text } : m
+            );
+            setMessages(updatedMessages);
+            
+            // Persist to LocalStorage
+            safeStorage.set('oracle_messages', JSON.stringify(updatedMessages));
+            
+            // Update Server
+            await updateMessage(editingMsg.id, text);
+            
+            setEditingMsg(null);
+        } catch (err) {
+            console.error("Edit failed:", err);
+            alert("Failed to update message in the void.");
+        }
+    } else {
+        // Handle Send
+        try {
+            await sendMessage(myIdentity, text);
+        } catch (err) {
+            console.error("Send failed:", err);
+            setInputText(text);
+        }
     }
   };
 
-  const lastTypingRef = useRef(0);
+  // ... (rest of the code)
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputText(e.target.value);
     
@@ -253,7 +369,13 @@ export default function App() {
     try {
       const { uploadImage } = await import('./services/supabase.ts');
       const publicUrl = await uploadImage(previewImage.file);
-      const messageText = imageCaption.trim() ? `[IMG]${publicUrl}\n${imageCaption}` : `[IMG]${publicUrl}`;
+      let messageText = imageCaption.trim() ? `[IMG]${publicUrl}\n${imageCaption}` : `[IMG]${publicUrl}`;
+      
+      if (isViewOnce) {
+          messageText = `[VO]${messageText}`;
+          setIsViewOnce(false);
+      }
+
       await sendMessage(myIdentity, messageText);
       cancelImagePreview();
     } catch (err) {
@@ -315,8 +437,7 @@ export default function App() {
   };
 
   const handleReply = (m: Message) => {
-    const [name] = (m.nama || "").split('|');
-    setInputText(`@${name} `);
+    setReplyingTo(m);
   };
 
   const uniqueContacts = Object.values(knownEntities);
@@ -452,7 +573,7 @@ export default function App() {
   );
 
   return (
-    <div className="h-screen bg-void flex flex-col relative overflow-hidden">
+    <div className="flex flex-col h-[100dvh] bg-black text-white font-sans overflow-hidden relative selection:bg-gold/30">
         <div id="universe"></div>
         
         {/* Contact Drawer */}
@@ -493,11 +614,19 @@ export default function App() {
             </div>
         </div>
 
-        <header className="p-4 border-b border-white/5 bg-black/80 backdrop-blur-md z-10 flex justify-between items-center">
+        <header className="p-4 border-b border-white/5 bg-black/80 backdrop-blur-md z-10 flex justify-between items-center relative">
             <div className="flex items-center gap-3">
                 <button onClick={() => setShowContacts(true)} className="text-gold text-xl">☰</button>
                 <div className="font-header text-gold text-[10px] tracking-widest">ORACLE v17.9</div>
             </div>
+
+            {/* Centered Real-time Clock */}
+            <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
+                <div className="text-[10px] font-mono text-white/60 tracking-[2px] uppercase">
+                    {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                </div>
+            </div>
+
             <div className="flex items-center gap-4">
                 {notifPermission === 'default' && (
                     <button 
@@ -511,15 +640,15 @@ export default function App() {
             </div>
         </header>
 
-        <div ref={feedRef} className="flex-1 overflow-y-auto p-4 z-10 space-y-1 scroll-smooth pb-32">
-            {messages.filter(m => m.nama !== "ORACLE").map(m => (
+        <div ref={feedRef} className="flex-1 overflow-y-auto p-4 z-0 space-y-1 scroll-smooth pb-32">
+            {messages.map(m => (
                 <Bubble 
                     key={m.id} 
                     msg={m} 
                     isMe={m.nama === myIdentity} 
                     onReply={handleReply} 
-                    onEdit={() => {}} 
-                    onViewOnce={() => {}} 
+                    onEdit={handleEdit} 
+                    onViewOnce={handleViewOnce} 
                     onShare={handleShare}
                 />
             ))}
@@ -536,27 +665,6 @@ export default function App() {
             )}
         </div>
 
-        {/* Dedicated Fate Panel */}
-        {lastFate && (
-            <div className="absolute top-20 inset-x-4 z-40 animate-in slide-in-from-top-4">
-                <div className="relative">
-                    <button 
-                        onClick={() => setLastFate(null)}
-                        className="absolute -top-2 -right-2 w-6 h-6 bg-black border border-white/10 rounded-full flex items-center justify-center text-[10px] text-white/40 z-50"
-                    >
-                        ✕
-                    </button>
-                    <Bubble 
-                        msg={{ id: 0, nama: "ORACLE", teks: lastFate, created_at: new Date().toISOString() }} 
-                        isMe={false} 
-                        onReply={() => {}} 
-                        onEdit={() => {}} 
-                        onViewOnce={() => {}} 
-                        onShare={handleShare}
-                    />
-                </div>
-            </div>
-        )}
 
         {previewImage && (
             <div className="absolute inset-0 z-[60] bg-black/95 backdrop-blur-xl flex flex-col p-6 animate-fade-in">
@@ -640,12 +748,49 @@ export default function App() {
         )}
 
         <div className="p-2 pb-6 bg-black/95 border-t border-white/5 z-20 relative">
+            {/* Reply Indicator */}
+            {replyingTo && (
+                <div className="flex items-center justify-between px-4 py-2 bg-zinc-800/80 border-t border-white/10 mb-2 rounded-t-xl animate-in slide-in-from-bottom-2">
+                    <div className="flex items-center gap-2">
+                        <span className="text-gold text-xs">↩️</span>
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-header text-gold tracking-widest uppercase">Replying to {(replyingTo.nama || "").split('|')[0]}</span>
+                            <span className="text-[8px] text-white/40 truncate max-w-[200px] flex items-center gap-1">
+                                {replyingTo.teks.startsWith('[IMG]') ? <><span className="text-[10px]">📷</span> Photo</> : 
+                                 replyingTo.teks.startsWith('[VO]') ? <><span className="text-[10px]">👁️</span> Secret</> : 
+                                 replyingTo.teks.startsWith('[VN]') ? <><span className="text-[10px]">🎤</span> Voice</> : 
+                                 replyingTo.teks}
+                            </span>
+                        </div>
+                    </div>
+                    <button onClick={() => setReplyingTo(null)} className="text-white/40 hover:text-white text-xs">✕</button>
+                </div>
+            )}
+
+            {/* Editing Indicator */}
+            {editingMsg && (
+                <div className="flex items-center justify-between px-4 py-2 bg-gold/10 border-t border-gold/20 mb-2 rounded-t-xl animate-in slide-in-from-bottom-2">
+                    <div className="flex items-center gap-2">
+                        <span className="text-gold text-xs">✏️</span>
+                        <div className="flex flex-col">
+                            <span className="text-[9px] font-header text-gold tracking-widest uppercase">Editing Message</span>
+                            <span className="text-[8px] text-white/40 truncate max-w-[200px]">{editingMsg.teks}</span>
+                        </div>
+                    </div>
+                    <button onClick={() => { setEditingMsg(null); setInputText(''); }} className="text-white/40 hover:text-white text-xs">✕</button>
+                </div>
+            )}
+
             {/* Action Menu - Compact & Feature Rich */}
             {showActions && (
-                <div className="absolute bottom-full left-2 right-2 mb-2 bg-zinc-900/98 border border-white/10 rounded-2xl p-3 grid grid-cols-4 gap-2 shadow-2xl backdrop-blur-3xl animate-in slide-in-from-bottom-2">
+                <div className="absolute bottom-full left-2 right-2 mb-2 bg-zinc-900/98 border border-white/10 rounded-2xl p-3 grid grid-cols-5 gap-2 shadow-2xl backdrop-blur-3xl animate-in slide-in-from-bottom-2">
                     <button onClick={() => { fileInputRef.current?.click(); setShowActions(false); }} className="flex flex-col items-center gap-1.5 p-2 hover:bg-white/5 rounded-xl transition-all">
                         <span className="text-xl">📷</span>
                         <span className="text-[7px] font-header text-white/40 tracking-widest uppercase">Visual</span>
+                    </button>
+                    <button onClick={() => { setIsViewOnce(!isViewOnce); setShowActions(false); }} className={`flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all border ${isViewOnce ? 'bg-red-500/20 border-red-500/40' : 'hover:bg-white/5 border-transparent'}`}>
+                        <span className="text-xl">👁️</span>
+                        <span className={`text-[7px] font-header tracking-widest uppercase ${isViewOnce ? 'text-red-400' : 'text-white/40'}`}>Secret</span>
                     </button>
                     <button onClick={() => { handleFate('LIGHT'); setShowActions(false); }} className="flex flex-col items-center gap-1.5 p-2 hover:bg-blue-500/10 rounded-xl transition-all border border-blue-500/10">
                         <span className="text-xl">💎</span>
@@ -674,7 +819,8 @@ export default function App() {
                     <span className="text-xl">+</span>
                 </button>
                 
-                <div className="flex-1 bg-zinc-900/80 border border-white/5 rounded-full px-4 py-1.5 flex items-center gap-2 focus-within:border-gold/30 transition-all">
+                <div className={`flex-1 bg-zinc-900/80 border ${isViewOnce ? 'border-red-500/40 shadow-[0_0_15px_rgba(239,68,68,0.2)]' : 'border-white/5'} rounded-full px-4 py-1.5 flex items-center gap-2 focus-within:border-gold/30 transition-all`}>
+                    {isViewOnce && <span className="text-xs animate-pulse">👁️</span>}
                     <input 
                         type="text" 
                         value={inputText} 
@@ -713,6 +859,22 @@ export default function App() {
                 accept="image/*"
                 className="hidden"
             />
+
+            {/* Secret Overlay */}
+            {viewingSecret && (
+                <div className="fixed inset-0 bg-black z-50 flex items-center justify-center p-4 animate-in fade-in zoom-in-95" onClick={() => setViewingSecret(null)}>
+                    {viewingSecret.startsWith('[IMG]') ? (
+                        <img src={viewingSecret.replace('[IMG]', '').split('\n')[0]} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" />
+                    ) : (
+                        <div className="bg-zinc-900 p-8 rounded-2xl border border-red-500/30 max-w-md w-full text-center space-y-4 shadow-[0_0_50px_rgba(220,38,38,0.2)]">
+                            <div className="text-4xl animate-pulse">👁️</div>
+                            <h3 className="text-red-400 font-header tracking-widest uppercase text-sm">Secret Glimpse</h3>
+                            <p className="text-white/90 font-mystic text-lg leading-relaxed">{viewingSecret}</p>
+                            <p className="text-[10px] text-white/30 uppercase tracking-widest mt-8">Tap anywhere to vanish forever</p>
+                        </div>
+                    )}
+                </div>
+            )}
     </div>
   );
 }

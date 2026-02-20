@@ -40,11 +40,21 @@ const createFreshDeck = (): GameDeckState => ({
 });
 
 export const initDeck = (): GameDeckState => {
-    const saved = localStorage.getItem('oracle_deck_v17_9');
-    return saved ? JSON.parse(saved) : createFreshDeck();
+    try {
+        const saved = localStorage.getItem('oracle_deck_v17_9');
+        return saved ? JSON.parse(saved) : createFreshDeck();
+    } catch {
+        return createFreshDeck();
+    }
 };
 
-export const saveDeck = (deck: GameDeckState) => localStorage.setItem('oracle_deck_v17_9', JSON.stringify(deck));
+export const saveDeck = (deck: GameDeckState) => {
+    try {
+        localStorage.setItem('oracle_deck_v17_9', JSON.stringify(deck));
+    } catch {
+        // Ignore storage errors
+    }
+};
 
 export const drawCardSpecific = (currentDeck: GameDeckState, intensity: Intensity, type: CardType): { content: string, newDeck: GameDeckState } => {
     const key = intensity.toLowerCase() as keyof GameDeckState;
@@ -58,9 +68,13 @@ export const drawCardSpecific = (currentDeck: GameDeckState, intensity: Intensit
     const rawCard = pool[idx];
     
     let prefix = "";
-    if (type === 'truths') prefix = "TRUTH: ";
-    if (type === 'dares') prefix = "DARE: ";
-    if (type === 'wildcards') prefix = "WILD: ";
+    const intPrefix = intensity; 
+    let typeStr = "";
+    if (type === 'truths') typeStr = "TRUTH";
+    if (type === 'dares') typeStr = "DARE";
+    if (type === 'wildcards') typeStr = "WILDCARD";
+    
+    prefix = `${intPrefix} ${typeStr}: `;
 
     const content = prefix + rawCard;
 
