@@ -1,8 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Project URL
 const SUPA_URL = 'https://rruxlxoeelxjjjmhafkc.supabase.co';
-// Anon Key
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJydXhseG9lZWx4ampqbWhhZmtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NDU5OTMsImV4cCI6MjA4NTMyMTk5M30.oR2hl_BDD1P6Dmtos2So-aJ_eoFl1-Kwybt6mQnvq0Q';
 
 export const supabase = createClient(SUPA_URL, SUPA_KEY);
@@ -21,4 +19,22 @@ export const updateMessage = async (id: number, teks: string) => {
 
 export const clearAllMessages = async () => {
   return await supabase.from('Pesan').delete().neq('id', 0);
+};
+
+export const uploadImage = async (file: File) => {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Math.random()}.${fileExt}`;
+  const filePath = `uploads/${fileName}`;
+
+  const { data, error } = await supabase.storage
+    .from('bukti')
+    .upload(filePath, file);
+
+  if (error) throw error;
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('bukti')
+    .getPublicUrl(filePath);
+
+  return publicUrl;
 };

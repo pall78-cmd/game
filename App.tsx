@@ -77,6 +77,7 @@ export default function App() {
 
   const handleFate = async (int: Intensity) => {
       setFateMode(false);
+      // Fixed: drawCard is now correctly exported from deck.ts
       const { content, newDeck } = drawCard(deckRef.current, int);
       deckRef.current = newDeck;
       try {
@@ -95,6 +96,21 @@ export default function App() {
     } catch (err) {
         console.error("Send failed:", err);
         setInputText(text);
+    }
+  };
+
+  const handleShare = (text: string) => {
+    if (navigator.share) {
+      navigator.share({ text }).catch(() => {});
+    } else {
+      // Fallback
+      const el = document.createElement('textarea');
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      alert("Copied to clipboard: " + text);
     }
   };
 
@@ -150,7 +166,15 @@ export default function App() {
 
         <div ref={feedRef} className="flex-1 overflow-y-auto p-4 z-10 space-y-1 scroll-smooth">
             {messages.map(m => (
-                <Bubble key={m.id} msg={m} isMe={m.nama === username} onReply={() => {}} onEdit={() => {}} />
+                <Bubble 
+                    key={m.id} 
+                    msg={m} 
+                    isMe={m.nama === username} 
+                    onReply={() => {}} 
+                    onEdit={() => {}} 
+                    onViewOnce={() => {}} 
+                    onShare={handleShare}
+                />
             ))}
         </div>
 

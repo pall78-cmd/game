@@ -3,5 +3,8 @@
   "description": "A mystic chat application with Fate Cards, Voice Notes, and View Once messages.",
   "requestFramePermissions": [
     "microphone"
+  ],
+  "permissions": [
+    "notifications"
   ]
 }
