@@ -36,10 +36,20 @@ export default function App() {
   const [viewingSecret, setViewingSecret] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<Record<string, { name: string, avatar: string, color: string, timestamp: number }>>({});
   const [fateMode, setFateMode] = useState(false);
+  const [currentAudioId, setCurrentAudioId] = useState<number | null>(null);
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ file: File, url: string } | null>(null);
   const [imageCaption, setImageCaption] = useState('');
+
+  useEffect(() => {
+    return () => {
+      if (previewImage) URL.revokeObjectURL(previewImage.url);
+    };
+  }, [previewImage]);
   const [isUploading, setIsUploading] = useState(false);
   const [showContacts, setShowContacts] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [knownEntities, setKnownEntities] = useState<Record<string, { id: string, name: string, avatar: string, color: string }>>(() => {
     const saved = safeStorage.get('oracle_entities');
     return saved ? JSON.parse(saved) : {};
@@ -59,6 +69,12 @@ export default function App() {
 
   // Registrasi Service Worker yang lebih aman
   useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+        console.error("Global Error:", event.error);
+        // alert(`System Error: ${event.message}`); // Optional: uncomment for aggressive debugging
+    };
+    window.addEventListener('error', handleError);
+
     const isProduction = window.location.hostname.includes('github.io');
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     
@@ -367,7 +383,7 @@ export default function App() {
     setIsUploading(true);
 
     try {
-      const { uploadImage } = await import('./services/supabase.ts');
+      const { uploadImage } = await import('./services/supabase');
       const publicUrl = await uploadImage(previewImage.file);
       let messageText = imageCaption.trim() ? `[IMG]${publicUrl}\n${imageCaption}` : `[IMG]${publicUrl}`;
       
@@ -408,7 +424,7 @@ export default function App() {
         
         setIsUploading(true);
         try {
-          const { uploadImage } = await import('./services/supabase.ts'); // Reuse upload logic
+          const { uploadImage } = await import('./services/supabase'); // Reuse upload logic
           const publicUrl = await uploadImage(file);
           await sendMessage(myIdentity, `[VN]${publicUrl}`);
         } catch (err) {
@@ -443,7 +459,7 @@ export default function App() {
   const uniqueContacts = Object.values(knownEntities);
 
   if (layer === 'AGE') return (
-    <div className="h-screen bg-black flex flex-col items-center justify-center p-6 text-center space-y-12 overflow-hidden">
+    <div className="h-[100dvh] bg-black flex flex-col items-center justify-center p-6 text-center space-y-12 overflow-hidden relative z-50">
         <div className="space-y-4 animate-fade-in">
             <div className="text-6xl mb-4">🔮</div>
             <h1 className="font-header text-gold text-3xl tracking-[10px] uppercase">Oracle</h1>
@@ -472,7 +488,7 @@ export default function App() {
   );
 
   if (layer === 'SECURITY') return (
-    <div className="h-screen bg-black flex flex-col items-center justify-center p-6 space-y-8">
+    <div className="h-[100dvh] bg-black flex flex-col items-center justify-center p-6 space-y-8 relative z-50">
         <div className="text-4xl animate-pulse">🧿</div>
         <h1 className="font-header text-gold tracking-[10px] text-sm">GATEWAY ACCESS</h1>
         <div className="w-full max-w-[200px] space-y-4">
@@ -509,7 +525,7 @@ export default function App() {
   );
 
   if (layer === 'NAME') return (
-    <div className="h-screen bg-black flex flex-col items-center justify-center p-6 space-y-8 overflow-y-auto">
+    <div className="h-[100dvh] bg-black flex flex-col items-center justify-center p-6 space-y-8 overflow-y-auto relative z-50">
         <h1 className="font-header text-gold tracking-[5px] text-xl">SESUAIKAN IDENTITAS</h1>
         
         <div className="w-full max-w-[300px] space-y-6">
@@ -636,11 +652,30 @@ export default function App() {
                         Enable Notif
                     </button>
                 )}
-                <button onClick={() => { if(confirm("Clear room?")) clearAllMessages(); }} className="text-[9px] text-red-500/40 uppercase">Clear</button>
+                <div className="relative">
+                    <button onClick={() => setShowMenu(!showMenu)} className="text-white/40 hover:text-white text-xl px-2">⋮</button>
+                    {showMenu && (
+                        <>
+                            <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)}></div>
+                            <div className="absolute right-0 top-full mt-2 w-40 bg-zinc-900 border border-white/10 rounded-xl shadow-xl overflow-hidden z-50 animate-in zoom-in-95 origin-top-right">
+                                <button 
+                                    onClick={() => { setShowClearConfirm(true); setShowMenu(false); }}
+                                    className="w-full text-left px-4 py-3 text-[10px] text-red-400 hover:bg-white/5 uppercase tracking-widest flex items-center gap-2"
+                                >
+                                    <span>🗑️</span> Clear Room
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
         </header>
 
-        <div ref={feedRef} className="flex-1 overflow-y-auto p-4 z-0 space-y-1 scroll-smooth pb-32">
+        <div 
+            ref={feedRef}
+            className="flex-1 overflow-y-auto p-4 z-0 space-y-1 scroll-smooth pb-32"
+            style={{ maskImage: 'linear-gradient(to bottom, transparent 0%, black 20px)' }}
+        >
             {messages.map(m => (
                 <Bubble 
                     key={m.id} 
@@ -650,6 +685,8 @@ export default function App() {
                     onEdit={handleEdit} 
                     onViewOnce={handleViewOnce} 
                     onShare={handleShare}
+                    currentAudioId={currentAudioId}
+                    onPlayAudio={setCurrentAudioId}
                 />
             ))}
             
@@ -747,6 +784,34 @@ export default function App() {
             </div>
         )}
 
+        {showClearConfirm && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6 animate-in fade-in">
+                <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-sm w-full space-y-6 shadow-2xl">
+                    <div className="space-y-2 text-center">
+                        <div className="text-4xl mb-2">⚠️</div>
+                        <h3 className="font-header text-gold text-lg tracking-widest">CONFIRM PURGE</h3>
+                        <p className="text-xs text-white/60 leading-relaxed">
+                            Are you sure you want to clear all messages? This action cannot be undone and will wipe the timeline for everyone.
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <button 
+                            onClick={() => setShowClearConfirm(false)}
+                            className="py-3 rounded-xl border border-white/10 text-white/60 text-[10px] uppercase tracking-widest hover:bg-white/5 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={() => { clearAllMessages(); setShowClearConfirm(false); }}
+                            className="py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] uppercase tracking-widest hover:bg-red-500/20 transition-colors"
+                        >
+                            Confirm
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         <div className="p-2 pb-6 bg-black/95 border-t border-white/5 z-20 relative">
             {/* Reply Indicator */}
             {replyingTo && (
@@ -814,7 +879,7 @@ export default function App() {
             <div className="flex gap-2 items-center px-1">
                 <button 
                     onClick={() => setShowActions(!showActions)}
-                    className={`w-9 h-9 flex items-center justify-center rounded-full transition-all ${showActions ? 'bg-gold text-black rotate-45' : 'bg-white/5 text-white/40 hover:text-gold'}`}
+                    className={`w-9 h-9 flex items-center justify-center rounded-full transition-all ${showActions ? 'bg-gold text-black rotate-45' : 'bg-white/5 text-white/40 hover:text-gold'} ${isInputFocused && !showActions ? 'animate-pulse border border-gold/50 text-gold shadow-[0_0_10px_rgba(212,175,55,0.2)]' : ''}`}
                 >
                     <span className="text-xl">+</span>
                 </button>
@@ -825,6 +890,8 @@ export default function App() {
                         type="text" 
                         value={inputText} 
                         onChange={handleInputChange} 
+                        onFocus={() => setIsInputFocused(true)}
+                        onBlur={() => setIsInputFocused(false)}
                         onKeyDown={(e)=>e.key==='Enter' && handleSendText()} 
                         placeholder={isRecording ? "Listening..." : "Whisper..."}
                         disabled={isRecording}

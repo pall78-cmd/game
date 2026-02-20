@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Message, FateCard } from '../types';
 
 interface BubbleProps {
@@ -8,18 +8,25 @@ interface BubbleProps {
     onEdit: (m: Message) => void;
     onViewOnce: (m: Message) => void;
     onShare: (t: string) => void;
+    currentAudioId?: number | null;
+    onPlayAudio?: (id: number | null) => void;
 }
 
-const AudioPlayer: React.FC<{ url: string }> = ({ url }) => {
-    const [playing, setPlaying] = useState(false);
+const AudioPlayer: React.FC<{ url: string, isPlaying: boolean, onToggle: () => void }> = ({ url, isPlaying, onToggle }) => {
     const [progress, setProgress] = useState(0);
     const [duration, setDuration] = useState(0);
     const audioRef = useRef<HTMLAudioElement>(null);
 
+    useEffect(() => {
+        if (isPlaying) {
+            audioRef.current?.play().catch(() => onToggle());
+        } else {
+            audioRef.current?.pause();
+        }
+    }, [isPlaying]);
+
     const togglePlay = () => {
-        if (!audioRef.current) return;
-        playing ? audioRef.current.pause() : audioRef.current.play();
-        setPlaying(!playing);
+        onToggle();
     };
 
     const updateProgress = () => {
@@ -31,7 +38,7 @@ const AudioPlayer: React.FC<{ url: string }> = ({ url }) => {
     return (
         <div className="flex items-center gap-3 min-w-[200px] py-2 px-3 bg-black/20 rounded-xl">
             <button onClick={togglePlay} className="w-10 h-10 rounded-full bg-gold/20 border border-gold/40 text-gold flex items-center justify-center active:scale-90 transition-transform shadow-lg">
-                {playing ? (
+                {isPlaying ? (
                     <span className="text-[10px] font-bold">||</span>
                 ) : (
                     <span className="ml-0.5 text-sm">▶</span>
@@ -51,7 +58,7 @@ const AudioPlayer: React.FC<{ url: string }> = ({ url }) => {
                 src={url} 
                 onTimeUpdate={updateProgress} 
                 onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
-                onEnded={() => setPlaying(false)} 
+                onEnded={() => onToggle()} 
                 className="hidden" 
             />
         </div>
@@ -111,7 +118,7 @@ const FateCardDisplay: React.FC<{ raw: string, onShare: (t: string) => void }> =
     }
 };
 
-const Bubble: React.FC<BubbleProps> = ({ msg, isMe, onReply, onEdit, onViewOnce, onShare }) => {
+const Bubble: React.FC<BubbleProps> = ({ msg, isMe, onReply, onEdit, onViewOnce, onShare, currentAudioId, onPlayAudio }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [swipeX, setSwipeX] = useState(0);
     const [imgLoaded, setImgLoaded] = useState(false);
@@ -255,7 +262,11 @@ const Bubble: React.FC<BubbleProps> = ({ msg, isMe, onReply, onEdit, onViewOnce,
                         </div>
                     </div>
                 ) : isVN ? (
-                    <AudioPlayer url={content.replace("[VN]", "")} />
+                    <AudioPlayer 
+                        url={content.replace("[VN]", "")} 
+                        isPlaying={currentAudioId === msg.id}
+                        onToggle={() => onPlayAudio?.(currentAudioId === msg.id ? null : msg.id)}
+                    />
                 ) : isIMG ? (
                     <div className="space-y-2 relative min-h-[150px] min-w-[200px] flex items-center justify-center bg-black/20 rounded-lg">
                         {!imgLoaded && (
@@ -300,6 +311,7 @@ const Bubble: React.FC<BubbleProps> = ({ msg, isMe, onReply, onEdit, onViewOnce,
                 <span className="text-[6px] opacity-20 font-mono uppercase tracking-widest">
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
+                {isMe && <span className="text-[8px] text-gold ml-1">✓✓</span>}
             </div>
         </div>
     );
