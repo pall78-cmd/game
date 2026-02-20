@@ -69,6 +69,16 @@ const FateCardDisplay: React.FC<{ raw: string, onShare: (t: string) => void }> =
         const isDeep = type.includes("DEEP");
         const isChaos = type.includes("CHAOS");
 
+        // Parse invoker identity
+        const parseIdentity = (rawName: string) => {
+            const parts = rawName.split('|');
+            return {
+                name: parts[0] || rawName,
+                avatar: parts[1] || ''
+            };
+        };
+        const invoker = parseIdentity(d.invoker);
+
         let themeClass = "border-gold/40 shadow-gold/20";
         if (isLight) themeClass = "border-blue-500/50 shadow-blue-500/30 bg-blue-950/20";
         if (isDeep) themeClass = "border-purple-500/50 shadow-purple-500/30 bg-purple-950/20";
@@ -91,7 +101,7 @@ const FateCardDisplay: React.FC<{ raw: string, onShare: (t: string) => void }> =
                 
                 <div className="pt-2 border-t border-white/5 flex items-center justify-center gap-2">
                    <div className={`w-1 h-1 rounded-full ${isLight ? 'bg-blue-500' : isDeep ? 'bg-purple-500' : isChaos ? 'bg-red-500' : 'bg-gold'}/50`}></div>
-                   <div className="text-[7px] opacity-40 uppercase tracking-widest font-header">Invoked by {d.invoker}</div>
+                   <div className="text-[7px] opacity-40 uppercase tracking-widest font-header">Invoked by {invoker.avatar} {invoker.name}</div>
                    <div className={`w-1 h-1 rounded-full ${isLight ? 'bg-blue-500' : isDeep ? 'bg-purple-500' : isChaos ? 'bg-red-500' : 'bg-gold'}/50`}></div>
                 </div>
             </div>
@@ -102,20 +112,43 @@ const FateCardDisplay: React.FC<{ raw: string, onShare: (t: string) => void }> =
 };
 
 const Bubble: React.FC<BubbleProps> = ({ msg, isMe, onReply, onViewOnce, onShare }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
     const isOracle = msg.nama === "ORACLE";
     const isVO = msg.teks.startsWith("[VO]");
     const isVN = msg.teks.startsWith("[VN]");
     const isIMG = msg.teks.startsWith("[IMG]");
+
+    const TEXT_LIMIT = 300;
+    const isLongText = !isOracle && !isVO && !isVN && !isIMG && msg.teks.length > TEXT_LIMIT;
+    const displayedText = isLongText && !isExpanded ? msg.teks.slice(0, TEXT_LIMIT) + "..." : msg.teks;
+
+    // Parse name, avatar, color
+    const parseIdentity = (rawName: string) => {
+        const parts = rawName.split('|');
+        return {
+            name: parts[0] || rawName,
+            avatar: parts[1] || '👤',
+            color: parts[2] || '#D4AF37'
+        };
+    };
+
+    const identity = parseIdentity(msg.nama);
     
     return (
         <div className={`flex flex-col mb-4 animate-fade-in ${isMe ? 'items-end' : 'items-start'}`}>
             {!isOracle && (
-                <span className={`text-[7px] font-header uppercase tracking-[2px] mb-1 px-3 ${isMe ? 'text-gold/50' : 'text-white/30'}`}>
-                    {msg.nama}
-                </span>
+                <div className={`flex items-center gap-1.5 mb-1 px-3 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                    <span className="text-xs">{identity.avatar}</span>
+                    <span 
+                        className="text-[8px] font-header uppercase tracking-[2px]"
+                        style={{ color: identity.color }}
+                    >
+                        {identity.name}
+                    </span>
+                </div>
             )}
             <div 
-                className={`p-3 max-w-[85%] rounded-2xl border transition-all ${
+                className={`p-3 w-fit max-w-[85%] rounded-2xl border transition-all overflow-hidden ${
                     isOracle ? 'w-full max-w-full bg-transparent border-none' : 
                     isVO ? 'bg-red-950/20 border-red-500/30 text-red-400 cursor-pointer hover:bg-red-950/40' :
                     isMe ? 'bg-zinc-900/60 border-gold/20 text-gold/90 rounded-br-none shadow-xl' : 
@@ -136,21 +169,48 @@ const Bubble: React.FC<BubbleProps> = ({ msg, isMe, onReply, onViewOnce, onShare
                 ) : isVN ? (
                     <AudioPlayer url={msg.teks.replace("[VN]", "")} />
                 ) : isIMG ? (
-                    <img 
-                        src={msg.teks.replace("[IMG]", "")} 
-                        className="rounded-lg max-h-64 object-contain border border-white/10" 
-                        alt="Visual" 
-                        loading="lazy"
-                    />
+                    <div className="space-y-2">
+                        <img 
+                            src={msg.teks.split('\n')[0].replace("[IMG]", "")} 
+                            className="rounded-lg max-h-64 w-full object-contain border border-white/10" 
+                            alt="Visual" 
+                            loading="lazy"
+                        />
+                        {msg.teks.includes('\n') && (
+                            <p className="font-mystic text-[15px] leading-relaxed opacity-90 px-1">
+                                {msg.teks.split('\n').slice(1).join('\n')}
+                            </p>
+                        )}
+                    </div>
                 ) : (
-                    <p className="font-mystic text-[17px] leading-relaxed break-words whitespace-pre-wrap">
-                        {msg.teks.replace("[SHARED FATE] ", "")}
-                    </p>
+                    <div className="space-y-2">
+                        <p className="font-mystic text-[17px] leading-relaxed break-words whitespace-pre-wrap">
+                            {displayedText.replace("[SHARED FATE] ", "")}
+                        </p>
+                        {isLongText && (
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+                                className="text-[10px] text-gold/60 uppercase tracking-widest font-header hover:text-gold transition-colors"
+                            >
+                                {isExpanded ? "Show Less" : "Read More"}
+                            </button>
+                        )}
+                    </div>
                 )}
             </div>
-            <span className="text-[6px] opacity-20 mt-1 px-2 font-mono uppercase tracking-widest">
-                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
+            <div className={`flex items-center gap-2 mt-1 px-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                <span className="text-[6px] opacity-20 font-mono uppercase tracking-widest">
+                    {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                {!isOracle && (
+                    <button 
+                        onClick={() => onReply(msg)}
+                        className="text-[8px] text-white/10 hover:text-gold/40 uppercase tracking-widest font-header transition-colors"
+                    >
+                        Reply
+                    </button>
+                )}
+            </div>
         </div>
     );
 };

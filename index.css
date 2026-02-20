@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-header: "Cinzel", serif;
+  --font-mystic: "Cormorant Garamond", serif;
+}
+
+:root { 
+  --gold: #D4AF37; 
+  --void: #050508; 
+  --ethereal: rgba(212, 175, 55, 0.1); 
+}
+
+body {
+  background-color: var(--void);
+  color: #f0f0f0;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.2);
+  border-radius: 10px;
+}
+
+@keyframes slide-in-bottom {
+  from { transform: translateY(10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.animate-in {
+  animation: slide-in-bottom 0.3s ease-out forwards;
+}
