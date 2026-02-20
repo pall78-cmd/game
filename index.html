@@ -1,138 +1,972 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
-    <script>
-        window.onerror = function(msg, url, line, col, error) {
-            var div = document.createElement('div');
-            div.style.cssText = 'position:fixed; top:0; left:0; right:0; background:rgba(255,0,0,0.9); color:white; padding:20px; z-index:99999; font-family:monospace; font-size:12px; white-space:pre-wrap; overflow:auto; max-height:50vh;';
-            div.innerHTML = '<strong>CRITICAL ERROR:</strong><br>' + msg + '<br><br>Location: ' + url + ':' + line;
-            document.body.appendChild(div);
-            
-            // Also update loader if present
-            var loader = document.getElementById('loader');
-            if (loader) {
-                var errText = document.createElement('div');
-                errText.style.color = 'red';
-                errText.style.marginTop = '20px';
-                errText.innerText = 'SYSTEM FAILURE: ' + msg;
-                loader.appendChild(errText);
-            }
-        };
-    </script>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <title>Oracle v17.9 - Harmony Game Edition</title>
-    <meta name="theme-color" content="#050508" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ORACLE v17.9 - HARMONY</title>
     
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600&family=Cinzel:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    
+    <!-- Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./config.js"></script>
     
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gold: '#D4AF37',
+                        void: '#050508',
+                    },
+                    fontFamily: {
+                        sans: ['Montserrat', 'sans-serif'],
+                        header: ['Cinzel', 'serif'],
+                        mystic: ['Cormorant Garamond', 'serif'],
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'ready-pulse': 'readyPulse 2s infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0', transform: 'translateY(10px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        },
+                        readyPulse: {
+                            '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0px rgba(212, 175, 55, 0)' },
+                            '50%': { transform: 'scale(1.1)', boxShadow: '0 0 15px rgba(212, 175, 55, 0.4)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
-        :root { --gold: #D4AF37; --void: #050508; --ethereal: rgba(212, 175, 55, 0.1); }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+        :root { 
+            --gold: #D4AF37; 
+            --void: #050508; 
+        }
+        
         body {
             background-color: var(--void);
             color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
             font-family: 'Montserrat', sans-serif;
-            height: 100dvh; width: 100vw; overflow: hidden; margin: 0; position: fixed;
-            -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
-        }
-        .font-header { font-family: 'Cinzel', serif; }
-        .font-mystic { font-family: 'Cormorant Garamond', serif; }
-        
-        #universe {
-            position: fixed; inset:0; z-index: 0;
-            background: radial-gradient(circle at 50% 50%, #1a0b2e 0%, #050508 100%);
-            pointer-events: none;
-        }
-        #universe::before {
-            content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
-            background-image: 
-                radial-gradient(white, rgba(255,255,255,.2) 1px, transparent 2px),
-                radial-gradient(white, rgba(255,255,255,.1) 1px, transparent 2px);
-            background-size: 400px 400px, 250px 250px;
-            animation: cosmicDrift 180s linear infinite;
-            opacity: 0.3;
-        }
-        @keyframes cosmicDrift { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        
-        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(212, 175, 55, 0.1); }
-        
-        @keyframes shimmer {
-            0% { background-position: -200% 0; opacity: 0.4; }
-            50% { opacity: 1; }
-            100% { background-position: 200% 0; opacity: 0.4; }
-        }
-        .vo-shimmer {
-            background: linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.2), transparent);
-            background-size: 200% 100%;
-            animation: shimmer 2.5s infinite linear;
         }
 
-        .fade-card-shimmer {
-            background: linear-gradient(110deg, #111 8%, #222 18%, #111 33%);
-            background-size: 200% 100%;
-            animation: shine 2s linear infinite;
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 3px;
         }
-        @keyframes shine { to { background-position-x: -200%; } }
-
-        ::-webkit-scrollbar { display: none; }
-
-        .reply-hint {
-            position: absolute; right: -50px; top: 50%; transform: translateY(-50%);
-            opacity: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
         }
-        .swiping-reply .reply-hint { opacity: 1; right: 15px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(212, 175, 55, 0.2);
+            border-radius: 10px;
+        }
 
         #loader {
-            position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: #000; z-index: 2000; transition: opacity 0.8s; gap: 24px;
-        }
-        
-        @keyframes bounce-subtle {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-5px); }
-        }
-        .animate-bounce-subtle { animation: bounce-subtle 2s infinite ease-in-out; }
-
-        .mic-wave {
+            position: fixed;
+            inset: 0;
+            background: black;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 2px;
-            height: 20px;
-        }
-        .mic-bar {
-            width: 2px;
-            background: #D4AF37;
-            border-radius: 1px;
-            animation: wave 1s infinite ease-in-out;
-        }
-        @keyframes wave {
-            0%, 100% { height: 4px; }
-            50% { height: 18px; }
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease-out;
+            gap: 2rem;
         }
 
-        /* View Once Pulsate */
-        @keyframes pulsate-shimmer {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-            70% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-        }
         .vo-pulse { animation: pulsate-shimmer 2s infinite; }
-    </style>
+        @keyframes pulsate-shimmer {
+            0% { box-shadow: 0 0 5px rgba(239, 68, 68, 0.2); }
+            50% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.5); }
+            100% { box-shadow: 0 0 5px rgba(239, 68, 68, 0.2); }
+        }
 
-    <link rel="stylesheet" href="/index.css">
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .feed-container {
+            mask-image: linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%);
+        }
+    </style>
 </head>
 <body>
-    <script>console.log("HTML script executing...");</script>
     <div id="loader">
         <div class="font-header text-gold text-lg tracking-[12px] animate-pulse">ORACLE AWAKENING</div>
         <div class="w-64 h-[2px] bg-white/5 relative overflow-hidden">
-            <div class="absolute inset-0 bg-gold w-1/3 animate-[loading_2s_infinite_ease-in-out]"></div>
+            <div class="absolute inset-0 bg-gold/40 animate-[shimmer_2s_infinite]" style="width: 50%; left: -50%;"></div>
         </div>
+        <style>
+            @keyframes shimmer {
+                0% { left: -50%; }
+                100% { left: 100%; }
+            }
+        </style>
     </div>
+
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = window.React;
+
+        function parsePreviewText(text) {
+            if (!text) return "";
+            let actual = text;
+            if (text.startsWith('[REPLY:')) {
+                const endIdx = text.indexOf('}]');
+                if (endIdx !== -1) actual = text.substring(endIdx + 2);
+            }
+            if (actual.startsWith('[IMG]')) return "📷 Photo";
+            if (actual.startsWith('[VN]')) return "🎤 Voice Message";
+            if (actual.startsWith('[VO]')) return "👁️ Secret Message";
+            return actual.substring(0, 40) + (actual.length > 40 ? "..." : "");
+        }
+        window.parsePreviewText = parsePreviewText;
+
+        // --- CONSTANTS & UTILS ---
+        const { SUPA_URL, SUPA_KEY } = window.ORACLE_CONFIG;
+        
+        const { createClient } = window.supabase;
+        const supabaseClient = createClient(SUPA_URL, SUPA_KEY);
+
+        const uploadImage = async (file) => {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random()}.${fileExt}`;
+            const filePath = `uploads/${fileName}`;
+            const { data, error } = await supabaseClient.storage.from('bukti').upload(filePath, file);
+            if (error) throw error;
+            const { data: { publicUrl } } = supabaseClient.storage.from('bukti').getPublicUrl(filePath);
+            return publicUrl;
+        };
+
+        const safeStorage = {
+            get: (key) => {
+                try { return localStorage.getItem(key); } catch { return null; }
+            },
+            set: (key, value) => {
+                try { localStorage.setItem(key, value); } catch { }
+            }
+        };
+
+        const createFreshDeck = () => {
+            const generateItems = (count, prefix) => Array.from({ length: count }, (_, i) => `${prefix} #${i + 1}`);
+            
+            return {
+                light: { 
+                    truths: [
+                        "Apa hal terkecil yang membuatmu bahagia hari ini?", 
+                        "Siapa orang terakhir yang kamu pikirkan sebelum tidur?", 
+                        "Apa hobi rahasia yang tidak diketahui banyak orang?",
+                        "Apa makanan favoritmu?",
+                        "Apa film terakhir yang kamu tonton?",
+                        ...generateItems(20, "Light Truth")
+                    ], 
+                    dares: [
+                        "Kirim pesan 'Halo' ke orang ke-5 di daftar chatmu.", 
+                        "Tunjukkan foto terakhir di galerimu.", 
+                        "Lakukan dance singkat selama 10 detik.",
+                        "Minum segelas air putih.",
+                        "Sebutkan 3 hal baik tentang dirimu.",
+                        ...generateItems(20, "Light Dare")
+                    ], 
+                    wildcards: generateItems(22, "Light Wildcard") 
+                },
+                deep: { 
+                    truths: [
+                        "Apa ketakutan terbesarmu yang belum pernah kamu ceritakan?", 
+                        "Jika kamu bisa mengulang satu hari dalam hidupmu, hari apa itu?", 
+                        "Apa penyesalan terbesarmu sejauh ini?",
+                        "Siapa orang yang paling berpengaruh dalam hidupmu?",
+                        "Apa arti kebahagiaan bagimu?",
+                        ...generateItems(20, "Deep Truth")
+                    ], 
+                    dares: [
+                        "Telepon seseorang yang sudah lama tidak kamu hubungi.", 
+                        "Tulis surat singkat untuk dirimu di masa depan.", 
+                        "Bagikan satu rahasia yang paling kamu jaga.",
+                        "Ceritakan mimpi terbesarmu.",
+                        "Minta maaf kepada seseorang yang pernah kamu sakiti.",
+                        ...generateItems(20, "Deep Dare")
+                    ], 
+                    wildcards: generateItems(22, "Deep Wildcard") 
+                },
+                chaos: { 
+                    truths: [
+                        "Apa fantasi terliarmu yang belum pernah terwujud?",
+                        "Pernahkah kamu merasa tertarik pada seseorang di ruangan ini?",
+                        "Apa hal paling berani yang pernah kamu lakukan di tempat tidur?",
+                        "Apa bagian tubuh pasangan yang paling kamu sukai?",
+                        "Apa pengalaman kencan terburukmu?",
+                        ...generateItems(23, "Chaos Truth (18+)")
+                    ], 
+                    dares: [
+                        "Kirim pesan menggoda ke pasanganmu (atau gebetan).",
+                        "Lakukan 'body shot' virtual.",
+                        "Bisikkan sesuatu yang nakal ke telinga orang di sebelahmu.",
+                        "Berikan ciuman virtual ke kamera.",
+                        "Tunjukkan chat terakhirmu dengan pasangan.",
+                        ...generateItems(23, "Chaos Dare (18+)")
+                    ], 
+                    wildcards: generateItems(30, "Chaos Wildcard (18+)") 
+                }
+            };
+        };
+
+        const drawCard = (deck, category, isChaos = false) => {
+            const cat = deck[category];
+            const wildcardChance = isChaos ? 0.08 : 0.10;
+            const rand = Math.random();
+            
+            let type, content;
+            if (rand < wildcardChance) {
+                type = `${category.toUpperCase()} WILDCARD`;
+                content = cat.wildcards[Math.floor(Math.random() * cat.wildcards.length)];
+            } else if (Math.random() < 0.5) {
+                type = `${category.toUpperCase()} TRUTH`;
+                content = cat.truths[Math.floor(Math.random() * cat.truths.length)];
+            } else {
+                type = `${category.toUpperCase()} DARE`;
+                content = cat.dares[Math.floor(Math.random() * cat.dares.length)];
+            }
+            return `${type}: ${content}`;
+        };
+
+        const initDeck = () => {
+            try {
+                const saved = localStorage.getItem('oracle_deck_v17_9');
+                return saved ? JSON.parse(saved) : createFreshDeck();
+            } catch { return createFreshDeck(); }
+        };
+
+        // --- COMPONENTS ---
+
+        const AudioPlayer = ({ url, isPlaying, onToggle }) => {
+            const [progress, setProgress] = useState(0);
+            const [duration, setDuration] = useState(0);
+            const audioRef = useRef(null);
+
+            useEffect(() => {
+                if (isPlaying) {
+                    audioRef.current?.play().catch(() => onToggle());
+                } else {
+                    audioRef.current?.pause();
+                }
+            }, [isPlaying]);
+
+            return (
+                <div className="flex items-center gap-3 min-w-[200px] py-2 px-3 bg-black/20 rounded-xl">
+                    <button onClick={onToggle} className="w-10 h-10 rounded-full bg-gold/20 border border-gold/40 text-gold flex items-center justify-center active:scale-90 transition-transform shadow-lg">
+                        {isPlaying ? <span className="text-[10px] font-bold">||</span> : <span className="ml-0.5 text-sm">▶</span>}
+                    </button>
+                    <div className="flex-1 space-y-1">
+                        <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+                            <div className="h-full bg-gold transition-all duration-100" style={{ width: `${progress}%` }}></div>
+                        </div>
+                    </div>
+                    <audio 
+                        ref={audioRef} 
+                        src={url} 
+                        onTimeUpdate={() => setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100)} 
+                        onLoadedMetadata={() => setDuration(audioRef.current.duration)}
+                        onEnded={onToggle} 
+                        className="hidden" 
+                    />
+                </div>
+            );
+        };
+
+        const FateCardDisplay = ({ raw, onShare }) => {
+            try {
+                const d = JSON.parse(raw);
+                const parts = d.content.split(":");
+                const type = parts[0] || "FATE";
+                const content = parts.slice(1).join(":").trim() || d.content;
+                const isChaos = type.includes("CHAOS");
+
+                return (
+                    <div className={`p-5 rounded-2xl border border-gold/40 bg-gradient-to-br from-black to-zinc-900 text-center space-y-4 shadow-2xl relative overflow-hidden group transition-all duration-500`}>
+                        <div className="text-[9px] font-header tracking-[5px] uppercase opacity-70 text-gold">{type}</div>
+                        <div className="font-mystic text-2xl italic text-white/95 leading-relaxed px-2">"{content}"</div>
+                        <div className="text-[7px] opacity-40 uppercase tracking-widest font-header">Invoked by {d.invoker}</div>
+                    </div>
+                );
+            } catch { return <div className="p-3 text-red-500 border border-red-500/20 rounded-lg text-xs italic">Takdir yang Terdistorsi</div>; }
+        };
+
+        const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, onShare, currentAudioId, onPlayAudio }) => {
+            const [isExpanded, setIsExpanded] = useState(false);
+            const [swipeX, setSwipeX] = useState(0);
+            const touchStartRef = useRef(0);
+            const longPressTimerRef = useRef(null);
+
+            const content = msg.teks;
+            const isOracle = msg.nama === "ORACLE";
+            const isVO = content.startsWith("[VO]");
+            const isVN = content.startsWith("[VN]");
+            const isIMG = content.startsWith("[IMG]");
+
+            // Parse Reply Context
+            let replyData = null;
+            let actualContent = content;
+            if (content.startsWith('[REPLY:{')) {
+                const endIdx = content.indexOf('}]');
+                if (endIdx !== -1) {
+                    try {
+                        const jsonStr = content.substring(7, endIdx + 2);
+                        replyData = JSON.parse(jsonStr);
+                        actualContent = content.substring(endIdx + 2);
+                    } catch (e) {}
+                }
+            }
+
+            const identity = useMemo(() => {
+                const parts = msg.nama.split('|');
+                return { name: parts[0], avatar: parts[1] || '👤', color: parts[2] || '#D4AF37' };
+            }, [msg.nama]);
+
+            const handleTouchStart = (e) => {
+                touchStartRef.current = e.touches[0].clientX;
+                if (isMe && !isOracle) {
+                    longPressTimerRef.current = setTimeout(() => {
+                        if (navigator.vibrate) navigator.vibrate(50);
+                        onEdit(msg);
+                    }, 600);
+                }
+            };
+
+            const handleTouchMove = (e) => {
+                const diff = e.touches[0].clientX - touchStartRef.current;
+                if (Math.abs(diff) > 10 && longPressTimerRef.current) {
+                    clearTimeout(longPressTimerRef.current);
+                }
+                if (diff > 0 && diff < 80) {
+                    setSwipeX(diff);
+                }
+            };
+
+            const handleTouchEnd = () => {
+                if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+                if (swipeX > 40) {
+                    if (navigator.vibrate) navigator.vibrate(20);
+                    onReply(msg);
+                }
+                setSwipeX(0);
+            };
+
+            const formatTime = (dateStr) => {
+                const d = new Date(dateStr);
+                return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            };
+
+            const renderReplyPreview = (data) => {
+                return (
+                    <div className="mb-1 p-2 rounded bg-black/10 border-l-4 border-gold/50 text-[10px] opacity-80 italic truncate">
+                        <span className="font-bold text-gold not-italic">{data.name}:</span> {parsePreviewText(data.text)}
+                    </div>
+                );
+            };
+
+            return (
+                <div 
+                    className={`flex flex-col mb-2 animate-fade-in relative transition-transform duration-200 ${isOracle ? 'items-center w-full my-4' : isMe ? 'items-end' : 'items-start'}`}
+                    style={{ transform: `translateX(${swipeX}px)` }}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                >
+                    {swipeX > 20 && (
+                        <div className="absolute left-[-30px] top-1/2 -translate-y-1/2 text-gold opacity-50">↩️</div>
+                    )}
+
+                    {!isOracle && (
+                        <div className={`flex items-center gap-1.5 mb-0.5 px-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                            <span className="text-[10px]">{identity.avatar}</span>
+                            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: identity.color }}>{identity.name}</span>
+                        </div>
+                    )}
+                    
+                    <div className={`relative p-2.5 w-fit max-w-[85%] rounded-xl border transition-all shadow-sm ${
+                        isOracle ? 'w-full max-w-sm bg-transparent border-none' : 
+                        isVO ? 'bg-red-950/40 border-red-500/30 text-red-400 cursor-pointer' :
+                        isMe ? 'bg-[#056162] border-none text-white rounded-tr-none' : 
+                        'bg-[#262d31] border-none text-white rounded-tl-none'
+                    }`} onClick={() => isVO && onViewOnce(msg)}>
+                        {/* WhatsApp-style Tail */}
+                        {!isOracle && (
+                            <div className={`absolute top-0 w-0 h-0 border-t-[10px] border-t-transparent ${
+                                isMe ? 'right-[-8px] border-l-[10px] border-l-[#056162]' : 'left-[-8px] border-r-[10px] border-r-[#262d31]'
+                            }`}></div>
+                        )}
+
+                        {replyData && renderReplyPreview(replyData)}
+                        
+                        <div className="flex flex-col">
+                            {isOracle ? <FateCardDisplay raw={actualContent} onShare={onShare} /> :
+                             isVO ? <div className="flex items-center gap-3"><span className="text-xl">👁️</span><div className="flex flex-col"><span className="text-[9px] font-header tracking-widest uppercase">Secret Glimpse</span><span className="text-[7px] opacity-40 uppercase">Tap to reveal</span></div></div> :
+                             isVN ? <AudioPlayer url={actualContent.replace("[VN]", "")} isPlaying={currentAudioId === msg.id} onToggle={() => onPlayAudio(currentAudioId === msg.id ? null : msg.id)} /> :
+                             isIMG ? <img src={actualContent.replace("[IMG]", "")} className="rounded-lg max-h-64 w-full object-contain" /> :
+                             <p className="font-sans text-[15px] leading-tight break-words whitespace-pre-wrap pr-12">{actualContent}</p>
+                            }
+                            
+                            {!isOracle && (
+                                <div className="flex items-center justify-end gap-1 mt-1 self-end">
+                                    <span className="text-[9px] opacity-50 font-sans">{formatTime(msg.created_at)}</span>
+                                    {isMe && <span className="text-[10px] text-[#34b7f1]">✓✓</span>}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- MAIN APP ---
+
+        function App() {
+            const [isAdult, setIsAdult] = useState(() => safeStorage.get('oracle_adult') === 'true');
+            const [chaosUnlocked, setChaosUnlocked] = useState(() => safeStorage.get('oracle_chaos_unlocked') === 'true');
+            const [layer, setLayer] = useState(() => {
+                const adult = safeStorage.get('oracle_adult');
+                const user = safeStorage.get('oracle_user');
+                if (adult === null) return 'AGE';
+                if (user === null) return 'NAME';
+                return safeStorage.get('oracle_unlocked') === 'true' ? 'MAIN' : 'SECURITY';
+            });
+
+            const [username, setUsername] = useState(() => safeStorage.get('oracle_user') || '');
+            const [avatar, setAvatar] = useState(() => safeStorage.get('oracle_avatar') || '🔮');
+            const [userColor, setUserColor] = useState(() => safeStorage.get('oracle_color') || '#D4AF37');
+            const [messages, setMessages] = useState([]);
+            const [inputText, setInputText] = useState('');
+            const [isViewOnce, setIsViewOnce] = useState(false);
+            const [fateMode, setFateMode] = useState(false);
+            const [currentTime, setCurrentTime] = useState(new Date());
+            const [currentAudioId, setCurrentAudioId] = useState(null);
+            const [typingUsers, setTypingUsers] = useState({});
+            const [replyingTo, setReplyingTo] = useState(null);
+            const [editingMsg, setEditingMsg] = useState(null);
+            const [showMenu, setShowMenu] = useState(false);
+            const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+            const [showClearConfirm, setShowClearConfirm] = useState(false);
+            const [isInputFocused, setIsInputFocused] = useState(false);
+            const [isRecording, setIsRecording] = useState(false);
+            const [viewingSecret, setViewingSecret] = useState(null);
+            const [pinInput, setPinInput] = useState('');
+            const [chaosPinInput, setChaosPinInput] = useState('');
+            const [showChaosUnlock, setShowChaosUnlock] = useState(false);
+            const [isUploading, setIsUploading] = useState(false);
+            const [deck, setDeck] = useState(initDeck());
+            const feedRef = useRef(null);
+            const lastTypingRef = useRef(0);
+            const fileInputRef = useRef(null);
+
+            useEffect(() => {
+                const loader = document.getElementById('loader');
+                if (loader) {
+                    loader.style.opacity = '0';
+                    setTimeout(() => loader.remove(), 500);
+                }
+                
+                // Register Service Worker
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('./sw.js').catch(e => console.error(e));
+                }
+            }, []);
+
+            useEffect(() => {
+                if (layer !== 'MAIN') return;
+                const fetchMessages = async () => {
+                    const { data } = await supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
+                    if (data) setMessages(data);
+                };
+                fetchMessages();
+                
+                const channel = supabaseClient.channel('msgs');
+                
+                channel
+                    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'Pesan' }, (p) => {
+                        setMessages(prev => [...prev, p.new]);
+                    })
+                    .on('broadcast', { event: 'typing' }, ({ payload }) => {
+                        setTypingUsers(prev => ({
+                            ...prev,
+                            [payload.user]: payload.isTyping ? Date.now() : 0
+                        }));
+                    })
+                    .subscribe();
+                
+                const typingCleanup = setInterval(() => {
+                    const now = Date.now();
+                    setTypingUsers(prev => {
+                        const next = { ...prev };
+                        let changed = false;
+                        for (const user in next) {
+                            if (next[user] > 0 && now - next[user] > 3000) {
+                                next[user] = 0;
+                                changed = true;
+                            }
+                        }
+                        return changed ? next : prev;
+                    });
+                }, 1000);
+
+                return () => {
+                    supabaseClient.removeChannel(channel);
+                    clearInterval(typingCleanup);
+                };
+            }, [layer]);
+
+            useEffect(() => {
+                if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
+            }, [messages]);
+
+            useEffect(() => {
+                const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+                return () => clearInterval(timer);
+            }, []);
+
+            const handleSend = async () => {
+                if (!inputText.trim()) return;
+                
+                const nama = `${username}|${avatar}|${userColor}`;
+                let teks = inputText;
+
+                if (editingMsg) {
+                    await supabaseClient.from('Pesan').update({ teks }).eq('id', editingMsg.id);
+                    setMessages(prev => prev.map(m => m.id === editingMsg.id ? { ...m, teks } : m));
+                    setEditingMsg(null);
+                    setInputText('');
+                    return;
+                }
+
+                if (replyingTo) {
+                    const replyContext = {
+                        name: replyingTo.nama.split('|')[0],
+                        text: replyingTo.teks
+                    };
+                    teks = `[REPLY:${JSON.stringify(replyContext)}]${inputText}`;
+                }
+
+                if (isViewOnce) teks = `[VO]${teks}`;
+                
+                await supabaseClient.from('Pesan').insert([{ nama, teks }]);
+                setInputText('');
+                setIsViewOnce(false);
+                setReplyingTo(null);
+                
+                // Stop typing
+                supabaseClient.channel('msgs').send({
+                    type: 'broadcast',
+                    event: 'typing',
+                    payload: { user: username, isTyping: false }
+                });
+            };
+
+            const handleVoiceNote = async (blob) => {
+                setIsUploading(true);
+                try {
+                    const fileName = `${Date.now()}.webm`;
+                    const filePath = `voice/${fileName}`;
+                    const { error } = await supabaseClient.storage.from('bukti').upload(filePath, blob);
+                    if (error) throw error;
+                    const { data: { publicUrl } } = supabaseClient.storage.from('bukti').getPublicUrl(filePath);
+                    const nama = `${username}|${avatar}|${userColor}`;
+                    let teks = `[VN]${publicUrl}`;
+                    await supabaseClient.from('Pesan').insert([{ nama, teks }]);
+                } catch (err) {
+                    alert("Gagal mengirim pesan suara");
+                } finally {
+                    setIsUploading(false);
+                }
+            };
+
+            const mediaRecorderRef = useRef(null);
+            const audioChunksRef = useRef([]);
+
+            const startRecording = async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorderRef.current = new MediaRecorder(stream);
+                    audioChunksRef.current = [];
+                    mediaRecorderRef.current.ondataavailable = (e) => audioChunksRef.current.push(e.data);
+                    mediaRecorderRef.current.onstop = () => {
+                        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                        if (blob.size > 1000) handleVoiceNote(blob);
+                        stream.getTracks().forEach(t => t.stop());
+                    };
+                    mediaRecorderRef.current.start();
+                    setIsRecording(true);
+                    if (navigator.vibrate) navigator.vibrate(50);
+                } catch (e) {
+                    alert("Izin mikrofon ditolak");
+                }
+            };
+
+            const stopRecording = () => {
+                if (mediaRecorderRef.current && isRecording) {
+                    mediaRecorderRef.current.stop();
+                    setIsRecording(false);
+                }
+            };
+
+            const handleViewOnce = (msg) => {
+                try {
+                    const content = msg.teks.replace("[VO]", "");
+                    if (!content) throw new Error("Empty");
+                    setViewingSecret(content);
+                } catch (e) {
+                    alert("⚠️ Pesan Tidak Terbaca atau Rusak");
+                }
+            };
+
+            const handleInputChange = (e) => {
+                setInputText(e.target.value);
+                const now = Date.now();
+                if (now - lastTypingRef.current > 2000) {
+                    lastTypingRef.current = now;
+                    supabaseClient.channel('msgs').send({
+                        type: 'broadcast',
+                        event: 'typing',
+                        payload: { user: username, isTyping: true }
+                    });
+                }
+            };
+
+            const handleImageUpload = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                setIsUploading(true);
+                try {
+                    const url = await uploadImage(file);
+                    const nama = `${username}|${avatar}|${userColor}`;
+                    let teks = `[IMG]${url}`;
+                    if (replyingTo) {
+                        const replyContext = { name: replyingTo.nama.split('|')[0], text: replyingTo.teks };
+                        teks = `[REPLY:${JSON.stringify(replyContext)}][IMG]${url}`;
+                    }
+                    await supabaseClient.from('Pesan').insert([{ nama, teks }]);
+                    setReplyingTo(null);
+                } catch (err) {
+                    alert("Gagal mengunggah gambar");
+                } finally {
+                    setIsUploading(false);
+                }
+            };
+
+            const handleFate = (category) => {
+                const isChaos = category === 'chaos';
+                if (isChaos && !chaosUnlocked) {
+                    alert("Mode Chaos terkunci. Verifikasi usia dan kode diperlukan.");
+                    return;
+                }
+                const cardContent = drawCard(deck, category, isChaos);
+                const nama = "ORACLE";
+                const teks = JSON.stringify({ content: cardContent, invoker: username });
+                supabaseClient.from('Pesan').insert([{ nama, teks }]);
+                setFateMode(false);
+            };
+
+            const handlePinSubmit = () => {
+                if (pinInput === '010304') {
+                    safeStorage.set('oracle_unlocked', 'true');
+                    setLayer('MAIN');
+                } else {
+                    alert("Kode Salah. Silakan coba lagi.");
+                }
+            };
+
+            const handleChaosUnlock = () => {
+                if (chaosPinInput === '181225') {
+                    safeStorage.set('oracle_chaos_unlocked', 'true');
+                    setChaosUnlocked(true);
+                    setShowChaosUnlock(false);
+                    alert("Mode Chaos Terbuka. Gunakan dengan bijak.");
+                } else {
+                    alert("Kode Salah.");
+                }
+            };
+
+            const handleClearAll = async () => {
+                await supabaseClient.from('Pesan').delete().neq('id', 0);
+                setMessages([]);
+                setShowClearConfirm(false);
+                setShowMenu(false);
+            };
+
+            if (layer === 'AGE') return (
+                <div className="h-screen bg-black flex flex-col items-center justify-center p-6 text-center space-y-12">
+                    <div className="space-y-4">
+                        <h1 className="font-header text-gold text-4xl tracking-[15px] drop-shadow-[0_0_15px_rgba(212,175,55,0.3)]">ORACLE</h1>
+                        <p className="text-white/30 text-[10px] uppercase tracking-[5px]">Sanctum of Truth & Chaos</p>
+                    </div>
+                    <div className="space-y-6">
+                        <p className="text-white/60 text-xs italic font-mystic">"Apakah kamu cukup dewasa untuk menghadapi takdirmu?"</p>
+                        <div className="flex flex-col gap-4">
+                            <button onClick={() => { safeStorage.set('oracle_adult', 'true'); setIsAdult(true); setLayer('NAME'); }} className="px-12 py-4 border border-gold/40 text-gold text-[10px] uppercase tracking-[8px] hover:bg-gold/10 transition-all rounded-full">SAYA 18+ (DEWASA)</button>
+                            <button onClick={() => { safeStorage.set('oracle_adult', 'false'); setIsAdult(false); setLayer('NAME'); }} className="px-12 py-4 border border-white/10 text-white/40 text-[10px] uppercase tracking-[8px] hover:bg-white/5 transition-all rounded-full">DI BAWAH 18 TAHUN</button>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            if (layer === 'NAME') return (
+                <div className="h-screen bg-black flex flex-col items-center justify-center p-8 space-y-10">
+                    <div className="text-center space-y-2">
+                        <h2 className="font-header text-gold text-xl tracking-[8px]">IDENTITAS</h2>
+                        <p className="text-[8px] text-white/20 uppercase tracking-[3px]">Bagaimana dunia harus memanggilmu?</p>
+                    </div>
+                    <div className="w-full max-w-xs space-y-8">
+                        <input value={username} onChange={e => setUsername(e.target.value)} placeholder="NAMA SAMARAN..." className="w-full bg-transparent border-b border-white/10 py-3 text-center text-gold font-header tracking-widest focus:border-gold outline-none transition-all" />
+                        <div className="grid grid-cols-4 gap-3">
+                            {['🔮', '🧿', '🕯️', '🌙', '☀️', '🌑', '🪐', '💀'].map(a => (
+                                <button key={a} onClick={() => setAvatar(a)} className={`text-2xl p-2 rounded-xl border ${avatar === a ? 'bg-gold/20 border-gold' : 'border-white/5'}`}>{a}</button>
+                            ))}
+                        </div>
+                        <button onClick={() => { safeStorage.set('oracle_user', username); safeStorage.set('oracle_avatar', avatar); safeStorage.set('oracle_color', userColor); setLayer('SECURITY'); }} className="w-full py-4 bg-gold text-black text-[10px] font-bold uppercase tracking-[5px] rounded-xl">MASUK SANCTUM</button>
+                    </div>
+                </div>
+            );
+
+            if (layer === 'SECURITY') return (
+                <div className="h-screen bg-black flex flex-col items-center justify-center p-8 space-y-12">
+                    <div className="text-center space-y-4">
+                        <div className="text-4xl animate-pulse">🎭</div>
+                        <h2 className="font-header text-gold text-xl tracking-[10px]">BUAT KARAKTER</h2>
+                        <p className="text-[8px] text-white/20 uppercase tracking-[4px]">Masukkan Kode: 010304</p>
+                    </div>
+                    <div className="w-full max-w-xs space-y-6">
+                        <input 
+                            type="text" 
+                            value={pinInput} 
+                            onChange={e => setPinInput(e.target.value)} 
+                            placeholder="KODE..." 
+                            className="w-full bg-transparent border-b border-white/10 py-3 text-center text-gold font-header tracking-widest focus:border-gold outline-none transition-all"
+                        />
+                        <button onClick={handlePinSubmit} className="w-full py-4 bg-gold text-black text-[10px] font-bold uppercase tracking-[5px] rounded-xl">BANGKITKAN KARAKTER</button>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="h-screen flex flex-col bg-void overflow-hidden">
+                    <header className="p-4 border-b border-white/5 bg-black/80 backdrop-blur-md z-10 flex justify-between items-center relative">
+                        <div className="font-header text-gold text-[10px] tracking-widest">ORACLE v17.9</div>
+                        <div className="text-[10px] font-mono text-white/60 tracking-[2px] uppercase">{currentTime.toLocaleTimeString()}</div>
+                        <button onClick={() => setShowMenu(!showMenu)} className="text-white/40 text-xl">⋮</button>
+                        
+                        {showMenu && (
+                            <div className="absolute right-4 top-14 w-56 glass rounded-2xl shadow-2xl z-50 overflow-hidden animate-fade-in border border-white/10">
+                                <button onClick={() => { setLayer('NAME'); setShowMenu(false); }} className="w-full p-4 text-left text-[10px] uppercase tracking-widest border-b border-white/5 hover:bg-white/5">Ubah Identitas</button>
+                                <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full p-4 text-left text-[10px] uppercase tracking-widest border-b border-white/5 hover:bg-white/5">Reset Profil & Usia</button>
+                                <button onClick={() => { setShowClearConfirm(true); setShowMenu(false); }} className="w-full p-4 text-left text-[10px] uppercase tracking-widest text-red-400 hover:bg-red-500/10">Hapus Semua Pesan</button>
+                            </div>
+                        )}
+                    </header>
+
+                    <div ref={feedRef} className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar feed-container">
+                        {messages.map(m => (
+                            <Bubble 
+                                key={m.id} 
+                                msg={m} 
+                                isMe={m.nama.startsWith(username)} 
+                                onReply={setReplyingTo}
+                                onEdit={msg => { setEditingMsg(msg); setInputText(msg.teks); }}
+                                onViewOnce={handleViewOnce}
+                                onPlayAudio={setCurrentAudioId}
+                                currentAudioId={currentAudioId}
+                            />
+                        ))}
+                        
+                        {Object.values(typingUsers).some(t => t > 0) && (
+                            <div className="text-[8px] text-gold/40 font-header tracking-widest animate-pulse px-4 py-2 italic">
+                                Seseorang sedang membisikkan takdir...
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="p-3 bg-[#121b22] border-t border-white/5 relative">
+                        {replyingTo && (
+                            <div className="absolute top-[-50px] left-0 right-0 bg-[#1e2a30] border-t border-gold/20 p-2 flex items-center justify-between animate-fade-in">
+                                <div className="text-[10px] text-white/60 truncate italic px-2">
+                                    <span className="text-gold font-bold not-italic">Membalas {replyingTo.nama.split('|')[0]}:</span> {parsePreviewText(replyingTo.teks)}
+                                </div>
+                                <button onClick={() => setReplyingTo(null)} className="text-gold text-xs px-2">✕</button>
+                            </div>
+                        )}
+                        {editingMsg && (
+                            <div className="absolute top-[-50px] left-0 right-0 bg-[#1e2a30] border-t border-blue-500/20 p-2 flex items-center justify-between animate-fade-in">
+                                <div className="text-[10px] text-blue-400 truncate italic px-2">
+                                    <span className="font-bold not-italic">Mengedit pesan...</span>
+                                </div>
+                                <button onClick={() => { setEditingMsg(null); setInputText(''); }} className="text-blue-400 text-xs px-2">✕</button>
+                            </div>
+                        )}
+
+                        <div className="flex items-center gap-2">
+                            <button 
+                                onClick={() => setShowAttachmentMenu(!showAttachmentMenu)} 
+                                className={`w-10 h-10 flex items-center justify-center text-white/60 transition-transform ${showAttachmentMenu ? 'rotate-45' : ''}`}
+                            >
+                                <span className="text-3xl">+</span>
+                            </button>
+                            
+                            <div className="flex-1 bg-[#2a3942] rounded-full flex items-center px-4 py-1">
+                                <input 
+                                    value={inputText} 
+                                    onChange={handleInputChange} 
+                                    onFocus={() => setIsInputFocused(true)}
+                                    onBlur={() => setIsInputFocused(false)}
+                                    onKeyPress={e => e.key === 'Enter' && handleSend()} 
+                                    placeholder="Ketik pesan..." 
+                                    className="flex-1 bg-transparent py-2.5 text-[15px] text-white outline-none" 
+                                />
+                            </div>
+
+                            {inputText.trim() || editingMsg ? (
+                                <button onClick={handleSend} className="w-12 h-12 rounded-full bg-[#00a884] text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform flex-shrink-0">
+                                    <span className="text-xl">{isUploading ? '...' : (editingMsg ? '✓' : '➤')}</span>
+                                </button>
+                            ) : (
+                                <button 
+                                    onMouseDown={startRecording} 
+                                    onMouseUp={stopRecording}
+                                    onTouchStart={startRecording} 
+                                    onTouchEnd={stopRecording}
+                                    className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg active:scale-125 transition-all flex-shrink-0 ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-[#00a884] text-white'}`}
+                                >
+                                    <span className="text-xl">🎤</span>
+                                </button>
+                            )}
+                        </div>
+                        <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+                        
+                        {showAttachmentMenu && (
+                            <div className="absolute bottom-20 left-4 right-4 bg-[#232d36] rounded-3xl p-6 shadow-2xl border border-white/5 grid grid-cols-3 gap-6 animate-fade-in z-[100]">
+                                <button onClick={() => { fileInputRef.current.click(); setShowAttachmentMenu(false); }} className="flex flex-col items-center gap-2">
+                                    <div className="w-14 h-14 rounded-full bg-purple-600 flex items-center justify-center text-2xl shadow-lg">🖼️</div>
+                                    <span className="text-[11px] text-white/80 font-medium">Galeri</span>
+                                </button>
+                                <button onClick={() => { setFateMode(true); setShowAttachmentMenu(false); }} className="flex flex-col items-center gap-2">
+                                    <div className="w-14 h-14 rounded-full bg-orange-600 flex items-center justify-center text-2xl shadow-lg">🔮</div>
+                                    <span className="text-[11px] text-white/80 font-medium">Takdir</span>
+                                </button>
+                                <button onClick={() => { setIsViewOnce(!isViewOnce); setShowAttachmentMenu(false); }} className="flex flex-col items-center gap-2">
+                                    <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-lg transition-colors ${isViewOnce ? 'bg-red-600' : 'bg-zinc-600'}`}>👁️</div>
+                                    <span className="text-[11px] text-white/80 font-medium">Rahasia</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {fateMode && (
+                        <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[150] flex items-center justify-center p-6">
+                            <div className="w-full max-w-sm space-y-8 animate-fade-in relative">
+                                <button onClick={() => setFateMode(false)} className="absolute -top-4 -right-4 w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-white/40 text-xl">✕</button>
+                                
+                                <div className="text-center space-y-2">
+                                    <h3 className="font-header text-gold text-xl tracking-[10px]">PILIH TAKDIR</h3>
+                                    <p className="text-[8px] text-white/30 uppercase tracking-[4px]">Tentukan intensitas permainan</p>
+                                </div>
+                                <div className="grid grid-cols-1 gap-4">
+                                    <button onClick={() => handleFate('light')} className="p-6 glass rounded-2xl border border-gold/20 text-left group active:scale-95 transition-transform">
+                                        <div className="text-gold font-header text-sm tracking-widest mb-1">LIGHT</div>
+                                        <div className="text-[9px] text-white/40 uppercase tracking-widest">Truth & Dare Ringan</div>
+                                    </button>
+                                    <button onClick={() => handleFate('deep')} className="p-6 glass rounded-2xl border border-gold/20 text-left group active:scale-95 transition-transform">
+                                        <div className="text-gold font-header text-sm tracking-widest mb-1">DEEP</div>
+                                        <div className="text-[9px] text-white/40 uppercase tracking-widest">Pertanyaan Mendalam</div>
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            if (!isAdult) {
+                                                alert("Mode Chaos hanya untuk Dewasa (18+). Silakan reset profil jika Anda salah memilih usia.");
+                                                return;
+                                            }
+                                            chaosUnlocked ? handleFate('chaos') : setShowChaosUnlock(true);
+                                        }} 
+                                        className={`p-6 glass rounded-2xl border transition-all active:scale-95 ${chaosUnlocked ? 'border-red-500/30' : 'border-white/5'} text-left group`}
+                                    >
+                                        <div className={`${chaosUnlocked ? 'text-red-400' : 'text-white/40'} font-header text-sm tracking-widest mb-1`}>CHAOS {chaosUnlocked ? '' : '🔒'}</div>
+                                        <div className="text-[9px] text-white/40 uppercase tracking-widest">
+                                            {!isAdult ? 'Hanya untuk 18+' : chaosUnlocked ? 'Mode Pasangan (18+)' : 'Tekan untuk memasukkan PIN'}
+                                        </div>
+                                    </button>
+                                </div>
+                                <button onClick={() => setFateMode(false)} className="w-full py-4 text-white/20 text-[10px] uppercase tracking-widest">Batal</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {showChaosUnlock && (
+                        <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[200] flex items-center justify-center p-8">
+                            <div className="w-full max-w-xs space-y-8 animate-fade-in text-center">
+                                <div className="space-y-2">
+                                    <h3 className="font-header text-red-500 text-lg tracking-[8px]">VERIFIKASI CHAOS</h3>
+                                    <p className="text-[8px] text-white/20 uppercase tracking-[3px]">Masukkan PIN 18+ untuk Membuka</p>
+                                </div>
+                                <input 
+                                    type="password" 
+                                    value={chaosPinInput} 
+                                    onChange={e => setChaosPinInput(e.target.value)} 
+                                    placeholder="PIN..." 
+                                    className="w-full bg-transparent border-b border-white/10 py-3 text-center text-red-400 font-header tracking-widest focus:border-red-500 outline-none transition-all"
+                                />
+                                <div className="flex gap-4">
+                                    <button onClick={() => setShowChaosUnlock(false)} className="flex-1 py-3 border border-white/10 rounded-xl text-[10px] uppercase tracking-widest">Batal</button>
+                                    <button onClick={handleChaosUnlock} className="flex-1 py-3 bg-red-500 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest">Buka</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {showClearConfirm && (
+                        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+                            <div className="glass p-8 rounded-3xl border border-red-500/30 max-w-xs w-full text-center space-y-6 animate-fade-in">
+                                <div className="text-4xl">⚠️</div>
+                                <h3 className="font-header text-red-400 text-lg tracking-widest">HAPUS SEMUA?</h3>
+                                <p className="text-[10px] text-white/40 leading-relaxed">Tindakan ini akan menghapus seluruh jejak takdir di sanctum ini selamanya.</p>
+                                <div className="flex gap-3">
+                                    <button onClick={() => setShowClearConfirm(false)} className="flex-1 py-3 border border-white/10 rounded-xl text-[10px] uppercase tracking-widest">Batal</button>
+                                    <button onClick={handleClearAll} className="flex-1 py-3 bg-red-500 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest">Hapus</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {viewingSecret && (
+                        <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[200] flex items-center justify-center p-8" onClick={() => setViewingSecret(null)}>
+                            <div className="text-center space-y-8 animate-fade-in max-w-sm">
+                                <div className="text-gold text-[10px] font-header tracking-[10px] uppercase opacity-50">Secret Revealed</div>
+                                <div className="font-mystic text-3xl italic text-white leading-relaxed">"{viewingSecret}"</div>
+                                <div className="text-white/20 text-[8px] uppercase tracking-widest">Tap anywhere to burn this memory</div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = window.ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 </body>
 </html>
