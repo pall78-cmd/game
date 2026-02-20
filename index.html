@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ORACLE v20 - HYBRID SANCTUM</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600&family=Cinzel:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="./config.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { gold: '#D4AF37', void: '#050508' },
+                    fontFamily: { sans: ['Montserrat', 'sans-serif'], header: ['Cinzel', 'serif'], mystic: ['Cormorant Garamond', 'serif'] },
+                    animation: { 'fade-in': 'fadeIn 0.3s ease-out forwards', 'pulse-slow': 'pulse 4s infinite' },
+                    keyframes: { fadeIn: { '0%': { opacity: '0', transform: 'scale(0.98)' }, '100%': { opacity: '1', transform: 'scale(1)' } } }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { background-color: #050508; color: #f0f0f0; margin: 0; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+        .custom-scrollbar::-webkit-scrollbar { width: 3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.2); border-radius: 10px; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        input, button { outline: none !important; }
+        .feed-container { mask-image: linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = window.React;
+        const { SUPA_URL, SUPA_KEY } = window.ORACLE_CONFIG;
+        const supabaseClient = window.supabase.createClient(SUPA_URL, SUPA_KEY);
+
+        // --- CONTENT ENGINE (60 Cards per Deck) ---
+        const ORACLE_DECKS = {
+            light: {
+                chance: 0.15,
+                truth: [
+                    "Apa nama kontak paling aneh di HP-mu?", "Aplikasi apa yang paling sering kamu buka diam-diam?", "Isi chat terakhir yang kamu hapus?", "Pernah salah kirim chat memalukan?", "Screenshot riwayat YouTube-mu sekarang.", "Siapa yang terakhir kamu kepoin di IG?", "Hal konyol yang pernah dibeli online?", "Pura-pura HP mati biar nggak dichat?", "Foto paling jelek di galeri?", "Siapa yang kamu mute story-nya?", "Satu kebohongan di grup ini?", "Wallpaper HP-mu dan alasannya?", "Mantan yang paling sering di-stalk?", "Pernah screenshot chat buat ghibah?", "Rahasia kecil dari orang tua?", "Siapa yang paling menyebalkan di sini?", "Artis yang jadi crush rahasiamu?", "Hal yang kamu lakukan kalau sendirian?", "Momen paling awkward di sekolah?", "Pernah bohong soal umur?"
+                ],
+                dare: [
+                    "Kirim screenshot lockscreen.", "Update status WA: 'Aku sayang [Random]' 5 menit.", "VN nyanyi balonku nada metal.", "Kirim foto selfie ekspresi konyol.", "Screenshot 'Following' IG paling bawah.", "Telepon log ke-3 bilang 'Halo' lalu tutup.", "Ganti nama WA jadi 'Beban Keluarga' 10 menit.", "Chat mantan: 'P', screenshot reaksinya.", "VN suara ayam berkokok 10 detik.", "Tunjukkan Screen Time baterai hari ini.", "Chat grup keluarga: 'Aku nikah besok' (diamkan 2 menit).", "Foto isi dompet/tas sekarang.", "VN baca puisi tentang gorengan.", "Kirim stiker paling aneh yang kamu punya.", "Screenshot DM terakhir (boleh sensor).", "Tirukan gaya bicara salah satu orang di sini.", "Kirim foto jempol kaki.", "Push up 10 kali sambil divideokan.", "Jangan bicara selama 2 putaran.", "Ganti foto profil WA jadi foto komedian."
+                ],
+                wildcard: [
+                    "Oracle: Semua kirim foto langit sekarang.", "Tunjuk 1 orang matikan HP 5 menit.", "Bebas tugas! Tunjuk 2 orang lakukan dare bareng.", "Ganti nama di grup jadi 'Oracle Slave' 1 jam.", "Semua jujur: Siapa yang paling asik dichat?", "Tunjuk 1 orang screenshot saldo e-wallet.", "Bicara pakai bahasa daerah sampai selesai.", "Tukar posisi tantangan dengan orang sebelumnya.", "Kirim foto jempol tangan kanan.", "Pilih asisten chat (dia yang ketik pesanmu) 5 menit.", "Semua kirim stiker 'Love' ke orang terakhir yang chat.", "Oracle: Silent mode untuk semua selama 1 menit.", "Pilih 1 orang buat ceritain jokes receh.", "Tukar avatar dengan orang di atasmu.", "Oracle: Semua harus kirim foto 'Peace'.", "Hapus 1 pesan terakhirmu sekarang.", "Pilih 1 orang untuk kirim lagu favorit.", "Oracle: Panggil semua orang dengan sebutan 'Suhu'.", "Berikan 1 pujian untuk Oracle.", "Kartu Bebas! Kamu selamat dari putaran ini."
+                ]
+            },
+            deep: {
+                chance: 0.10,
+                truth: [
+                    "Kapan terakhir merasa sangat gagal?", "Satu hal yang ingin diperbaiki di masa lalu?", "Ketakutan terbesar yang belum diceritakan?", "Orang yang paling ingin dimintai maaf?", "Pernah merasa kesepian di tengah keramaian?", "Trauma masa kecil yang membekas?", "Bohong terbesar pada pasangan?", "Kenangan yang ingin dihapus?", "Hal yang membuatmu merasa tak pantas dicintai?", "Alasan terakhir kamu menangis sendirian?", "Impian yang dikubur karena takut gagal?", "Pernah iri dengan hidup teman di medsos?", "Orang yang diam-diam kamu butuhkan?", "Beban hidup terberat saat ini?", "Kapan terakhir bangga pada diri sendiri?", "Apa arti 'rumah' bagimu?", "Ketakutan terbesar tentang kematian?", "Pernah merasa dikhianati teman baik?", "Satu hal yang paling kamu sesali?", "Apa yang kamu cari dalam hidup?"
+                ],
+                dare: [
+                    "VN pesan tulus buat orang tersayang (kirim di sini).", "Tunjukkan chat paling sedih yang disimpan.", "Tulis 3 hal yang kamu benci dari diri sendiri.", "Kirim lagu yang mewakili perasaan saat ini.", "Ceritakan momen paling hancur secara emosional.", "VN permintaan maaf untuk kesalahan masa lalu.", "Tunjukkan foto masa kecil paling berkesan.", "Tulis surat singkat buat dirimu 5 tahun lagi.", "Cerita tentang orang yang pergi tapi mengubahmu.", "Berikan pujian terdalam untuk 1 orang di sini.", "Screenshot notes HP paling pribadi.", "Tulis arti 'bahagia' dalam 3 kalimat.", "Ceritakan kegagalan yang jadi pelajaran.", "Foto benda dengan kenangan paling berharga.", "Ungkapkan keinginan terpendam paling sulit.", "Berhenti main HP setelah game ini selama 1 jam.", "VN ucapkan terima kasih pada diri sendiri.", "Sebutkan 1 kebaikan yang dilakukan orang hari ini.", "Tulis 1 janji yang akan kamu tepati minggu ini.", "Ceritakan siapa pahlawan hidupmu."
+                ],
+                wildcard: [
+                    "Oracle: Semua diam 2 menit untuk merenung.", "Berbagi rahasia yang sama-sama disimpan.", "Oracle: Beri semangat untuk si penarik kartu.", "Sebutkan 1 hal baik tentang orang di atasmu.", "Mode curhat aktif selama 10 menit.", "Tunjuk pendengar: Cerita masalahmu 1 menit via VN.", "Hancurkan 1 kartu rahasia milik orang lain.", "Siapa yang paling kuat mentalnya di sini?", "Tulis janji tidak ulangi kesalahan masa lalu.", "Semua kirim emoji perasaan saat ini.", "Oracle: Pilih 1 orang untuk kasih nasihat hidup.", "Sebutkan 1 hal yang kamu syukuri dari grup ini.", "Oracle: Semua harus memaafkan kesalahan kecil teman.", "Pilih 1 orang untuk jadi 'Guardian'-mu 10 menit.", "Oracle: Putar lagu sedih bareng-bareng.", "Sebutkan 1 kata yang menggambarkan tahun ini.", "Oracle: Group hug (kirim emoji peluk).", "Tunjuk orang yang paling bijak di sini.", "Oracle: Berikan 1 rahasia umum grup ini.", "Semua harus menulis 1 mimpi besar mereka."
+                ]
+            },
+            chaos: {
+                chance: 0.08,
+                truth: [
+                    "Fantasi intim yang sering muncul?", "Kapan terakhir nonton konten dewasa?", "Bagian tubuh lawan jenis yang bikin terangsang?", "Hal paling nakal saat video call?", "Pernah sexting? Dengan siapa terakhir?", "Fetish aneh yang belum diketahui?", "Jumlah orang yang pernah berhubungan fisik?", "Orang di sini yang ingin diajak tidur?", "Pernah kirim nudes?", "Hal paling kotor yang dibayangkan tentang anggota grup?", "Kapan pertama kali eksplorasi tubuh sendiri?", "Posisi yang ingin dicoba tapi belum?", "Terangsang karena suara di telepon?", "Chat paling provokatif di DM?", "Mantan paling memuaskan secara intim?", "Pernah one night stand?", "Hal liar di tempat berisiko ketahuan?", "Tertarik pada sahabat pasangan sendiri?", "Pakaian dalam yang bikin percaya diri?", "Rahasia ranjang yang tak pernah diceritakan?", "Pernah suka pada orang yang sudah menikah?", "Apa bagian tubuhmu yang paling sensitif?", "Pernah berfantasi tentang guru/dosen?", "Hal paling nekat demi memuaskan nafsu?"
+                ],
+                dare: [
+                    "VN mendesah pelan 5 detik (View Once).", "Foto bagian tubuh paling sensual (View Once).", "Deskripsikan apa yang dilakukan jika berdua saja.", "Chat dirty talk singkat ke seseorang (View Once).", "Foto bibir pose menggoda (View Once).", "Buka 1 kancing baju atas, foto (View Once).", "VN bisikan nakal malam ini (View Once).", "Tunjukkan search history incognito.", "Tulis cara kamu ingin dimanjakan di ranjang.", "Tunjukkan bekas ciuman di tangan (pakai lotion).", "Screenshot akun dewasa yang kamu ikuti.", "Berikan instruksi nakal ke orang lain.", "Foto leher (View Once).", "Cerita pengalaman intim paling berkesan.", "VN suara nafas kelelahan (View Once).", "Gunakan pakaian paling minim yang kamu punya (ceritakan saja).", "Tunjukkan tato/tanda lahir di area tersembunyi (View Once).", "Kirim emoji yang menggambarkan 'vibe' ranjangmu.", "Tulis 1 kata yang bikin kamu 'turn on'.", "Bisikkan nama orang di grup ini dengan nada menggoda."
+                ],
+                wildcard: [
+                    "Oracle: Pilih 1 orang dare chaos privat.", "Semua jujur preferensi intim sekarang.", "Yang pemalu kirim 1 foto View Once bebas.", "Pilih 1 orang jadi 'Tuan'-mu 10 menit.", "Ganti panggilan nama jadi sebutan nakal.", "Siapa yang paling liar? Beri tantangan ke semua.", "Oracle: Kirim 1 kata pemicu nafsu.", "Tukar fantasi via VN View Once dengan pilihanmu.", "Hukuman: Lepas 1 item pakaian (jangan tunjukkan).", "Hadiah: Bebas pertanyaan intim 3 putaran.", "Oracle: Mode dewasa aktif sampai game bubar.", "Semua kirim emoji 😈.", "Tunjuk 1 orang untuk jujur kapan terakhir 'main'.", "Oracle: Pilih 2 orang untuk simulasi chat nakal.", "Siapa yang paling jago di ranjang menurut instingmu?", "Oracle: Kirim foto leher masing-masing (View Once).", "Tunjuk 1 orang untuk spill rahasia tergelapnya.", "Oracle: Semua harus mengaku 1 fetish.", "Tukar peran: Yang dominan jadi submissive.", "Oracle: Sesi selesai dengan satu janji rahasia."
+                ]
+            }
+        };
+
+        // --- UTILS ---
+        const safeStorage = {
+            get: (key) => { try { return localStorage.getItem(key); } catch { return null; } },
+            set: (key, value) => { try { localStorage.setItem(key, value); } catch { } }
+        };
+
+        const parsePreviewText = (text) => {
+            if (!text) return "";
+            let actual = text;
+            if (text.startsWith('[REPLY:')) {
+                const endIdx = text.indexOf('}]');
+                if (endIdx !== -1) actual = text.substring(endIdx + 2);
+            }
+            if (actual === "[BURNED]") return "🔥 Abu Kenangan";
+            if (actual.startsWith('[VO]')) return "👁️ Pesan Rahasia";
+            if (actual.startsWith('[IMG]')) return "📷 Gambar";
+            if (actual.startsWith('[VN]')) return "🎤 Pesan Suara";
+            return actual.substring(0, 30) + (actual.length > 30 ? "..." : "");
+        };
+
+        // --- COMPONENTS ---
+        const AudioPlayer = ({ url, isPlaying, onToggle }) => {
+            const audioRef = useRef(null);
+            useEffect(() => {
+                if (isPlaying) audioRef.current?.play().catch(onToggle);
+                else audioRef.current?.pause();
+            }, [isPlaying]);
+            return (
+                <div className="flex items-center gap-3 bg-black/20 p-2 rounded-xl min-w-[180px]">
+                    <button onClick={onToggle} className="w-8 h-8 rounded-full bg-gold/20 flex items-center justify-center text-gold">
+                        {isPlaying ? "||" : "▶"}
+                    </button>
+                    <div className="h-1 flex-1 bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-full bg-gold animate-pulse" style={{ width: isPlaying ? '100%' : '0%', transition: 'width 10s linear' }}></div>
+                    </div>
+                    <audio ref={audioRef} src={url} onEnded={onToggle} className="hidden" />
+                </div>
+            );
+        };
+
+        const Bubble = ({ msg, isMe, onReply, onViewOnce, onPlayAudio, currentAudioId }) => {
+            const identity = useMemo(() => {
+                const parts = msg.nama.split('|');
+                return { name: parts[0], avatar: parts[1] || '👤', color: parts[2] || '#D4AF37' };
+            }, [msg.nama]);
+
+            const isOracle = msg.nama === "ORACLE";
+            let content = msg.teks;
+            let replyData = null;
+
+            if (content.startsWith('[REPLY:')) {
+                const match = content.match(/^\[REPLY:(.+?)\](.*)$/s);
+                if (match) { try { replyData = JSON.parse(match[1]); content = match[2]; } catch(e) {} }
+            }
+
+            const isBurned = content === "[BURNED]";
+            const isVO = content.startsWith("[VO]");
+            const actualContent = isVO ? content.replace("[VO]", "") : content;
+            const isIMG = actualContent.startsWith("[IMG]");
+            const isVN = actualContent.startsWith("[VN]");
+
+            return (
+                <div className={`flex flex-col mb-3 animate-fade-in ${isOracle ? 'items-center' : isMe ? 'items-end' : 'items-start'}`}>
+                    {!isOracle && (
+                        <div className={`flex items-center gap-2 mb-1 px-1 ${isMe ? 'flex-row-reverse' : ''}`}>
+                            <span className="text-[10px]">{identity.avatar}</span>
+                            <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: identity.color }}>{identity.name}</span>
+                        </div>
+                    )}
+
+                    <div 
+                        onClick={() => (isVO && !isBurned) && onViewOnce(msg)}
+                        onContextMenu={(e) => { e.preventDefault(); onReply(msg); }}
+                        className={`relative p-3 max-w-[85%] rounded-2xl transition-all ${
+                        isOracle ? 'w-full max-w-sm bg-transparent' : 
+                        isBurned ? 'bg-zinc-900/50 border border-white/5 opacity-40 italic text-[11px]' :
+                        isVO ? 'bg-red-950/20 border border-red-500/30 cursor-pointer' :
+                        isMe ? 'bg-[#056162] text-white rounded-tr-none' : 'bg-[#262d31] text-white rounded-tl-none'
+                    }`}>
+                        {replyData && (
+                            <div className="mb-2 p-2 rounded bg-black/20 border-l-2 border-gold/50 text-[10px] opacity-70 italic truncate">
+                                <span className="font-bold text-gold">{replyData.name}:</span> {parsePreviewText(replyData.text)}
+                            </div>
+                        )}
+
+                        {isOracle ? (
+                            <div className="p-5 rounded-2xl border border-gold/30 bg-gradient-to-b from-zinc-900 to-black text-center space-y-3 shadow-2xl">
+                                <div className="text-[8px] font-header tracking-[5px] text-gold/60 uppercase">{actualContent.split('|')[0]}</div>
+                                <div className="font-mystic text-lg italic text-white/90 leading-relaxed">"{actualContent.split(':').slice(1).join(':').trim()}"</div>
+                            </div>
+                        ) :
+                         isBurned ? <div className="flex items-center gap-2">🔥 Rahasia musnah</div> :
+                         isVO ? <div className="flex items-center gap-3 py-1"><span className="text-xl">👁️</span> <span className="text-[9px] uppercase tracking-widest">Secret</span></div> :
+                         isIMG ? <img src={actualContent.replace("[IMG]", "")} className="rounded-lg max-h-64 object-cover" /> :
+                         isVN ? <AudioPlayer url={actualContent.replace("[VN]", "")} isPlaying={currentAudioId === msg.id} onToggle={() => onPlayAudio(currentAudioId === msg.id ? null : msg.id)} /> :
+                         <p className="text-[14px] leading-snug break-words whitespace-pre-wrap">{actualContent}</p>
+                        }
+                    </div>
+                </div>
+            );
+        };
+
+        function App() {
+            const [layer, setLayer] = useState(() => safeStorage.get('oracle_user') ? 'MAIN' : 'AGE');
+            const [username, setUsername] = useState(() => safeStorage.get('oracle_user') || '');
+            const [avatar, setAvatar] = useState('🔮');
+            const [messages, setMessages] = useState([]);
+            const [inputText, setInputText] = useState('');
+            const [isViewOnce, setIsViewOnce] = useState(false);
+            const [viewingSecret, setViewingSecret] = useState(null);
+            const [fateMode, setFateMode] = useState(false);
+            const [chaosUnlocked, setChaosUnlocked] = useState(() => safeStorage.get('oracle_chaos_unlocked') === 'true');
+            const [showChaosUnlock, setShowChaosUnlock] = useState(false);
+            const [replyingTo, setReplyingTo] = useState(null);
+            const [currentAudioId, setCurrentAudioId] = useState(null);
+
+            const feedRef = useRef(null);
+            const fileInputRef = useRef(null);
+
+            useEffect(() => {
+                if (layer !== 'MAIN') return;
+                supabaseClient.from('Pesan').select('*').order('id', { ascending: true }).then(({data}) => data && setMessages(data));
+                const channel = supabaseClient.channel('realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'Pesan' }, (payload) => {
+                    if (payload.eventType === 'INSERT') setMessages(prev => [...prev, payload.new]);
+                    if (payload.eventType === 'UPDATE') setMessages(prev => prev.map(m => m.id === payload.new.id ? payload.new : m));
+                    if (payload.eventType === 'DELETE') setMessages(prev => prev.filter(m => m.id !== payload.old.id));
+                }).subscribe();
+                return () => supabaseClient.removeChannel(channel);
+            }, [layer]);
+
+            useEffect(() => { if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight; }, [messages]);
+
+            const handleSend = async (forcedText = null) => {
+                const text = forcedText || inputText;
+                if (!text.trim()) return;
+                let finalTeks = isViewOnce ? `[VO]${text}` : text;
+                if (replyingTo) {
+                    const ctx = { name: replyingTo.nama.split('|')[0], text: replyingTo.teks };
+                    finalTeks = `[REPLY:${JSON.stringify(ctx)}]${finalTeks}`;
+                }
+                await supabaseClient.from('Pesan').insert([{ nama: `${username}|${avatar}|#D4AF37`, teks: finalTeks }]);
+                setInputText(''); setIsViewOnce(false); setReplyingTo(null);
+            };
+
+            const handleFate = async (cat) => {
+                const deck = ORACLE_DECKS[cat];
+                const rand = Math.random();
+                let type, list;
+                if (rand < deck.chance) { type = "WILDCARD"; list = deck.wildcard; }
+                else { const isTruth = Math.random() > 0.5; type = isTruth ? "TRUTH" : "DARE"; list = isTruth ? deck.truth : deck.dare; }
+                const content = list[Math.floor(Math.random() * list.length)];
+                await supabaseClient.from('Pesan').insert([{ nama: 'ORACLE', teks: `${cat.toUpperCase()} | ${type}: ${content}` }]);
+                setFateMode(false);
+            };
+
+            const handleImageUpload = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const fileName = `${Date.now()}_${file.name}`;
+                const { data, error } = await supabaseClient.storage.from('bukti').upload(fileName, file);
+                if (error) return alert("Upload Gagal");
+                const { data: { publicUrl } } = supabaseClient.storage.from('bukti').getPublicUrl(fileName);
+                handleSend(`[IMG]${publicUrl}`);
+            };
+
+            if (layer === 'AGE') return (
+                <div className="h-screen bg-black flex flex-col items-center justify-center p-10 space-y-12">
+                    <h1 className="font-header text-gold text-5xl tracking-[15px] animate-pulse-slow">ORACLE</h1>
+                    <button onClick={() => setLayer('NAME')} className="px-12 py-5 border border-gold/40 text-gold text-[10px] uppercase tracking-[5px] rounded-full">ACCESS SANCTUM</button>
+                </div>
+            );
+
+            if (layer === 'NAME') return (
+                <div className="h-screen bg-black flex flex-col items-center justify-center p-10 space-y-8">
+                    <input onChange={e => setUsername(e.target.value)} placeholder="NAMA SAMARAN..." className="w-full max-w-xs bg-transparent border-b border-gold/20 py-4 text-center text-gold font-header outline-none text-lg" />
+                    <div className="flex gap-4">
+                        {['🔮', '🧿', '🕯️', '🌙'].map(a => (
+                            <button key={a} onClick={() => setAvatar(a)} className={`text-2xl p-2 rounded-lg ${avatar === a ? 'bg-gold/20' : ''}`}>{a}</button>
+                        ))}
+                    </div>
+                    <button onClick={() => { if(username.length < 2) return; safeStorage.set('oracle_user', username); setLayer('MAIN'); }} className="w-full max-w-xs py-5 bg-gold text-black font-bold text-[10px] uppercase tracking-[4px] rounded-2xl">ENTER</button>
+                </div>
+            );
+
+            return (
+                <div className="h-screen flex flex-col bg-void overflow-hidden">
+                    <header className="p-4 border-b border-white/5 bg-black/60 backdrop-blur-xl flex justify-between items-center z-50">
+                        <div className="font-header text-gold text-[9px] tracking-[4px]">ORACLE HYBRID v20</div>
+                        <div className="text-[10px] font-mono text-white/40">{new Date().toLocaleTimeString()}</div>
+                    </header>
+
+                    <div ref={feedRef} className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-2 feed-container">
+                        {messages.map(m => (
+                            <Bubble key={m.id} msg={m} isMe={m.nama.startsWith(username)} onReply={setReplyingTo} onViewOnce={msg => setViewingSecret(msg.teks.replace("[VO]", ""))} onPlayAudio={setCurrentAudioId} currentAudioId={currentAudioId} />
+                        ))}
+                    </div>
+
+                    <div className="p-4 bg-zinc-900/90 backdrop-blur-lg border-t border-white/5 relative">
+                        {replyingTo && (
+                            <div className="absolute top-[-40px] left-0 right-0 bg-gold/10 p-2 flex justify-between items-center border-t border-gold/30">
+                                <span className="text-[9px] italic text-gold px-2">Replying to {replyingTo.nama.split('|')[0]}</span>
+                                <button onClick={() => setReplyingTo(null)} className="text-gold px-2 text-xs">✕</button>
+                            </div>
+                        )}
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => setFateMode(true)} className="w-12 h-12 flex items-center justify-center text-2xl bg-gold/10 rounded-2xl border border-gold/20">🔮</button>
+                            <div className="flex-1 bg-white/5 rounded-2xl px-4 py-3 flex items-center gap-2 border border-white/10">
+                                <input value={inputText} onChange={e => setInputText(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSend()} placeholder="Bisikkan..." className="flex-1 bg-transparent text-sm outline-none" />
+                                <button onClick={() => setIsViewOnce(!isViewOnce)} className={`text-xl ${isViewOnce ? 'text-red-500' : 'text-white/20'}`}>👁️</button>
+                                <button onClick={() => fileInputRef.current.click()} className="text-white/20 text-xl">🖼️</button>
+                            </div>
+                            <button onClick={() => handleSend()} className="w-12 h-12 bg-gold flex items-center justify-center text-black rounded-2xl">➤</button>
+                        </div>
+                        <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" />
+                    </div>
+
+                    {fateMode && (
+                        <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-8 backdrop-blur-2xl animate-fade-in">
+                            <div className="w-full max-w-xs space-y-4">
+                                <h2 className="text-center font-header text-gold tracking-[10px] text-sm mb-8">PILIH TAKDIR</h2>
+                                <button onClick={() => handleFate('light')} className="w-full p-5 glass rounded-2xl text-left border-gold/20"><div className="text-gold text-xs font-header">LIGHT DECK</div><div className="text-[8px] opacity-40">Truth, Dare, & Wildcards</div></button>
+                                <button onClick={() => handleFate('deep')} className="w-full p-5 glass rounded-2xl text-left border-gold/20"><div className="text-gold text-xs font-header">DEEP DECK</div><div className="text-[8px] opacity-40">Soul Connection</div></button>
+                                <button onClick={() => chaosUnlocked ? handleFate('chaos') : setShowChaosUnlock(true)} className="w-full p-5 glass rounded-2xl text-left border-red-500/20"><div className="text-red-500 text-xs font-header">CHAOS DECK {chaosUnlocked ? '' : '🔒'}</div><div className="text-[8px] opacity-40">Virtual Intimacy (18+)</div></button>
+                                <button onClick={() => setFateMode(false)} className="w-full text-center text-[10px] text-white/20 uppercase tracking-[4px] pt-4">Batal</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {showChaosUnlock && (
+                        <div className="fixed inset-0 bg-black/98 z-[200] flex items-center justify-center p-10 animate-fade-in">
+                            <div className="w-full max-w-xs space-y-8 text-center">
+                                <h3 className="text-red-500 font-header tracking-[8px] text-sm">ACCESS PIN</h3>
+                                <input type="password" id="cpin" className="w-full bg-transparent border-b border-red-500/40 text-center text-red-500 py-3 outline-none text-2xl tracking-[10px]" />
+                                <button onClick={() => { if(document.getElementById('cpin').value === '181225'){ setChaosUnlocked(true); safeStorage.set('oracle_chaos_unlocked', 'true'); setShowChaosUnlock(false); } else alert('Denied'); }} className="w-full py-4 bg-red-600/20 border border-red-600/50 rounded-xl text-red-500 text-[9px] font-bold">UNLOCK</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {viewingSecret && (
+                        <div className="fixed inset-0 bg-black/95 z-[300] flex flex-col items-center justify-center p-8 text-center" onClick={async () => {
+                            setViewingSecret(null);
+                            // Logika "Burn after read" bisa ditambahkan di sini dengan update Supabase
+                        }}>
+                            <div className="text-gold text-[8px] font-header tracking-[8px] uppercase mb-12 opacity-40">Secret Revealed</div>
+                            <div className="font-mystic text-2xl italic text-white/90">"{viewingSecret}"</div>
+                            <div className="mt-12 text-white/20 text-[7px] uppercase tracking-[5px]">Tap to burn memory</div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        const root = window.ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
