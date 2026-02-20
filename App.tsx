@@ -14,6 +14,7 @@ const safeStorage = {
 };
 
 export default function App() {
+  console.log("App rendering...");
   const [isAdult, setIsAdult] = useState(() => safeStorage.get('oracle_adult') === 'true');
   const [layer, setLayer] = useState<Layer>(() => {
     const adult = safeStorage.get('oracle_adult');
@@ -71,7 +72,7 @@ export default function App() {
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
         console.error("Global Error:", event.error);
-        // alert(`System Error: ${event.message}`); // Optional: uncomment for aggressive debugging
+        alert(`System Error: ${event.message}\n${event.error?.stack}`);
     };
     window.addEventListener('error', handleError);
 
