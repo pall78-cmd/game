@@ -303,20 +303,33 @@
                 const isChaos = type.includes("CHAOS");
 
                 return (
-                    <div className={`p-5 rounded-2xl border border-gold/40 bg-gradient-to-br from-black to-zinc-900 text-center space-y-4 shadow-2xl relative overflow-hidden group transition-all duration-500`}>
-                        <div className="text-[9px] font-header tracking-[5px] uppercase opacity-70 text-gold">{type}</div>
-                        <div className="font-mystic text-2xl italic text-white/95 leading-relaxed px-2">"{content}"</div>
-                        <div className="text-[7px] opacity-40 uppercase tracking-widest font-header">Invoked by {d.invoker}</div>
+                    <div className={`p-4 rounded-xl border border-gold/30 bg-gradient-to-br from-black to-zinc-900 text-center space-y-3 shadow-lg relative overflow-hidden group`}>
+                        <div className="text-[8px] font-header tracking-[4px] uppercase opacity-60 text-gold">{type}</div>
+                        <div className="font-mystic text-xl italic text-white/90 leading-normal">"{content}"</div>
+                        <div className="text-[7px] opacity-30 uppercase tracking-widest font-header pt-1">Invoked by {d.invoker}</div>
                     </div>
                 );
             } catch { return <div className="p-3 text-red-500 border border-red-500/20 rounded-lg text-xs italic">Takdir yang Terdistorsi</div>; }
         };
 
-        const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, onShare, currentAudioId, onPlayAudio }) => {
+        const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, onShare, currentAudioId, onPlayAudio, onVisible }) => {
             const [isExpanded, setIsExpanded] = useState(false);
             const [swipeX, setSwipeX] = useState(0);
             const touchStartRef = useRef(0);
             const longPressTimerRef = useRef(null);
+            const bubbleRef = useRef(null);
+
+            useEffect(() => {
+                if (!bubbleRef.current || isMe) return;
+                const observer = new IntersectionObserver(([entry]) => {
+                    if (entry.isIntersecting) {
+                        onVisible(msg.id);
+                        observer.disconnect();
+                    }
+                }, { threshold: 0.8 });
+                observer.observe(bubbleRef.current);
+                return () => observer.disconnect();
+            }, [bubbleRef, msg.id, isMe, onVisible]);
 
             const content = msg.teks;
             const isOracle = msg.nama === "ORACLE";
@@ -387,6 +400,7 @@
 
             return (
                 <div 
+                    ref={bubbleRef}
                     className={`flex flex-col mb-2 animate-fade-in relative transition-transform duration-200 ${isOracle ? 'items-center w-full my-4' : isMe ? 'items-end' : 'items-start'}`}
                     style={{ transform: `translateX(${swipeX}px)` }}
                     onTouchStart={handleTouchStart}
@@ -430,7 +444,7 @@
                             {!isOracle && (
                                 <div className="flex items-center justify-end gap-1 mt-1 self-end">
                                     <span className="text-[9px] opacity-50 font-sans">{formatTime(msg.created_at)}</span>
-                                    {isMe && <span className="text-[10px] text-[#34b7f1]">✓✓</span>}
+                                    {isMe && <span className={`text-[10px] ${msg.is_read ? 'text-[#34b7f1]' : 'text-white/40'}`}>✓✓</span>}
                                 </div>
                             )}
                         </div>
@@ -475,6 +489,8 @@
             const [showChaosUnlock, setShowChaosUnlock] = useState(false);
             const [isUploading, setIsUploading] = useState(false);
             const [deck, setDeck] = useState(initDeck());
+            const [activeCard, setActiveCard] = useState(null);
+            const [readReceipts, setReadReceipts] = useState({});
             const feedRef = useRef(null);
             const lastTypingRef = useRef(0);
             const fileInputRef = useRef(null);
@@ -499,6 +515,12 @@
                     if (data) setMessages(data);
                 };
                 fetchMessages();
+
+                const fetchActiveCard = async () => {
+                    const { data } = await supabaseClient.from('Takdir').select('*').eq('is_active', true).single();
+                    if (data) setActiveCard(data);
+                };
+                fetchActiveCard();
                 
                 const channel = supabaseClient.channel('msgs');
                 
@@ -507,10 +529,14 @@
                         setMessages(prev => [...prev, p.new]);
                     })
                     .on('broadcast', { event: 'typing' }, ({ payload }) => {
-                        setTypingUsers(prev => ({
-                            ...prev,
-                            [payload.user]: payload.isTyping ? Date.now() : 0
-                        }));
+                        if (payload.user !== username) {
+                            setTypingUsers(prev => ({ ...prev, [payload.user]: payload.isTyping ? Date.now() : 0 }));
+                        }
+                    })
+                    .on('broadcast', { event: 'read' }, ({ payload }) => {
+                        setMessages(prev => prev.map(m => 
+                            m.id === payload.messageId ? { ...m, is_read: true } : m
+                        ));
                     })
                     .subscribe();
                 
@@ -578,6 +604,14 @@
                     type: 'broadcast',
                     event: 'typing',
                     payload: { user: username, isTyping: false }
+                });
+            };
+
+            const handleMessageVisible = (messageId) => {
+                supabaseClient.channel('msgs').send({
+                    type: 'broadcast',
+                    event: 'read',
+                    payload: { messageId, reader: username }
                 });
             };
 
@@ -672,16 +706,26 @@
                 }
             };
 
-            const handleFate = (category) => {
+            const handleFate = async (category) => {
+                if (activeCard) {
+                    const nama = "ORACLE";
+                    const teks = JSON.stringify({ content: activeCard.card_content, invoker: activeCard.invoker });
+                    await supabaseClient.from('Pesan').insert([{ nama, teks }]);
+                    setFateMode(false);
+                    return;
+                }
+
                 const isChaos = category === 'chaos';
                 if (isChaos && !chaosUnlocked) {
                     alert("Mode Chaos terkunci. Verifikasi usia dan kode diperlukan.");
                     return;
                 }
                 const cardContent = drawCard(deck, category, isChaos);
+                const { data } = await supabaseClient.from('Takdir').insert([{ card_content: cardContent, invoker: username, is_active: true }]).select().single();
+                setActiveCard(data);
                 const nama = "ORACLE";
-                const teks = JSON.stringify({ content: cardContent, invoker: username });
-                supabaseClient.from('Pesan').insert([{ nama, teks }]);
+                const teks = JSON.stringify({ content: data.card_content, invoker: data.invoker });
+                await supabaseClient.from('Pesan').insert([{ nama, teks }]);
                 setFateMode(false);
             };
 
@@ -793,6 +837,7 @@
                                 onViewOnce={handleViewOnce}
                                 onPlayAudio={setCurrentAudioId}
                                 currentAudioId={currentAudioId}
+                                onVisible={handleMessageVisible}
                             />
                         ))}
                         
