@@ -167,95 +167,304 @@
             }
         };
 
-        const createFreshDeck = () => {
-            const generateItems = (count, prefix) => Array.from({ length: count }, (_, i) => `${prefix} #${i + 1}`);
-            
-            return {
-                light: { 
-                    truths: [
-                        "Apa hal terkecil yang membuatmu bahagia hari ini?", 
-                        "Siapa orang terakhir yang kamu pikirkan sebelum tidur?", 
-                        "Apa hobi rahasia yang tidak diketahui banyak orang?",
-                        "Apa makanan favoritmu?",
-                        "Apa film terakhir yang kamu tonton?",
-                        ...generateItems(20, "Light Truth")
-                    ], 
-                    dares: [
-                        "Kirim pesan 'Halo' ke orang ke-5 di daftar chatmu.", 
-                        "Tunjukkan foto terakhir di galerimu.", 
-                        "Lakukan dance singkat selama 10 detik.",
-                        "Minum segelas air putih.",
-                        "Sebutkan 3 hal baik tentang dirimu.",
-                        ...generateItems(20, "Light Dare")
-                    ], 
-                    wildcards: generateItems(22, "Light Wildcard") 
-                },
-                deep: { 
-                    truths: [
-                        "Apa ketakutan terbesarmu yang belum pernah kamu ceritakan?", 
-                        "Jika kamu bisa mengulang satu hari dalam hidupmu, hari apa itu?", 
-                        "Apa penyesalan terbesarmu sejauh ini?",
-                        "Siapa orang yang paling berpengaruh dalam hidupmu?",
-                        "Apa arti kebahagiaan bagimu?",
-                        ...generateItems(20, "Deep Truth")
-                    ], 
-                    dares: [
-                        "Telepon seseorang yang sudah lama tidak kamu hubungi.", 
-                        "Tulis surat singkat untuk dirimu di masa depan.", 
-                        "Bagikan satu rahasia yang paling kamu jaga.",
-                        "Ceritakan mimpi terbesarmu.",
-                        "Minta maaf kepada seseorang yang pernah kamu sakiti.",
-                        ...generateItems(20, "Deep Dare")
-                    ], 
-                    wildcards: generateItems(22, "Deep Wildcard") 
-                },
-                chaos: { 
-                    truths: [
-                        "Apa fantasi terliarmu yang belum pernah terwujud?",
-                        "Pernahkah kamu merasa tertarik pada seseorang di ruangan ini?",
-                        "Apa hal paling berani yang pernah kamu lakukan di tempat tidur?",
-                        "Apa bagian tubuh pasangan yang paling kamu sukai?",
-                        "Apa pengalaman kencan terburukmu?",
-                        ...generateItems(23, "Chaos Truth (18+)")
-                    ], 
-                    dares: [
-                        "Kirim pesan menggoda ke pasanganmu (atau gebetan).",
-                        "Lakukan 'body shot' virtual.",
-                        "Bisikkan sesuatu yang nakal ke telinga orang di sebelahmu.",
-                        "Berikan ciuman virtual ke kamera.",
-                        "Tunjukkan chat terakhirmu dengan pasangan.",
-                        ...generateItems(23, "Chaos Dare (18+)")
-                    ], 
-                    wildcards: generateItems(30, "Chaos Wildcard (18+)") 
-                }
-            };
-        };
+        const lightDeck = {
+    truth: [
+        "Apa hal paling memalukan yang pernah kamu lakukan di depan umum?",
+        "Jika kamu bisa bertukar hidup dengan siapa pun selama sehari, siapa yang akan kamu pilih?",
+        "Apa kebohongan terbesar yang pernah kamu katakan?",
+        "Siapa selebriti yang paling kamu sukai?",
+        "Apa hal paling aneh yang pernah kamu makan?",
+        "Jika kamu punya kekuatan super, apa itu?",
+        "Apa film yang bisa kamu tonton berulang kali tanpa bosan?",
+        "Apa hal yang paling kamu takuti?",
+        "Apa nama panggilan paling aneh yang pernah kamu miliki?",
+        "Apa hal pertama yang akan kamu beli jika memenangkan lotre?",
+        "Lagu apa yang diam-diam kamu sukai?",
+        "Apa bakat terpendam yang kamu miliki?",
+        "Apa hal paling baik yang pernah dilakukan seseorang untukmu?",
+        "Apa pekerjaan impianmu saat kecil?",
+        "Apa hal yang paling membuatmu kesal?",
+        "Jika kamu bisa bepergian ke mana saja, ke mana kamu akan pergi?",
+        "Apa hal paling spontan yang pernah kamu lakukan?",
+        "Siapa pahlawanmu di kehidupan nyata?",
+        "Apa nasihat terbaik yang pernah kamu terima?",
+        "Apa kenangan favoritmu dari masa kecil?",
+        "Apa satu hal yang ingin kamu ubah dari dirimu?",
+        "Apa hal yang membuatmu tertawa paling keras?"
+    ],
+    dare: [
+        "Tirukan suara binatang yang paling aneh yang kamu bisa.",
+        "Bicaralah dengan aksen lucu selama 3 menit ke depan.",
+        "Lakukan tarian konyol selama 30 detik.",
+        "Kirim pesan teks ke orang tuamu dengan kata-kata 'Aku tahu rahasiamu'.",
+        "Biarkan seseorang menggambar sesuatu di wajahmu dengan spidol.",
+        "Makan satu sendok teh bumbu yang tidak kamu sukai.",
+        "Telepon teman dan nyanyikan 'Selamat Ulang Tahun' untuk mereka.",
+        "Lakukan 10 push-up sekarang juga.",
+        "Bicaralah seperti penyair selama sisa permainan.",
+        "Posting foto selfie konyol di media sosialmu.",
+        "Biarkan grup memilih video YouTube untuk kamu tonton.",
+        "Gunakan kaus kaki sebagai boneka tangan dan buat pertunjukan.",
+        "Berjalan mundur selama sisa permainan.",
+        "Ceritakan lelucon yang buruk.",
+        "Coba jungkir balik (atau coba saja).",
+        "Berpura-pura menjadi seekor ayam selama 1 menit.",
+        "Biarkan seseorang menggelitikmu selama 30 detik.",
+        "Katakan alfabet mundur secepat yang kamu bisa.",
+        "Kenakan pakaianmu secara terbalik.",
+        "Coba sentuh hidungmu dengan lidahmu.",
+        "Buat wajah paling jelek yang kamu bisa.",
+        "Berteriaklah kata acak pertama yang muncul di kepalamu."
+    ],
+    wildcard: [
+        "Semua pemain harus bertukar tempat duduk.",
+        "Pemain di sebelah kirimu harus memberimu pujian.",
+        "Pilih pemain lain untuk melakukan dare dari dek ini.",
+        "Kamu aman dari dare berikutnya.",
+        "Semua pemain harus minum seteguk air.",
+        "Ceritakan sebuah rahasia kecil.",
+        "Buat aturan baru untuk permainan ini.",
+        "Pemain termuda di grup memilih lagu berikutnya.",
+        "Pemain tertua di grup menceritakan sebuah kisah.",
+        "Tiru pemain lain sampai giliranmu berikutnya.",
+        "Kamu mendapatkan giliran ekstra.",
+        "Tantang pemain lain untuk adu panco.",
+        "Semua pemain harus mengatakan sesuatu yang mereka syukuri.",
+        "Pilih dua pemain untuk bertukar satu item pakaian.",
+        "Kamu bisa bertanya satu pertanyaan 'truth' kepada pemain mana pun.",
+        "Balikkan urutan permainan.",
+        "Berikan julukan kepada setiap pemain.",
+        "Semua pemain harus berbicara dengan suara bernada tinggi sampai giliranmu berikutnya.",
+        "Pemain yang memilih kartu ini harus memakai topi konyol.",
+        "Pilih pemain untuk menjadi 'raja/ratu' sampai giliranmu berikutnya.",
+        "Semua pemain harus menari di tempat selama 10 detik.",
+        "Kartu ini tidak melakukan apa-apa. Kamu beruntung!"
+    ]
+};
 
-        const drawCard = (deck, category, isChaos = false) => {
-            const cat = deck[category];
-            const wildcardChance = isChaos ? 0.08 : 0.10;
-            const rand = Math.random();
-            
-            let type, content;
-            if (rand < wildcardChance) {
-                type = `${category.toUpperCase()} WILDCARD`;
-                content = cat.wildcards[Math.floor(Math.random() * cat.wildcards.length)];
-            } else if (Math.random() < 0.5) {
-                type = `${category.toUpperCase()} TRUTH`;
-                content = cat.truths[Math.floor(Math.random() * cat.truths.length)];
-            } else {
-                type = `${category.toUpperCase()} DARE`;
-                content = cat.dares[Math.floor(Math.random() * cat.dares.length)];
+const deepDeck = {
+    truth: [
+        "Apa penyesalan terbesarmu dalam hidup?",
+        "Apa hal yang paling kamu banggakan?",
+        "Kapan terakhir kali kamu menangis dan mengapa?",
+        "Apa ketakutan terbesarmu tentang masa depan?",
+        "Apa satu hal yang orang lain tidak tahu tentangmu?",
+        "Bagaimana kamu mendefinisikan cinta?",
+        "Apa pelajaran tersulit yang pernah kamu pelajari?",
+        "Jika kamu bisa memberikan nasihat kepada dirimu yang lebih muda, apa itu?",
+        "Apa yang membuatmu merasa benar-benar hidup?",
+        "Apa keyakinan yang kamu pegang teguh?",
+        "Bagaimana pengalaman patah hati mengubahmu?",
+        "Apa impian yang belum kamu wujudkan?",
+        "Apa hal yang paling penting dalam sebuah hubungan bagimu?",
+        "Kapan kamu merasa paling kesepian?",
+        "Apa arti kebahagiaan bagimu?",
+        "Apa satu hal yang ingin kamu ubah dari dunia?",
+        "Bagaimana kamu ingin dikenang?",
+        "Apa kelemahan terbesarmu?",
+        "Apa kekuatan terbesarmu?",
+        "Apakah kamu percaya pada takdir atau kehendak bebas?",
+        "Apa hal yang paling kamu syukuri dalam hidup?",
+        "Apa yang kamu pelajari dari kegagalan terbesarmu?",
+        "Siapa orang yang paling berpengaruh dalam hidupmu?",
+        "Apa yang membuatmu merasa tidak aman?",
+        "Apa arti kesuksesan bagimu?"
+    ],
+    dare: [
+        "Tulis surat untuk dirimu di masa depan dan bacakan bagian pertamanya.",
+        "Telepon seseorang yang kamu sayangi dan katakan betapa berartinya mereka bagimu.",
+        "Hapus satu aplikasi media sosial dari ponselmu selama 24 jam.",
+        "Tunjukkan 5 foto terakhir di galeri ponselmu kepada grup.",
+        "Tulis sebuah puisi singkat tentang perasaanmu saat ini.",
+        "Akui sesuatu yang selama ini kamu takuti untuk dikatakan.",
+        "Lihat matamu di cermin dan katakan tiga hal positif tentang dirimu.",
+        "Kirim pesan kepada mantanmu (jika pantas) dan tanyakan kabar mereka.",
+        "Maafkan seseorang di dalam hatimu yang telah menyakitimu.",
+        "Berjanjilah untuk mencoba hobi baru minggu ini.",
+        "Bagikan salah satu tujuan hidupmu kepada grup.",
+        "Tunjukkan playlist musik 'pribadi'-mu.",
+        "Tulis ketakutan terbesarmu di selembar kertas dan robek.",
+        "Lakukan meditasi selama 3 menit tanpa gangguan.",
+        "Berikan pujian yang tulus kepada setiap orang di grup.",
+        "Blokir nomor telepon yang seharusnya sudah kamu blokir sejak lama.",
+        "Tulis daftar hal-hal yang membuatmu bahagia.",
+        "Renungkan kesalahan yang pernah kamu buat dan apa yang kamu pelajari darinya.",
+        "Jadilah orang pertama yang meminta maaf dalam argumen berikutnya.",
+        "Habiskan 10 menit untuk mempelajari sesuatu yang baru secara online.",
+        "Tinggalkan ulasan positif untuk bisnis lokal yang kamu sukai.",
+        "Tonton video motivasi dan bagikan pemikiranmu.",
+        "Rencanakan tindakan kebaikan kecil untuk dilakukan besok.",
+        "Tulis catatan terima kasih kepada seseorang yang telah membantumu.",
+        "Pandu grup melalui latihan peregangan singkat."
+    ],
+    wildcard: [
+        "Pilih satu pemain untuk berbagi impian mereka.",
+        "Setiap orang berbagi satu hal yang mereka pelajari minggu ini.",
+        "Grup memilih topik filosofis untuk didiskusikan selama 5 menit.",
+        "Pemain berikutnya harus menjawab pertanyaan 'truth' dari pemain di sebelah kanan mereka.",
+        "Kamu bisa melewati pertanyaan berikutnya.",
+        "Bagikan kutipan atau pepatah favoritmu.",
+        "Pilih lagu yang memiliki makna mendalam bagimu dan jelaskan mengapa.",
+        "Semua orang menulis tujuan anonim dan membacanya dengan keras.",
+        "Pemain di seberangmu harus berbagi kenangan indah.",
+        "Kamu harus memberikan nasihat hidup kepada pemain di sebelah kirimu.",
+        "Diskusikan buku atau film yang mengubah perspektifmu.",
+        "Setiap orang menyebutkan satu hal yang ingin mereka capai tahun ini.",
+        "Pilih dua pemain untuk saling memberikan pujian yang tulus.",
+        "Hening selama satu menit untuk refleksi.",
+        "Kamu bisa meminta nasihat dari grup tentang suatu masalah.",
+        "Bagikan satu momen ketika kamu merasa bangga pada dirimu sendiri.",
+        "Grup membuat 'kapsul waktu' verbal tentang hari ini.",
+        "Pilih pemain untuk menceritakan lelucon yang membuat berpikir.",
+        "Setiap orang berbagi satu kebiasaan yang ingin mereka ubah.",
+        "Diskusikan apa arti 'persahabatan' bagi kalian semua.",
+        "Kamu harus memulai percakapan yang mendalam dengan orang asing besok.",
+        "Pilih satu kata untuk menggambarkan keadaan pikiranmu saat ini.",
+        "Grup memberikan tepuk tangan meriah untuk satu sama lain."
+    ]
+};
+
+const chaosDeck = {
+    truth: [
+        "Apa hal paling ilegal yang pernah kamu lakukan?",
+        "Kapan terakhir kali kamu benar-benar marah dan apa yang terjadi?",
+        "Apa fantasi terliarmu?",
+        "Jika kamu bisa lolos dari satu kejahatan, apa itu?",
+        "Apa rahasia yang belum pernah kamu ceritakan kepada siapa pun?",
+        "Apa hal paling gila yang pernah kamu lakukan demi cinta?",
+        "Pernahkah kamu mengkhianati seorang teman?",
+        "Apa hal yang paling kamu sesali saat mabuk?",
+        "Siapa orang yang paling kamu benci di ruangan ini dan mengapa?",
+        "Apa hal paling aneh yang kamu cari di internet?",
+        "Pernahkah kamu berbohong dalam permainan ini?",
+        "Apa hal terburuk yang pernah dikatakan seseorang tentangmu?",
+        "Jika kamu harus menghapus satu orang dari hidupmu, siapa itu?",
+        "Apa kebiasaan paling menjijikkan yang kamu miliki?",
+        "Pernahkah kamu mencuri sesuatu?",
+        "Apa hal paling kekanak-kanakan yang masih kamu lakukan?",
+        "Apa gosip paling menarik yang kamu tahu?",
+        "Siapa orang terakhir yang kamu stalk di media sosial?",
+        "Apa hal yang akan kamu lakukan jika kamu tidak terlihat selama sehari?",
+        "Pernahkah kamu menggunakan seseorang untuk mendapatkan apa yang kamu inginkan?",
+        "Apa kebohongan yang kamu katakan pada dirimu sendiri?",
+        "Apa hal yang paling membuatmu iri pada orang lain?",
+        "Pernahkah kamu memikirkan skenario balas dendam?",
+        "Apa hal paling memalukan yang ada di riwayat browsermu?",
+        "Apa hal yang paling kamu takuti akan diketahui orang lain tentangmu?",
+        "Apa hal paling impulsif yang pernah kamu beli?",
+        "Pernahkah kamu melanggar hukum tanpa ketahuan?",
+        "Apa hal paling aneh yang membuatmu tertarik pada seseorang?",
+        "Jika kamu bisa membaca pikiran satu orang di ruangan ini, siapa itu?",
+        "Apa hal yang akan kamu lakukan jika tidak ada konsekuensi sosial?"
+    ],
+    dare: [
+        "Telepon nomor acak dan coba lakukan percakapan selama 1 menit.",
+        "Makan sesendok penuh saus pedas.",
+        "Biarkan grup memposting status memalukan di akun media sosialmu.",
+        "Lakukan tarian perut di atas meja.",
+        "Kirim pesan teks 'Aku mencintaimu' ke kontak ke-5 di ponselmu.",
+        "Ganti celanamu dengan pemain lain selama sisa permainan.",
+        "Coba minum segelas air tanpa menggunakan tangan.",
+        "Berpura-pura menjadi hewan peliharaan pemain lain sampai giliranmu berikutnya.",
+        "Lakukan rap gaya bebas tentang pemain di sebelah kananmu.",
+        "Biarkan seseorang memberimu potongan rambut yang buruk (hanya satu guntingan kecil!).",
+        "Isi mulutmu dengan es batu dan coba nyanyikan sebuah lagu.",
+        "Lakukan panggilan prank ke sebuah toko.",
+        "Kenakan pakaian dalammu di luar pakaianmu.",
+        "Cium lantai.",
+        "Bicaralah hanya dalam bentuk pertanyaan sampai giliranmu berikutnya.",
+        "Coba jual barang acak di ruangan ini kepada grup.",
+        "Biarkan grup memilih kombinasi makanan aneh untuk kamu makan.",
+        "Lakukan stand-up comedy selama 1 menit.",
+        "Tiru aksen yang paling menyinggung yang kamu bisa.",
+        "Minta uang kepada orang asing di jalan (jika memungkinkan).",
+        "Gunakan lipstik tanpa cermin.",
+        "Coba lakukan breakdance.",
+        "Kirim DM ke selebriti pilihan grup.",
+        "Lakukan pembacaan dramatis dari item terakhir di daftar belanjamu.",
+        "Berdiri di kursi dan berpidato tentang topik konyol.",
+        "Biarkan seseorang menulis kata di dahimu dengan spidol permanen.",
+        "Makan kulit pisang (sedikit saja!).",
+        "Tantang orang asing untuk lomba menatap.",
+        "Berjalan dengan gaya seperti di peragaan busana di sekitar ruangan.",
+        "Lakukan 20 jumping jack sambil meneriakkan namamu."
+    ],
+    wildcard: [
+        "Mode Kekacauan: Semua pemain harus melakukan dare yang sama dari dek ini.",
+        "Tukar Tangan: Kamu harus menukar kartu dengan pemain lain.",
+        "Bom Waktu: Kamu punya 10 detik untuk membuat pemain lain tertawa, jika tidak, kamu melakukan dare.",
+        "Pembalikan Peran: Pilih pemain untuk menirumu sampai giliranmu berikutnya.",
+        "Aturan Baru: Buat aturan yang harus diikuti semua orang, jika tidak, mereka minum.",
+        "Duet: Pilih pemain lain untuk melakukan dare bersamamu.",
+        "Joker: Kamu bisa membuat dare sendiri untuk pemain lain.",
+        "Tuduhan: Tunjuk seorang pemain. Mereka harus menjawab pertanyaan 'truth' apa pun darimu.",
+        "Amnesti: Kamu bisa menolak satu dare atau truth selama sisa permainan.",
+        "Voting Grup: Grup memilih dare untukmu dari daftar.",
+        "Rantai Perintah: Kamu memberi perintah kepada pemain A, yang memberi perintah kepada pemain B, dst.",
+        "Tidak Ada 'Aku': Kamu tidak bisa menggunakan kata 'aku' sampai giliranmu berikutnya.",
+        "Raja/Ratu Chaos: Kamu bisa membuat satu aturan konyol yang berlangsung selama 3 putaran.",
+        "Berbagi Rahasia: Setiap orang menulis rahasia anonim, lalu dibacakan.",
+        "Tantangan Grup: Seluruh grup harus menyelesaikan tugas bersama.",
+        "Mode Cepat: Setiap pemain hanya punya 5 detik untuk menyelesaikan giliran mereka.",
+        "Tangan Terikat: Mainkan dengan satu tangan di belakang punggungmu.",
+        "Hanya Satu Suku Kata: Bicaralah hanya dengan satu suku kata.",
+        "Tarian Wajib: Setiap kali giliranmu, kamu harus menari selama 5 detik.",
+        "Tukar Identitas: Bertingkahlah seperti pemain di sebelah kirimu.",
+        "Kebenaran atau Kebenaran: Kamu harus menjawab dua pertanyaan 'truth'.",
+        "Dare atau Dare: Kamu harus melakukan dua 'dare'.",
+        "Telepati: Coba tebak apa yang dipikirkan pemain lain.",
+        "Mode Diam: Tidak ada yang boleh berbicara sampai giliran pemain berikutnya.",
+        "Cerita Bersambung: Setiap pemain menambahkan satu kalimat ke cerita yang sedang berlangsung.",
+        "Pengakuan Dosa: Akui hal kecil yang memalukan.",
+        "Panggilan Telepon Misterius: Grup memilih siapa yang harus kamu telepon.",
+        "Kartu Keluar dari Penjara: Simpan kartu ini untuk membatalkan dare."
+    ]
+};
+
+        const drawCard = (category) => {
+            let deck;
+            let wildcardChance = 0;
+
+            if (category === 'light') {
+                deck = lightDeck;
+                wildcardChance = 0.15; // 15%
+            } else if (category === 'deep') {
+                deck = deepDeck;
+                wildcardChance = 0.10; // 10%
+            } else { // chaos
+                deck = chaosDeck;
+                wildcardChance = 0.06; // 6%
             }
-            return `${type}: ${content}`;
+
+            const isWildcard = Math.random() < wildcardChance;
+            let cardType;
+            let content;
+
+            if (isWildcard) {
+                cardType = 'wildcard';
+                const cardPool = deck[cardType];
+                if (!cardPool || cardPool.length === 0) {
+                    content = `Tidak ada kartu ${cardType} tersisa.`;
+                } else {
+                    const randomIndex = Math.floor(Math.random() * cardPool.length);
+                    content = cardPool[randomIndex];
+                }
+                return `${category.toUpperCase()} WILDCARD: ${content}`;
+            }
+            
+            // 50/50 chance for truth or dare if not a wildcard
+            cardType = Math.random() < 0.5 ? 'truth' : 'dare';
+            const cardPool = deck[cardType];
+            if (!cardPool || cardPool.length === 0) {
+                content = `Tidak ada kartu ${cardType} tersisa.`;
+            } else {
+                const randomIndex = Math.floor(Math.random() * cardPool.length);
+                content = cardPool[randomIndex];
+            }
+            return `${category.toUpperCase()} ${cardType.toUpperCase()}: ${content}`;
         };
 
-        const initDeck = () => {
-            try {
-                const saved = localStorage.getItem('oracle_deck_v17_9');
-                return saved ? JSON.parse(saved) : createFreshDeck();
-            } catch { return createFreshDeck(); }
-        };
+
 
         // --- COMPONENTS ---
 
@@ -340,15 +549,19 @@
             // Parse Reply Context
             let replyData = null;
             let actualContent = content;
-            if (content.startsWith('[REPLY:{')) {
-                const endIdx = content.indexOf('}]');
-                if (endIdx !== -1) {
-                    try {
-                        const jsonStr = content.substring(7, endIdx + 2);
-                        replyData = JSON.parse(jsonStr);
-                        actualContent = content.substring(endIdx + 2);
-                    } catch (e) {}
+            const replyRegex = /^\s*\[REPLY:(.+?)\](.*)$/s;
+            const match = content.match(replyRegex);
+
+            if (match) {
+                try {
+                    replyData = JSON.parse(match[1]);
+                    actualContent = match[2].trim();
+                } catch (e) {
+                    console.error('Failed to parse reply JSON:', e);
+                    actualContent = content; // Fallback to showing raw content on error
                 }
+            } else {
+                actualContent = content;
             }
 
             const identity = useMemo(() => {
@@ -488,12 +701,13 @@
             const [chaosPinInput, setChaosPinInput] = useState('');
             const [showChaosUnlock, setShowChaosUnlock] = useState(false);
             const [isUploading, setIsUploading] = useState(false);
-            const [deck, setDeck] = useState(initDeck());
+
             const [activeCard, setActiveCard] = useState(null);
             const [readReceipts, setReadReceipts] = useState({});
             const feedRef = useRef(null);
             const lastTypingRef = useRef(0);
             const fileInputRef = useRef(null);
+            const appRef = useRef(null);
 
             useEffect(() => {
                 const loader = document.getElementById('loader');
@@ -510,17 +724,16 @@
 
             useEffect(() => {
                 if (layer !== 'MAIN') return;
-                const fetchMessages = async () => {
-                    const { data } = await supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
-                    if (data) setMessages(data);
-                };
-                fetchMessages();
 
-                const fetchActiveCard = async () => {
-                    const { data } = await supabaseClient.from('Takdir').select('*').eq('is_active', true).single();
-                    if (data) setActiveCard(data);
+                const initialize = async () => {
+                    const { data: messagesData } = await supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
+                    if (messagesData) setMessages(messagesData);
+
+                    const { data: cardData } = await supabaseClient.from('Tantangan').select('*').eq('is_active', true).single();
+                    if (cardData) setActiveCard(cardData);
                 };
-                fetchActiveCard();
+
+                initialize();
                 
                 const channel = supabaseClient.channel('msgs');
                 
@@ -568,6 +781,21 @@
             useEffect(() => {
                 const timer = setInterval(() => setCurrentTime(new Date()), 1000);
                 return () => clearInterval(timer);
+            }, []);
+
+            useEffect(() => {
+                const setAppHeight = () => {
+                    if (appRef.current) {
+                        appRef.current.style.height = `${window.innerHeight}px`;
+                    }
+                };
+
+                setAppHeight();
+                window.addEventListener('resize', setAppHeight);
+
+                return () => {
+                    window.removeEventListener('resize', setAppHeight);
+                };
             }, []);
 
             const handleSend = async () => {
@@ -720,8 +948,15 @@
                     alert("Mode Chaos terkunci. Verifikasi usia dan kode diperlukan.");
                     return;
                 }
-                const cardContent = drawCard(deck, category, isChaos);
-                const { data } = await supabaseClient.from('Takdir').insert([{ card_content: cardContent, invoker: username, is_active: true }]).select().single();
+                const cardContent = drawCard(category);
+                const { data, error } = await supabaseClient.from('Tantangan').insert([{ card_content: cardContent, invoker: username, is_active: true }]).select().single();
+                
+                if (error || !data) {
+                    console.error("Error drawing fate card:", error);
+                    alert("Gagal menarik takdir. Silakan coba lagi.");
+                    return;
+                }
+
                 setActiveCard(data);
                 const nama = "ORACLE";
                 const teks = JSON.stringify({ content: data.card_content, invoker: data.invoker });
@@ -811,7 +1046,7 @@
             );
 
             return (
-                <div className="h-screen flex flex-col bg-void overflow-hidden">
+                <div ref={appRef} className="flex flex-col bg-void overflow-hidden">
                     <header className="p-4 border-b border-white/5 bg-black/80 backdrop-blur-md z-10 flex justify-between items-center relative">
                         <div className="font-header text-gold text-[10px] tracking-widest">ORACLE v17.9</div>
                         <div className="text-[10px] font-mono text-white/60 tracking-[2px] uppercase">{currentTime.toLocaleTimeString()}</div>
