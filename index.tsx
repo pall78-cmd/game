@@ -6,6 +6,16 @@ import './index.css';
 console.log('Index.tsx executing...');
 console.log('React version:', React.version);
 
+window.addEventListener('error', (event) => {
+  console.error('Global JS Error:', event.error);
+  alert('Global JS Error: ' + event.message);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled Promise Rejection:', event.reason);
+  alert('Promise Error: ' + event.reason);
+});
+
 interface ErrorBoundaryProps {
   children: React.ReactNode;
 }

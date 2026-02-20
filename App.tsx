@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase, sendMessage, clearAllMessages } from './services/supabase';
+import { supabase, sendMessage, clearAllMessages, testConnection } from './services/supabase';
 import { Message, Layer } from './types';
 import { initDeck, drawCard, Intensity } from './utils/deck';
 import Bubble from './components/Bubble';
@@ -110,6 +110,19 @@ export default function App() {
   // Remove loader on mount
   useEffect(() => {
     console.log("App mounted, removing loader...");
+    
+    const runDiagnostics = async () => {
+      console.log("Running Supabase diagnostics...");
+      const { success, error } = await testConnection();
+      if (!success) {
+        console.error("Supabase Diagnostic Failed:", error);
+        alert(`Supabase Connection Failed: ${error}\n\nPlease check if table 'Pesan' exists and RLS is configured.`);
+      } else {
+        console.log("Supabase Diagnostic: Connection OK");
+      }
+    };
+    runDiagnostics();
+
     const loader = document.getElementById('loader');
     if (loader) {
       loader.style.opacity = '0';

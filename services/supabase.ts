@@ -32,6 +32,17 @@ export const clearAllMessages = async () => {
   return await supabase.from('Pesan').delete().neq('id', 0);
 };
 
+export const testConnection = async () => {
+  if (!supabase) return { success: false, error: "Client not initialized" };
+  try {
+    const { error } = await supabase.from('Pesan').select('id').limit(1);
+    if (error) return { success: false, error: error.message };
+    return { success: true };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+};
+
 export const uploadImage = async (file: File) => {
   if (!supabase) throw new Error("Supabase not initialized");
   const fileExt = file.name.split('.').pop();
