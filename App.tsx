@@ -18,8 +18,11 @@ export default function App() {
   const [layer, setLayer] = useState<Layer>(() => {
     const adult = safeStorage.get('oracle_adult');
     const user = safeStorage.get('oracle_user');
+    const unlocked = safeStorage.get('oracle_unlocked') === 'true';
+    
     if (adult === null) return 'AGE';
     if (user === null) return 'NAME';
+    if (unlocked) return 'MAIN';
     return 'SECURITY';
   });
   const [username, setUsername] = useState(() => safeStorage.get('oracle_user') || '');
@@ -42,6 +45,10 @@ export default function App() {
   });
   const [isRecording, setIsRecording] = useState(false);
   const [showActions, setShowActions] = useState(false);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>(() => {
+    if ('Notification' in window) return Notification.permission;
+    return 'denied';
+  });
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const feedRef = useRef<HTMLDivElement>(null);
@@ -62,6 +69,25 @@ export default function App() {
         .catch(err => console.debug('Worker skipped:', err.message));
     }
   }, []);
+
+  const requestNotifPermission = async () => {
+    if (!('Notification' in window)) return;
+    const permission = await Notification.requestPermission();
+    setNotifPermission(permission);
+  };
+
+  const parseForNotif = (text: string) => {
+    if (text.startsWith('[IMG]')) return '📷 Photo';
+    if (text.startsWith('[VN]')) return '🎙️ Voice Note';
+    if (text.startsWith('[VO]')) return '👁️ Secret Glimpse';
+    if (text.startsWith('{')) {
+        try {
+            const d = JSON.parse(text);
+            return `🃏 Fate: ${d.content.split(':')[1] || d.content}`;
+        } catch { return '🃏 Fate Card'; }
+    }
+    return text.replace(/\[SHARED FATE\]\s*/g, "").replace(/@\w+/g, (m) => m);
+  };
 
   useEffect(() => {
     if (layer !== 'MAIN') return;
@@ -90,13 +116,12 @@ export default function App() {
 
             if (document.hidden && newMsg.nama !== username && 'serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(reg => {
+                    const senderName = (newMsg.nama || "").split('|')[0] || "Unknown";
                     reg.active?.postMessage({
                         type: 'SHOW_NOTIFICATION',
                         payload: { 
-                            sender: newMsg.nama.split('|')[0], 
-                            body: newMsg.teks.startsWith('[IMG]') ? 'Sent an image' : 
-                                  newMsg.teks.startsWith('[VN]') ? 'Sent a voice note' : 
-                                  newMsg.teks 
+                            sender: senderName, 
+                            body: parseForNotif(newMsg.teks)
                         }
                     });
                 }).catch(() => {});
@@ -290,7 +315,7 @@ export default function App() {
   };
 
   const handleReply = (m: Message) => {
-    const [name] = m.nama.split('|');
+    const [name] = (m.nama || "").split('|');
     setInputText(`@${name} `);
   };
 
@@ -329,17 +354,36 @@ export default function App() {
     <div className="h-screen bg-black flex flex-col items-center justify-center p-6 space-y-8">
         <div className="text-4xl animate-pulse">🧿</div>
         <h1 className="font-header text-gold tracking-[10px] text-sm">GATEWAY ACCESS</h1>
-        <div className="w-full max-w-[200px] relative">
+        <div className="w-full max-w-[200px] space-y-4">
             <input 
                 type="password" 
                 placeholder="••••••" 
                 autoFocus
                 maxLength={6}
-                onChange={(e) => { if (e.target.value === '010304') setLayer('MAIN'); }} 
+                onChange={(e) => { 
+                    if (e.target.value === '010304') {
+                        safeStorage.set('oracle_unlocked', 'true');
+                        setLayer('MAIN'); 
+                    }
+                }} 
                 className="bg-transparent border-b border-gold/40 text-center py-4 outline-none text-gold tracking-[15px] text-2xl w-full focus:border-gold transition-all" 
             />
+            <p className="text-[7px] text-white/20 text-center uppercase tracking-widest">Enter the 6-digit access code</p>
         </div>
-        <button onClick={() => setLayer('NAME')} className="text-[8px] text-white/20 uppercase tracking-widest hover:text-white/40">Change Identity</button>
+        <div className="flex flex-col items-center gap-4">
+            <button onClick={() => setLayer('NAME')} className="text-[8px] text-white/20 uppercase tracking-widest hover:text-white/40">Change Identity</button>
+            <button 
+                onClick={() => {
+                    if(confirm("Reset all session data?")) {
+                        localStorage.clear();
+                        window.location.reload();
+                    }
+                }} 
+                className="text-[8px] text-red-500/20 uppercase tracking-widest hover:text-red-500/40"
+            >
+                Reset Session
+            </button>
+        </div>
     </div>
   );
 
@@ -396,6 +440,7 @@ export default function App() {
                     safeStorage.set('oracle_user', username); 
                     safeStorage.set('oracle_avatar', avatar);
                     safeStorage.set('oracle_color', userColor);
+                    safeStorage.set('oracle_unlocked', 'true');
                     setLayer('MAIN'); 
                 } 
             }} 
@@ -453,7 +498,17 @@ export default function App() {
                 <button onClick={() => setShowContacts(true)} className="text-gold text-xl">☰</button>
                 <div className="font-header text-gold text-[10px] tracking-widest">ORACLE v17.9</div>
             </div>
-            <button onClick={() => { if(confirm("Clear room?")) clearAllMessages(); }} className="text-[9px] text-red-500/40 uppercase">Clear</button>
+            <div className="flex items-center gap-4">
+                {notifPermission === 'default' && (
+                    <button 
+                        onClick={requestNotifPermission}
+                        className="text-[8px] text-gold border border-gold/20 px-2 py-1 rounded-md animate-pulse uppercase tracking-widest"
+                    >
+                        Enable Notif
+                    </button>
+                )}
+                <button onClick={() => { if(confirm("Clear room?")) clearAllMessages(); }} className="text-[9px] text-red-500/40 uppercase">Clear</button>
+            </div>
         </header>
 
         <div ref={feedRef} className="flex-1 overflow-y-auto p-4 z-10 space-y-1 scroll-smooth pb-32">

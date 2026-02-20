@@ -185,7 +185,11 @@ const Bubble: React.FC<BubbleProps> = ({ msg, isMe, onReply, onViewOnce, onShare
                 ) : (
                     <div className="space-y-2">
                         <p className="font-mystic text-[17px] leading-relaxed break-words whitespace-pre-wrap">
-                            {displayedText.replace("[SHARED FATE] ", "")}
+                            {displayedText.replace("[SHARED FATE] ", "").split(/(@\w+)/g).map((part, i) => 
+                                part.startsWith('@') ? (
+                                    <span key={i} className="text-gold font-bold">{part}</span>
+                                ) : part
+                            )}
                         </p>
                         {isLongText && (
                             <button 

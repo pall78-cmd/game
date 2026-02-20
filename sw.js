@@ -18,7 +18,7 @@ self.addEventListener('message', (e) => {
             icon: 'https://cdn-icons-png.flaticon.com/512/3062/3062634.png',
             tag: 'oracle-msg',
             renotify: true,
-            data: { url: 'https://pall78-cmd.github.io/game/' }
+            data: { url: self.location.origin }
         });
     }
 });
