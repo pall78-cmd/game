@@ -14,17 +14,20 @@ const safeStorage = {
 };
 
 export default function App() {
-  console.log("App rendering...");
+  console.log("App component initializing...");
   const [isAdult, setIsAdult] = useState(() => safeStorage.get('oracle_adult') === 'true');
   const [layer, setLayer] = useState<Layer>(() => {
     const adult = safeStorage.get('oracle_adult');
     const user = safeStorage.get('oracle_user');
     const unlocked = safeStorage.get('oracle_unlocked') === 'true';
     
-    if (adult === null) return 'AGE';
-    if (user === null) return 'NAME';
-    if (unlocked) return 'MAIN';
-    return 'SECURITY';
+    let initialLayer: Layer = 'SECURITY';
+    if (adult === null) initialLayer = 'AGE';
+    else if (user === null) initialLayer = 'NAME';
+    else if (unlocked) initialLayer = 'MAIN';
+    
+    console.log("Initial layer determined:", initialLayer);
+    return initialLayer;
   });
   const [username, setUsername] = useState(() => safeStorage.get('oracle_user') || '');
   const [avatar, setAvatar] = useState(() => safeStorage.get('oracle_avatar') || '🔮');
@@ -52,8 +55,13 @@ export default function App() {
   const [showMenu, setShowMenu] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [knownEntities, setKnownEntities] = useState<Record<string, { id: string, name: string, avatar: string, color: string }>>(() => {
-    const saved = safeStorage.get('oracle_entities');
-    return saved ? JSON.parse(saved) : {};
+    try {
+      const saved = safeStorage.get('oracle_entities');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      console.error("Failed to parse oracle_entities:", e);
+      return {};
+    }
   });
   const [isRecording, setIsRecording] = useState(false);
   const [showActions, setShowActions] = useState(false);
@@ -90,12 +98,18 @@ export default function App() {
   }, []);
 
   const [viewedMessages, setViewedMessages] = useState<Set<number>>(() => {
-    const saved = safeStorage.get('oracle_viewed_vo');
-    return new Set(saved ? JSON.parse(saved) : []);
+    try {
+      const saved = safeStorage.get('oracle_viewed_vo');
+      return new Set(saved ? JSON.parse(saved) : []);
+    } catch (e) {
+      console.error("Failed to parse oracle_viewed_vo:", e);
+      return new Set();
+    }
   });
 
   // Remove loader on mount
   useEffect(() => {
+    console.log("App mounted, removing loader...");
     const loader = document.getElementById('loader');
     if (loader) {
       loader.style.opacity = '0';
@@ -139,10 +153,18 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (layer !== 'MAIN') return;
+    if (layer !== 'MAIN') {
+        console.log("Not in MAIN layer, skipping message fetch.");
+        return;
+    }
+    console.log("Entering MAIN layer, starting message fetch and subscription...");
 
     const fetchMessages = async () => {
         try {
+            if (!supabase) {
+                console.error("Supabase not initialized, skipping fetch.");
+                return;
+            }
             const { data, error } = await supabase.from('Pesan').select('*').order('id', { ascending: true });
             if (error) throw error;
             if (data) setMessages(data);
@@ -154,6 +176,10 @@ export default function App() {
 
     fetchMessages();
 
+    if (!supabase) {
+        console.error("Supabase not initialized, skipping subscription.");
+        return;
+    }
     const sub = supabase.channel('msgs')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'Pesan' }, (p) => {
             const newMsg = p.new as Message;

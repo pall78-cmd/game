@@ -4,6 +4,7 @@ import App from './App';
 import './index.css';
 
 console.log('Index.tsx executing...');
+console.log('React version:', React.version);
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -48,14 +49,18 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 const rootElement = document.getElementById('root');
 if (rootElement) {
   console.log('Root element found, mounting...');
-  const root = ReactDOM.createRoot(rootElement);
-  root.render(
-    <React.StrictMode>
-      <ErrorBoundary>
-        <App />
-      </ErrorBoundary>
-    </React.StrictMode>
-  );
+  try {
+    const root = ReactDOM.createRoot(rootElement);
+    root.render(
+      <React.StrictMode>
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
+      </React.StrictMode>
+    );
+  } catch (e: any) {
+    console.error('Mounting failed:', e);
+  }
 
   // Fallback: Remove loader after 5s if it's still there
   setTimeout(() => {
