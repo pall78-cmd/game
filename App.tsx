@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase, sendMessage, clearAllMessages } from './services/supabase.ts';
-import { Message, Layer } from './types.ts';
-import { initDeck, drawCard, Intensity } from './utils/deck.ts';
-import Bubble from './components/Bubble.tsx';
+import { supabase, sendMessage, clearAllMessages } from './services/supabase';
+import { Message, Layer } from './types';
+import { initDeck, drawCard, Intensity } from './utils/deck';
+import Bubble from './components/Bubble';
 
 const safeStorage = {
   get: (key: string) => {

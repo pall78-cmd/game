@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Message, FateCard } from '../types.ts';
+import { Message, FateCard } from '../types';
 
 interface BubbleProps {
     msg: Message;
