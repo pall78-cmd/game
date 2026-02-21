@@ -18,6 +18,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./config.js"></script>
     <script src="./deck.js"></script>
+    <script src="./audioManager.js"></script>
     
     <script>
         tailwind.config = {
@@ -165,7 +166,7 @@
             const fileName = `${Math.random()}.${fileExt}`;
             const filePath = `uploads/${fileName}`;
             const { data, error } = await supabaseClient.storage.from('bukti').upload(filePath, file);
-            if (error) throw error;
+            if (error) throw new Error(error.message);
             const { data: { publicUrl } } = supabaseClient.storage.from('bukti').getPublicUrl(filePath);
             return publicUrl;
         };
@@ -185,18 +186,51 @@
             const [progress, setProgress] = useState(0);
             const [currentTime, setCurrentTime] = useState(0);
             const [duration, setDuration] = useState(0);
+            const [error, setError] = useState(false);
             const audioRef = useRef(null);
+
+            // Parse URL and duration if available
+            const { cleanUrl, initialDuration } = useMemo(() => {
+                if (!url) return { cleanUrl: "", initialDuration: 0 };
+                const parts = url.split('|');
+                const clean = parts[0].trim();
+                const dur = parts[1] ? parseFloat(parts[1]) : 0;
+                
+                // Debug log to verify URL
+                console.log("Audio Parsing:", { raw: url, clean, dur });
+                
+                return { 
+                    cleanUrl: clean, 
+                    initialDuration: dur 
+                };
+            }, [url]);
+
+            useEffect(() => {
+                if (initialDuration > 0) setDuration(initialDuration);
+            }, [initialDuration]);
 
             useEffect(() => {
                 if (isPlaying) {
-                    audioRef.current?.play().catch(() => onToggle());
+                    if (!cleanUrl) {
+                        console.warn("Attempted to play empty URL");
+                        onToggle();
+                        return;
+                    }
+                    setError(false);
+                    const playPromise = audioRef.current?.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch(error => {
+                            console.error("Playback failed:", error.message);
+                            onToggle(); // Reset state if play fails
+                        });
+                    }
                 } else {
                     audioRef.current?.pause();
                 }
-            }, [isPlaying]);
+            }, [isPlaying, cleanUrl]);
 
             const formatTime = (time) => {
-                if (isNaN(time)) return "0:00";
+                if (isNaN(time) || !isFinite(time)) return "0:00";
                 const mins = Math.floor(time / 60);
                 const secs = Math.floor(time % 60);
                 return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -242,15 +276,51 @@
                         <button onClick={() => skip(-5)} className="text-[10px] text-white/30 hover:text-gold transition-colors uppercase tracking-widest font-header">« 5s</button>
                         <button onClick={() => skip(5)} className="text-[10px] text-white/30 hover:text-gold transition-colors uppercase tracking-widest font-header">5s »</button>
                     </div>
+                    
+                    {error && (
+                        <div className="flex flex-col items-center gap-2 pt-2">
+                            <span className="text-[9px] text-red-400 uppercase tracking-widest">Gagal memutar (Custom Player)</span>
+                            <audio controls src={cleanUrl} className="w-full h-8 opacity-80" />
+                            <a 
+                                href={cleanUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="text-[8px] text-white/40 hover:text-gold underline decoration-dotted uppercase tracking-widest"
+                            >
+                                Buka File Langsung ↗
+                            </a>
+                        </div>
+                    )}
 
                     <audio 
                         ref={audioRef} 
-                        src={url} 
+                        src={cleanUrl} 
+                        preload="metadata"
+                        playsInline
+                        onError={(e) => {
+                            const err = e.target.error;
+                            console.error("Audio Playback Error:", err);
+                            if (err && err.code === 4) {
+                                console.warn("Source not supported or file not found:", cleanUrl);
+                            }
+                            setError(true);
+                            onToggle();
+                        }}
                         onTimeUpdate={() => {
-                            setCurrentTime(audioRef.current.currentTime);
-                            setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
+                            const curr = audioRef.current.currentTime;
+                            const dur = audioRef.current.duration;
+                            setCurrentTime(curr);
+                            // Use metadata duration if available and valid, otherwise fallback to passed duration
+                            const validDuration = (isFinite(dur) && dur > 0) ? dur : duration;
+                            if (validDuration > 0) {
+                                setProgress((curr / validDuration) * 100);
+                                if (!isFinite(dur)) setDuration(validDuration); // Update state if audio element fails
+                            }
                         }} 
-                        onLoadedMetadata={() => setDuration(audioRef.current.duration)}
+                        onLoadedMetadata={() => {
+                            const dur = audioRef.current.duration;
+                            if (isFinite(dur) && dur > 0) setDuration(dur);
+                        }}
                         onEnded={onToggle} 
                         className="hidden" 
                     />
@@ -347,10 +417,10 @@
                 let content = teks;
                 if (teks.startsWith("[VN]")) {
                     type = "vn";
-                    content = teks.substring(4);
+                    content = teks.substring(4).trim();
                 } else if (teks.startsWith("[IMG]")) {
                     type = "img";
-                    content = teks.substring(5);
+                    content = teks.substring(5).trim();
                 }
 
                 return { isVO, replyData, type, content };
@@ -670,7 +740,8 @@
                     });
                 } catch (err) {
                     console.error("Send error:", err);
-                    alert("Gagal mengirim pesan");
+                    const msg = err.message || "Terjadi kesalahan yang tidak diketahui";
+                    alert(`Gagal mengirim pesan: ${msg}`);
                 } finally {
                     setIsUploading(false);
                 }
@@ -695,50 +766,124 @@
                 }
             };
 
-            const handleVoiceNote = async (blob) => {
+            const handleVoiceNote = async (blob, durationSec) => {
                 setIsUploading(true);
                 try {
-                    const fileName = `${Date.now()}.webm`;
+                    if (blob.size < 100) {
+                        throw new Error("Rekaman terlalu pendek atau kosong.");
+                    }
+
+                    // 1. Determine MIME type and Extension
+                    let mimeType = blob.type;
+                    // Fallback if blob.type is empty
+                    if (!mimeType) {
+                        mimeType = 'audio/webm'; // Default for Chrome/Firefox
+                    }
+                    
+                    let ext = 'webm';
+                    if (mimeType.includes('mp4')) {
+                        ext = 'mp4';
+                    } else if (mimeType.includes('aac')) {
+                        ext = 'aac';
+                    } else if (mimeType.includes('ogg')) {
+                        ext = 'ogg';
+                    } else if (mimeType.includes('wav')) {
+                        ext = 'wav';
+                    }
+
+                    console.log(`Uploading VN: ${mimeType} -> .${ext}`);
+
+                    const fileName = `${Date.now()}.${ext}`;
                     const filePath = `voice/${fileName}`;
-                    const { error } = await supabaseClient.storage.from('bukti').upload(filePath, blob);
-                    if (error) throw error;
-                    const { data: { publicUrl } } = supabaseClient.storage.from('bukti').getPublicUrl(filePath);
+                    
+                    // 2. Upload with correct Content-Type
+                    // Strip parameters like "codecs=opus"
+                    const cleanContentType = mimeType.split(';')[0];
+
+                    const { error } = await supabaseClient.storage.from('voice note').upload(filePath, blob, {
+                        contentType: cleanContentType,
+                        upsert: false
+                    });
+                    
+                    if (error) throw new Error(error.message);
+                    
+                    const { data } = supabaseClient.storage.from('voice note').getPublicUrl(filePath);
+                    const publicUrl = data.publicUrl;
+                    
+                    // Verify if the URL is accessible (Public Bucket Check)
+                    try {
+                        const check = await fetch(publicUrl, { method: 'HEAD' });
+                        if (!check.ok) {
+                            console.warn("Public URL check failed:", check.status);
+                            if (check.status === 404 || check.status === 403 || check.status === 400) {
+                                alert("PERINGATAN: Audio mungkin tidak bisa diputar.\n\nBucket 'voice note' sepertinya PRIVATE.\nMohon ubah menjadi PUBLIC di dashboard Supabase:\nStorage > voice note > Configuration > Public Bucket.");
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("Could not verify URL:", e);
+                    }
+
                     const nama = `${username}|${avatar}|${userColor}`;
-                    let teks = `[VN]${publicUrl}`;
+                    // Append duration to the URL with a pipe separator
+                    let teks = `[VN]${publicUrl}|${durationSec}`;
                     await supabaseClient.from('Pesan').insert([{ nama, teks }]);
                 } catch (err) {
-                    alert("Gagal mengirim pesan suara");
+                    console.error("VN Upload Error:", err);
+                    alert("Gagal mengirim pesan suara: " + err.message);
                 } finally {
                     setIsUploading(false);
                 }
             };
 
-            const mediaRecorderRef = useRef(null);
-            const audioChunksRef = useRef([]);
+            const audioManagerRef = useRef(new AudioManager());
+            const recordingStartTimeRef = useRef(0);
+            const isPressingRef = useRef(false);
 
-            const startRecording = async () => {
+            const startRecording = async (e) => {
+                if (e && e.cancelable && e.type.startsWith('touch')) e.preventDefault();
+                if (isPressingRef.current) return; // Prevent double trigger
+                
+                isPressingRef.current = true;
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    mediaRecorderRef.current = new MediaRecorder(stream);
-                    audioChunksRef.current = [];
-                    mediaRecorderRef.current.ondataavailable = (e) => audioChunksRef.current.push(e.data);
-                    mediaRecorderRef.current.onstop = () => {
-                        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                        if (blob.size > 1000) handleVoiceNote(blob);
-                        stream.getTracks().forEach(t => t.stop());
-                    };
-                    mediaRecorderRef.current.start();
+                    await audioManagerRef.current.startRecording();
+                    
+                    // If user released button while we were initializing
+                    if (!isPressingRef.current) {
+                        await audioManagerRef.current.stopRecording();
+                        return;
+                    }
+
+                    recordingStartTimeRef.current = Date.now();
                     setIsRecording(true);
                     if (navigator.vibrate) navigator.vibrate(50);
                 } catch (e) {
-                    alert("Izin mikrofon ditolak");
+                    console.error("Mic error:", e);
+                    if (isPressingRef.current) {
+                        alert("Gagal mengakses mikrofon: " + e.message);
+                    }
+                    isPressingRef.current = false;
+                    setIsRecording(false);
                 }
             };
 
-            const stopRecording = () => {
-                if (mediaRecorderRef.current && isRecording) {
-                    mediaRecorderRef.current.stop();
+            const stopRecording = async (e) => {
+                if (e && e.cancelable) e.preventDefault();
+                
+                isPressingRef.current = false;
+                
+                if (isRecording) {
                     setIsRecording(false);
+                    const blob = await audioManagerRef.current.stopRecording();
+                    const durationMs = Date.now() - recordingStartTimeRef.current;
+                    const durationSec = durationMs / 1000;
+                    
+                    // Only send if duration is reasonable (> 0.5s) to avoid accidental taps
+                    if (blob && blob.size > 1000 && durationSec > 0.5) {
+                        handleVoiceNote(blob, durationSec);
+                    }
+                } else {
+                    // Ensure cleanup even if not officially "recording" yet (e.g. during startup)
+                    await audioManagerRef.current.stopRecording();
                 }
             };
 
@@ -795,6 +940,11 @@
             const handleImageUpload = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
+
+                if (file.size > 5 * 1024 * 1024) {
+                    alert("Ukuran gambar terlalu besar (Maksimal 5MB)");
+                    return;
+                }
 
                 setSelectedFile(file);
                 const reader = new FileReader();
@@ -1149,8 +1299,10 @@
                                     <button 
                                         onMouseDown={startRecording} 
                                         onMouseUp={stopRecording}
+                                        onMouseLeave={stopRecording}
                                         onTouchStart={startRecording} 
                                         onTouchEnd={stopRecording}
+                                        onTouchCancel={stopRecording}
                                         className={`w-12 h-12 rounded-full flex items-center justify-center shadow-xl active:scale-125 transition-all flex-shrink-0 ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-[#00a884] text-white'}`}
                                     >
                                         <span className="text-xl">🎤</span>
