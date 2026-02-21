@@ -17,6 +17,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="./config.js"></script>
+    <script src="./deck.js"></script>
     
     <script>
         tailwind.config = {
@@ -131,13 +132,24 @@
         function parsePreviewText(text) {
             if (!text) return "";
             let actual = text;
-            if (text.startsWith('[REPLY:')) {
-                const endIdx = text.indexOf('}]');
-                if (endIdx !== -1) actual = text.substring(endIdx + 2);
+            
+            // Handle nested replies recursively or just strip the outer one
+            while (actual.startsWith('[REPLY:')) {
+                const endIdx = actual.indexOf('}]');
+                if (endIdx !== -1) {
+                    actual = actual.substring(endIdx + 2);
+                } else {
+                    break;
+                }
             }
+
             if (actual.startsWith('[IMG]')) return "📷 Photo";
             if (actual.startsWith('[VN]')) return "🎤 Voice Message";
             if (actual.startsWith('[VO]')) return "👁️ Secret Message";
+            if (actual.startsWith('GAME ')) {
+                const parts = actual.split(':');
+                return `🔮 ${parts[0]}`;
+            }
             return actual.substring(0, 40) + (actual.length > 40 ? "..." : "");
         }
         window.parsePreviewText = parsePreviewText;
@@ -167,309 +179,11 @@
             }
         };
 
-        const lightDeck = {
-    truth: [
-        "Apa hal paling memalukan yang pernah kamu lakukan di depan umum?",
-        "Jika kamu bisa bertukar hidup dengan siapa pun selama sehari, siapa yang akan kamu pilih?",
-        "Apa kebohongan terbesar yang pernah kamu katakan?",
-        "Siapa selebriti yang paling kamu sukai?",
-        "Apa hal paling aneh yang pernah kamu makan?",
-        "Jika kamu punya kekuatan super, apa itu?",
-        "Apa film yang bisa kamu tonton berulang kali tanpa bosan?",
-        "Apa hal yang paling kamu takuti?",
-        "Apa nama panggilan paling aneh yang pernah kamu miliki?",
-        "Apa hal pertama yang akan kamu beli jika memenangkan lotre?",
-        "Lagu apa yang diam-diam kamu sukai?",
-        "Apa bakat terpendam yang kamu miliki?",
-        "Apa hal paling baik yang pernah dilakukan seseorang untukmu?",
-        "Apa pekerjaan impianmu saat kecil?",
-        "Apa hal yang paling membuatmu kesal?",
-        "Jika kamu bisa bepergian ke mana saja, ke mana kamu akan pergi?",
-        "Apa hal paling spontan yang pernah kamu lakukan?",
-        "Siapa pahlawanmu di kehidupan nyata?",
-        "Apa nasihat terbaik yang pernah kamu terima?",
-        "Apa kenangan favoritmu dari masa kecil?",
-        "Apa satu hal yang ingin kamu ubah dari dirimu?",
-        "Apa hal yang membuatmu tertawa paling keras?"
-    ],
-    dare: [
-        "Tirukan suara binatang yang paling aneh yang kamu bisa.",
-        "Bicaralah dengan aksen lucu selama 3 menit ke depan.",
-        "Lakukan tarian konyol selama 30 detik.",
-        "Kirim pesan teks ke orang tuamu dengan kata-kata 'Aku tahu rahasiamu'.",
-        "Biarkan seseorang menggambar sesuatu di wajahmu dengan spidol.",
-        "Makan satu sendok teh bumbu yang tidak kamu sukai.",
-        "Telepon teman dan nyanyikan 'Selamat Ulang Tahun' untuk mereka.",
-        "Lakukan 10 push-up sekarang juga.",
-        "Bicaralah seperti penyair selama sisa permainan.",
-        "Posting foto selfie konyol di media sosialmu.",
-        "Biarkan grup memilih video YouTube untuk kamu tonton.",
-        "Gunakan kaus kaki sebagai boneka tangan dan buat pertunjukan.",
-        "Berjalan mundur selama sisa permainan.",
-        "Ceritakan lelucon yang buruk.",
-        "Coba jungkir balik (atau coba saja).",
-        "Berpura-pura menjadi seekor ayam selama 1 menit.",
-        "Biarkan seseorang menggelitikmu selama 30 detik.",
-        "Katakan alfabet mundur secepat yang kamu bisa.",
-        "Kenakan pakaianmu secara terbalik.",
-        "Coba sentuh hidungmu dengan lidahmu.",
-        "Buat wajah paling jelek yang kamu bisa.",
-        "Berteriaklah kata acak pertama yang muncul di kepalamu."
-    ],
-    wildcard: [
-        "Semua pemain harus bertukar tempat duduk.",
-        "Pemain di sebelah kirimu harus memberimu pujian.",
-        "Pilih pemain lain untuk melakukan dare dari dek ini.",
-        "Kamu aman dari dare berikutnya.",
-        "Semua pemain harus minum seteguk air.",
-        "Ceritakan sebuah rahasia kecil.",
-        "Buat aturan baru untuk permainan ini.",
-        "Pemain termuda di grup memilih lagu berikutnya.",
-        "Pemain tertua di grup menceritakan sebuah kisah.",
-        "Tiru pemain lain sampai giliranmu berikutnya.",
-        "Kamu mendapatkan giliran ekstra.",
-        "Tantang pemain lain untuk adu panco.",
-        "Semua pemain harus mengatakan sesuatu yang mereka syukuri.",
-        "Pilih dua pemain untuk bertukar satu item pakaian.",
-        "Kamu bisa bertanya satu pertanyaan 'truth' kepada pemain mana pun.",
-        "Balikkan urutan permainan.",
-        "Berikan julukan kepada setiap pemain.",
-        "Semua pemain harus berbicara dengan suara bernada tinggi sampai giliranmu berikutnya.",
-        "Pemain yang memilih kartu ini harus memakai topi konyol.",
-        "Pilih pemain untuk menjadi 'raja/ratu' sampai giliranmu berikutnya.",
-        "Semua pemain harus menari di tempat selama 10 detik.",
-        "Kartu ini tidak melakukan apa-apa. Kamu beruntung!"
-    ]
-};
-
-const deepDeck = {
-    truth: [
-        "Apa penyesalan terbesarmu dalam hidup?",
-        "Apa hal yang paling kamu banggakan?",
-        "Kapan terakhir kali kamu menangis dan mengapa?",
-        "Apa ketakutan terbesarmu tentang masa depan?",
-        "Apa satu hal yang orang lain tidak tahu tentangmu?",
-        "Bagaimana kamu mendefinisikan cinta?",
-        "Apa pelajaran tersulit yang pernah kamu pelajari?",
-        "Jika kamu bisa memberikan nasihat kepada dirimu yang lebih muda, apa itu?",
-        "Apa yang membuatmu merasa benar-benar hidup?",
-        "Apa keyakinan yang kamu pegang teguh?",
-        "Bagaimana pengalaman patah hati mengubahmu?",
-        "Apa impian yang belum kamu wujudkan?",
-        "Apa hal yang paling penting dalam sebuah hubungan bagimu?",
-        "Kapan kamu merasa paling kesepian?",
-        "Apa arti kebahagiaan bagimu?",
-        "Apa satu hal yang ingin kamu ubah dari dunia?",
-        "Bagaimana kamu ingin dikenang?",
-        "Apa kelemahan terbesarmu?",
-        "Apa kekuatan terbesarmu?",
-        "Apakah kamu percaya pada takdir atau kehendak bebas?",
-        "Apa hal yang paling kamu syukuri dalam hidup?",
-        "Apa yang kamu pelajari dari kegagalan terbesarmu?",
-        "Siapa orang yang paling berpengaruh dalam hidupmu?",
-        "Apa yang membuatmu merasa tidak aman?",
-        "Apa arti kesuksesan bagimu?"
-    ],
-    dare: [
-        "Tulis surat untuk dirimu di masa depan dan bacakan bagian pertamanya.",
-        "Telepon seseorang yang kamu sayangi dan katakan betapa berartinya mereka bagimu.",
-        "Hapus satu aplikasi media sosial dari ponselmu selama 24 jam.",
-        "Tunjukkan 5 foto terakhir di galeri ponselmu kepada grup.",
-        "Tulis sebuah puisi singkat tentang perasaanmu saat ini.",
-        "Akui sesuatu yang selama ini kamu takuti untuk dikatakan.",
-        "Lihat matamu di cermin dan katakan tiga hal positif tentang dirimu.",
-        "Kirim pesan kepada mantanmu (jika pantas) dan tanyakan kabar mereka.",
-        "Maafkan seseorang di dalam hatimu yang telah menyakitimu.",
-        "Berjanjilah untuk mencoba hobi baru minggu ini.",
-        "Bagikan salah satu tujuan hidupmu kepada grup.",
-        "Tunjukkan playlist musik 'pribadi'-mu.",
-        "Tulis ketakutan terbesarmu di selembar kertas dan robek.",
-        "Lakukan meditasi selama 3 menit tanpa gangguan.",
-        "Berikan pujian yang tulus kepada setiap orang di grup.",
-        "Blokir nomor telepon yang seharusnya sudah kamu blokir sejak lama.",
-        "Tulis daftar hal-hal yang membuatmu bahagia.",
-        "Renungkan kesalahan yang pernah kamu buat dan apa yang kamu pelajari darinya.",
-        "Jadilah orang pertama yang meminta maaf dalam argumen berikutnya.",
-        "Habiskan 10 menit untuk mempelajari sesuatu yang baru secara online.",
-        "Tinggalkan ulasan positif untuk bisnis lokal yang kamu sukai.",
-        "Tonton video motivasi dan bagikan pemikiranmu.",
-        "Rencanakan tindakan kebaikan kecil untuk dilakukan besok.",
-        "Tulis catatan terima kasih kepada seseorang yang telah membantumu.",
-        "Pandu grup melalui latihan peregangan singkat."
-    ],
-    wildcard: [
-        "Pilih satu pemain untuk berbagi impian mereka.",
-        "Setiap orang berbagi satu hal yang mereka pelajari minggu ini.",
-        "Grup memilih topik filosofis untuk didiskusikan selama 5 menit.",
-        "Pemain berikutnya harus menjawab pertanyaan 'truth' dari pemain di sebelah kanan mereka.",
-        "Kamu bisa melewati pertanyaan berikutnya.",
-        "Bagikan kutipan atau pepatah favoritmu.",
-        "Pilih lagu yang memiliki makna mendalam bagimu dan jelaskan mengapa.",
-        "Semua orang menulis tujuan anonim dan membacanya dengan keras.",
-        "Pemain di seberangmu harus berbagi kenangan indah.",
-        "Kamu harus memberikan nasihat hidup kepada pemain di sebelah kirimu.",
-        "Diskusikan buku atau film yang mengubah perspektifmu.",
-        "Setiap orang menyebutkan satu hal yang ingin mereka capai tahun ini.",
-        "Pilih dua pemain untuk saling memberikan pujian yang tulus.",
-        "Hening selama satu menit untuk refleksi.",
-        "Kamu bisa meminta nasihat dari grup tentang suatu masalah.",
-        "Bagikan satu momen ketika kamu merasa bangga pada dirimu sendiri.",
-        "Grup membuat 'kapsul waktu' verbal tentang hari ini.",
-        "Pilih pemain untuk menceritakan lelucon yang membuat berpikir.",
-        "Setiap orang berbagi satu kebiasaan yang ingin mereka ubah.",
-        "Diskusikan apa arti 'persahabatan' bagi kalian semua.",
-        "Kamu harus memulai percakapan yang mendalam dengan orang asing besok.",
-        "Pilih satu kata untuk menggambarkan keadaan pikiranmu saat ini.",
-        "Grup memberikan tepuk tangan meriah untuk satu sama lain."
-    ]
-};
-
-const chaosDeck = {
-    truth: [
-        "Apa hal paling ilegal yang pernah kamu lakukan?",
-        "Kapan terakhir kali kamu benar-benar marah dan apa yang terjadi?",
-        "Apa fantasi terliarmu?",
-        "Jika kamu bisa lolos dari satu kejahatan, apa itu?",
-        "Apa rahasia yang belum pernah kamu ceritakan kepada siapa pun?",
-        "Apa hal paling gila yang pernah kamu lakukan demi cinta?",
-        "Pernahkah kamu mengkhianati seorang teman?",
-        "Apa hal yang paling kamu sesali saat mabuk?",
-        "Siapa orang yang paling kamu benci di ruangan ini dan mengapa?",
-        "Apa hal paling aneh yang kamu cari di internet?",
-        "Pernahkah kamu berbohong dalam permainan ini?",
-        "Apa hal terburuk yang pernah dikatakan seseorang tentangmu?",
-        "Jika kamu harus menghapus satu orang dari hidupmu, siapa itu?",
-        "Apa kebiasaan paling menjijikkan yang kamu miliki?",
-        "Pernahkah kamu mencuri sesuatu?",
-        "Apa hal paling kekanak-kanakan yang masih kamu lakukan?",
-        "Apa gosip paling menarik yang kamu tahu?",
-        "Siapa orang terakhir yang kamu stalk di media sosial?",
-        "Apa hal yang akan kamu lakukan jika kamu tidak terlihat selama sehari?",
-        "Pernahkah kamu menggunakan seseorang untuk mendapatkan apa yang kamu inginkan?",
-        "Apa kebohongan yang kamu katakan pada dirimu sendiri?",
-        "Apa hal yang paling membuatmu iri pada orang lain?",
-        "Pernahkah kamu memikirkan skenario balas dendam?",
-        "Apa hal paling memalukan yang ada di riwayat browsermu?",
-        "Apa hal yang paling kamu takuti akan diketahui orang lain tentangmu?",
-        "Apa hal paling impulsif yang pernah kamu beli?",
-        "Pernahkah kamu melanggar hukum tanpa ketahuan?",
-        "Apa hal paling aneh yang membuatmu tertarik pada seseorang?",
-        "Jika kamu bisa membaca pikiran satu orang di ruangan ini, siapa itu?",
-        "Apa hal yang akan kamu lakukan jika tidak ada konsekuensi sosial?"
-    ],
-    dare: [
-        "Telepon nomor acak dan coba lakukan percakapan selama 1 menit.",
-        "Makan sesendok penuh saus pedas.",
-        "Biarkan grup memposting status memalukan di akun media sosialmu.",
-        "Lakukan tarian perut di atas meja.",
-        "Kirim pesan teks 'Aku mencintaimu' ke kontak ke-5 di ponselmu.",
-        "Ganti celanamu dengan pemain lain selama sisa permainan.",
-        "Coba minum segelas air tanpa menggunakan tangan.",
-        "Berpura-pura menjadi hewan peliharaan pemain lain sampai giliranmu berikutnya.",
-        "Lakukan rap gaya bebas tentang pemain di sebelah kananmu.",
-        "Biarkan seseorang memberimu potongan rambut yang buruk (hanya satu guntingan kecil!).",
-        "Isi mulutmu dengan es batu dan coba nyanyikan sebuah lagu.",
-        "Lakukan panggilan prank ke sebuah toko.",
-        "Kenakan pakaian dalammu di luar pakaianmu.",
-        "Cium lantai.",
-        "Bicaralah hanya dalam bentuk pertanyaan sampai giliranmu berikutnya.",
-        "Coba jual barang acak di ruangan ini kepada grup.",
-        "Biarkan grup memilih kombinasi makanan aneh untuk kamu makan.",
-        "Lakukan stand-up comedy selama 1 menit.",
-        "Tiru aksen yang paling menyinggung yang kamu bisa.",
-        "Minta uang kepada orang asing di jalan (jika memungkinkan).",
-        "Gunakan lipstik tanpa cermin.",
-        "Coba lakukan breakdance.",
-        "Kirim DM ke selebriti pilihan grup.",
-        "Lakukan pembacaan dramatis dari item terakhir di daftar belanjamu.",
-        "Berdiri di kursi dan berpidato tentang topik konyol.",
-        "Biarkan seseorang menulis kata di dahimu dengan spidol permanen.",
-        "Makan kulit pisang (sedikit saja!).",
-        "Tantang orang asing untuk lomba menatap.",
-        "Berjalan dengan gaya seperti di peragaan busana di sekitar ruangan.",
-        "Lakukan 20 jumping jack sambil meneriakkan namamu."
-    ],
-    wildcard: [
-        "Mode Kekacauan: Semua pemain harus melakukan dare yang sama dari dek ini.",
-        "Tukar Tangan: Kamu harus menukar kartu dengan pemain lain.",
-        "Bom Waktu: Kamu punya 10 detik untuk membuat pemain lain tertawa, jika tidak, kamu melakukan dare.",
-        "Pembalikan Peran: Pilih pemain untuk menirumu sampai giliranmu berikutnya.",
-        "Aturan Baru: Buat aturan yang harus diikuti semua orang, jika tidak, mereka minum.",
-        "Duet: Pilih pemain lain untuk melakukan dare bersamamu.",
-        "Joker: Kamu bisa membuat dare sendiri untuk pemain lain.",
-        "Tuduhan: Tunjuk seorang pemain. Mereka harus menjawab pertanyaan 'truth' apa pun darimu.",
-        "Amnesti: Kamu bisa menolak satu dare atau truth selama sisa permainan.",
-        "Voting Grup: Grup memilih dare untukmu dari daftar.",
-        "Rantai Perintah: Kamu memberi perintah kepada pemain A, yang memberi perintah kepada pemain B, dst.",
-        "Tidak Ada 'Aku': Kamu tidak bisa menggunakan kata 'aku' sampai giliranmu berikutnya.",
-        "Raja/Ratu Chaos: Kamu bisa membuat satu aturan konyol yang berlangsung selama 3 putaran.",
-        "Berbagi Rahasia: Setiap orang menulis rahasia anonim, lalu dibacakan.",
-        "Tantangan Grup: Seluruh grup harus menyelesaikan tugas bersama.",
-        "Mode Cepat: Setiap pemain hanya punya 5 detik untuk menyelesaikan giliran mereka.",
-        "Tangan Terikat: Mainkan dengan satu tangan di belakang punggungmu.",
-        "Hanya Satu Suku Kata: Bicaralah hanya dengan satu suku kata.",
-        "Tarian Wajib: Setiap kali giliranmu, kamu harus menari selama 5 detik.",
-        "Tukar Identitas: Bertingkahlah seperti pemain di sebelah kirimu.",
-        "Kebenaran atau Kebenaran: Kamu harus menjawab dua pertanyaan 'truth'.",
-        "Dare atau Dare: Kamu harus melakukan dua 'dare'.",
-        "Telepati: Coba tebak apa yang dipikirkan pemain lain.",
-        "Mode Diam: Tidak ada yang boleh berbicara sampai giliran pemain berikutnya.",
-        "Cerita Bersambung: Setiap pemain menambahkan satu kalimat ke cerita yang sedang berlangsung.",
-        "Pengakuan Dosa: Akui hal kecil yang memalukan.",
-        "Panggilan Telepon Misterius: Grup memilih siapa yang harus kamu telepon.",
-        "Kartu Keluar dari Penjara: Simpan kartu ini untuk membatalkan dare."
-    ]
-};
-
-        const drawCard = (category) => {
-            let deck;
-            let wildcardChance = 0;
-
-            if (category === 'light') {
-                deck = lightDeck;
-                wildcardChance = 0.15; // 15%
-            } else if (category === 'deep') {
-                deck = deepDeck;
-                wildcardChance = 0.10; // 10%
-            } else { // chaos
-                deck = chaosDeck;
-                wildcardChance = 0.06; // 6%
-            }
-
-            const isWildcard = Math.random() < wildcardChance;
-            let cardType;
-            let content;
-
-            if (isWildcard) {
-                cardType = 'wildcard';
-                const cardPool = deck[cardType];
-                if (!cardPool || cardPool.length === 0) {
-                    content = `Tidak ada kartu ${cardType} tersisa.`;
-                } else {
-                    const randomIndex = Math.floor(Math.random() * cardPool.length);
-                    content = cardPool[randomIndex];
-                }
-                return `${category.toUpperCase()} WILDCARD: ${content}`;
-            }
-            
-            // 50/50 chance for truth or dare if not a wildcard
-            cardType = Math.random() < 0.5 ? 'truth' : 'dare';
-            const cardPool = deck[cardType];
-            if (!cardPool || cardPool.length === 0) {
-                content = `Tidak ada kartu ${cardType} tersisa.`;
-            } else {
-                const randomIndex = Math.floor(Math.random() * cardPool.length);
-                content = cardPool[randomIndex];
-            }
-            return `${category.toUpperCase()} ${cardType.toUpperCase()}: ${content}`;
-        };
-
-
-
         // --- COMPONENTS ---
 
         const AudioPlayer = ({ url, isPlaying, onToggle }) => {
             const [progress, setProgress] = useState(0);
+            const [currentTime, setCurrentTime] = useState(0);
             const [duration, setDuration] = useState(0);
             const audioRef = useRef(null);
 
@@ -481,20 +195,61 @@ const chaosDeck = {
                 }
             }, [isPlaying]);
 
+            const formatTime = (time) => {
+                if (isNaN(time)) return "0:00";
+                const mins = Math.floor(time / 60);
+                const secs = Math.floor(time % 60);
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            };
+
+            const handleSeek = (e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const pct = x / rect.width;
+                const newTime = pct * duration;
+                audioRef.current.currentTime = newTime;
+                setProgress(pct * 100);
+            };
+
+            const skip = (seconds) => {
+                if (audioRef.current) {
+                    audioRef.current.currentTime = Math.max(0, Math.min(duration, audioRef.current.currentTime + seconds));
+                }
+            };
+
             return (
-                <div className="flex items-center gap-3 min-w-[200px] py-2 px-3 bg-black/20 rounded-xl">
-                    <button onClick={onToggle} className="w-10 h-10 rounded-full bg-gold/20 border border-gold/40 text-gold flex items-center justify-center active:scale-90 transition-transform shadow-lg">
-                        {isPlaying ? <span className="text-[10px] font-bold">||</span> : <span className="ml-0.5 text-sm">▶</span>}
-                    </button>
-                    <div className="flex-1 space-y-1">
-                        <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-                            <div className="h-full bg-gold transition-all duration-100" style={{ width: `${progress}%` }}></div>
+                <div className="flex flex-col gap-2 min-w-[220px] py-3 px-4 bg-black/30 rounded-2xl border border-white/5 shadow-inner">
+                    <div className="flex items-center gap-4">
+                        <button onClick={onToggle} className="w-12 h-12 rounded-full bg-gold/20 border border-gold/40 text-gold flex items-center justify-center active:scale-90 transition-transform shadow-lg flex-shrink-0">
+                            {isPlaying ? <span className="text-xs font-bold">||</span> : <span className="ml-1 text-lg">▶</span>}
+                        </button>
+                        
+                        <div className="flex-1 flex flex-col gap-1.5">
+                            <div 
+                                className="h-1.5 bg-white/10 rounded-full overflow-hidden cursor-pointer relative"
+                                onClick={handleSeek}
+                            >
+                                <div className="h-full bg-gold transition-all duration-100" style={{ width: `${progress}%` }}></div>
+                            </div>
+                            <div className="flex justify-between text-[9px] font-mono text-white/40 uppercase tracking-tighter">
+                                <span>{formatTime(currentTime)}</span>
+                                <span>{formatTime(duration)}</span>
+                            </div>
                         </div>
                     </div>
+
+                    <div className="flex justify-center gap-6 pt-1 border-t border-white/5">
+                        <button onClick={() => skip(-5)} className="text-[10px] text-white/30 hover:text-gold transition-colors uppercase tracking-widest font-header">« 5s</button>
+                        <button onClick={() => skip(5)} className="text-[10px] text-white/30 hover:text-gold transition-colors uppercase tracking-widest font-header">5s »</button>
+                    </div>
+
                     <audio 
                         ref={audioRef} 
                         src={url} 
-                        onTimeUpdate={() => setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100)} 
+                        onTimeUpdate={() => {
+                            setCurrentTime(audioRef.current.currentTime);
+                            setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
+                        }} 
                         onLoadedMetadata={() => setDuration(audioRef.current.duration)}
                         onEnded={onToggle} 
                         className="hidden" 
@@ -506,9 +261,20 @@ const chaosDeck = {
         const FateCardDisplay = ({ raw, onShare }) => {
             try {
                 const d = JSON.parse(raw);
-                const parts = d.content.split(":");
-                const type = parts[0] || "FATE";
-                const content = parts.slice(1).join(":").trim() || d.content;
+                const contentStr = d.content || "";
+                let type = "FATE";
+                let content = contentStr;
+
+                if (contentStr.startsWith("GAME ")) {
+                    const parts = contentStr.split(":");
+                    type = parts[0]; // e.g. "GAME LIGHT TRUTH"
+                    content = parts.slice(1).join(":").trim();
+                } else {
+                    const parts = contentStr.split(":");
+                    type = parts[0] || "FATE";
+                    content = parts.slice(1).join(":").trim() || contentStr;
+                }
+                
                 const isChaos = type.includes("CHAOS");
 
                 return (
@@ -604,9 +370,21 @@ const chaosDeck = {
             };
 
             const renderReplyPreview = (data) => {
+                let actual = data.text;
+                while (actual.startsWith('[REPLY:')) {
+                    const endIdx = actual.indexOf('}]');
+                    if (endIdx !== -1) actual = actual.substring(endIdx + 2);
+                    else break;
+                }
+                const isImg = actual.startsWith('[IMG]');
+                const imgUrl = isImg ? actual.replace('[IMG]', '') : null;
+
                 return (
-                    <div className="mb-1 p-2 rounded bg-black/10 border-l-4 border-gold/50 text-[10px] opacity-80 italic truncate">
-                        <span className="font-bold text-gold not-italic">{data.name}:</span> {parsePreviewText(data.text)}
+                    <div className="mb-1 p-2 rounded bg-black/10 border-l-4 border-gold/50 text-[10px] opacity-80 italic flex justify-between items-center gap-2 overflow-hidden">
+                        <div className="truncate">
+                            <span className="font-bold text-gold not-italic">{data.name}:</span> {parsePreviewText(data.text)}
+                        </div>
+                        {imgUrl && <img src={imgUrl} className="w-8 h-8 rounded object-cover flex-shrink-0" />}
                     </div>
                 );
             };
@@ -631,11 +409,11 @@ const chaosDeck = {
                         </div>
                     )}
                     
-                    <div className={`relative p-2.5 w-fit max-w-[85%] rounded-xl border transition-all shadow-sm ${
+                    <div className={`relative p-3 w-fit max-w-[88%] rounded-2xl border transition-all shadow-md ${
                         isOracle ? 'w-full max-w-sm bg-transparent border-none' : 
-                        isVO ? 'bg-red-950/40 border-red-500/30 text-red-400 cursor-pointer' :
-                        isMe ? 'bg-[#056162] border-none text-white rounded-tr-none' : 
-                        'bg-[#262d31] border-none text-white rounded-tl-none'
+                        isVO ? 'bg-gradient-to-br from-red-950/60 to-red-900/40 border-red-500/30 text-red-400 cursor-pointer' :
+                        isMe ? 'bg-gradient-to-br from-[#056162] to-[#075e54] border-none text-white rounded-tr-none' : 
+                        'bg-gradient-to-br from-[#262d31] to-[#1f2428] border-none text-white rounded-tl-none'
                     }`} onClick={() => isVO && onViewOnce(msg)}>
                         {/* WhatsApp-style Tail */}
                         {!isOracle && (
@@ -685,6 +463,8 @@ const chaosDeck = {
             const [messages, setMessages] = useState([]);
             const [inputText, setInputText] = useState('');
             const [isViewOnce, setIsViewOnce] = useState(false);
+            const [uploadPreview, setUploadPreview] = useState(null);
+            const [selectedFile, setSelectedFile] = useState(null);
             const [fateMode, setFateMode] = useState(false);
             const [currentTime, setCurrentTime] = useState(new Date());
             const [currentAudioId, setCurrentAudioId] = useState(null);
@@ -701,6 +481,9 @@ const chaosDeck = {
             const [chaosPinInput, setChaosPinInput] = useState('');
             const [showChaosUnlock, setShowChaosUnlock] = useState(false);
             const [isUploading, setIsUploading] = useState(false);
+            const [gameLevel, setGameLevel] = useState(null);
+            const [gameCard, setGameCard] = useState(null);
+            const [gameType, setGameType] = useState(null);
 
             const [filterSender, setFilterSender] = useState('');
             const [filterCategory, setFilterCategory] = useState('');
@@ -805,48 +588,74 @@ const chaosDeck = {
             }, []);
 
             const handleSend = async () => {
-                if (!inputText.trim()) return;
+                if (!inputText.trim() && !selectedFile) return;
                 
-                const nama = `${username}|${avatar}|${userColor}`;
-                let teks = inputText;
+                setIsUploading(true);
+                try {
+                    const nama = `${username}|${avatar}|${userColor}`;
+                    let teks = inputText;
 
-                if (editingMsg) {
-                    await supabaseClient.from('Pesan').update({ teks }).eq('id', editingMsg.id);
-                    setMessages(prev => prev.map(m => m.id === editingMsg.id ? { ...m, teks } : m));
-                    setEditingMsg(null);
+                    if (selectedFile) {
+                        const url = await uploadImage(selectedFile);
+                        teks = teks.trim() ? `[IMG]${url}\n${teks}` : `[IMG]${url}`;
+                        setSelectedFile(null);
+                        setUploadPreview(null);
+                    }
+
+                    if (editingMsg) {
+                        await supabaseClient.from('Pesan').update({ teks }).eq('id', editingMsg.id);
+                        setMessages(prev => prev.map(m => m.id === editingMsg.id ? { ...m, teks } : m));
+                        setEditingMsg(null);
+                        setInputText('');
+                        return;
+                    }
+
+                    if (replyingTo) {
+                        const replyContext = {
+                            name: replyingTo.nama.split('|')[0],
+                            text: replyingTo.teks
+                        };
+                        teks = `[REPLY:${JSON.stringify(replyContext)}]${teks}`;
+                    }
+
+                    if (isViewOnce) teks = `[VO]${teks}`;
+                    
+                    await supabaseClient.from('Pesan').insert([{ nama, teks }]);
                     setInputText('');
-                    return;
+                    setIsViewOnce(false);
+                    setReplyingTo(null);
+                    
+                    // Stop typing
+                    supabaseClient.channel('msgs').send({
+                        type: 'broadcast',
+                        event: 'typing',
+                        payload: { user: username, isTyping: false }
+                    });
+                } catch (err) {
+                    console.error("Send error:", err);
+                    alert("Gagal mengirim pesan");
+                } finally {
+                    setIsUploading(false);
                 }
-
-                if (replyingTo) {
-                    const replyContext = {
-                        name: replyingTo.nama.split('|')[0],
-                        text: replyingTo.teks
-                    };
-                    teks = `[REPLY:${JSON.stringify(replyContext)}]${inputText}`;
-                }
-
-                if (isViewOnce) teks = `[VO]${teks}`;
-                
-                await supabaseClient.from('Pesan').insert([{ nama, teks }]);
-                setInputText('');
-                setIsViewOnce(false);
-                setReplyingTo(null);
-                
-                // Stop typing
-                supabaseClient.channel('msgs').send({
-                    type: 'broadcast',
-                    event: 'typing',
-                    payload: { user: username, isTyping: false }
-                });
             };
 
-            const handleMessageVisible = (messageId) => {
-                supabaseClient.channel('msgs').send({
-                    type: 'broadcast',
-                    event: 'read',
-                    payload: { messageId, reader: username }
-                });
+            const handleMessageVisible = async (messageId) => {
+                // Only mark as read if it's not our own message
+                const msg = messages.find(m => m.id === messageId);
+                if (msg && !msg.nama.startsWith(username) && !msg.is_read) {
+                    // Update locally
+                    setMessages(prev => prev.map(m => m.id === messageId ? { ...m, is_read: true } : m));
+                    
+                    // Update DB
+                    await supabaseClient.from('Pesan').update({ is_read: true }).eq('id', messageId);
+
+                    // Broadcast to others
+                    supabaseClient.channel('msgs').send({
+                        type: 'broadcast',
+                        event: 'read',
+                        payload: { messageId, reader: username }
+                    });
+                }
             };
 
             const handleVoiceNote = async (blob) => {
@@ -896,13 +705,19 @@ const chaosDeck = {
                 }
             };
 
-            const handleViewOnce = (msg) => {
+            const handleViewOnce = async (msg) => {
                 try {
                     const content = msg.teks.replace("[VO]", "");
                     if (!content) throw new Error("Empty");
                     setViewingSecret(content);
+                    
+                    // Burn the message immediately from database
+                    await supabaseClient.from('Pesan').delete().eq('id', msg.id);
+                    // Also remove locally to prevent re-clicks before sync
+                    setMessages(prev => prev.filter(m => m.id !== msg.id));
                 } catch (e) {
-                    alert("⚠️ Pesan Tidak Terbaca atau Rusak");
+                    console.error("Burn error:", e);
+                    alert("⚠️ Pesan Tidak Terbaca atau Sudah Terbakar");
                 }
             };
 
@@ -919,59 +734,64 @@ const chaosDeck = {
                 }
             };
 
-            const handleImageUpload = async (e) => {
+            const handleImageUpload = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-                setIsUploading(true);
-                try {
-                    const url = await uploadImage(file);
-                    const nama = `${username}|${avatar}|${userColor}`;
-                    let teks = `[IMG]${url}`;
-                    if (replyingTo) {
-                        const replyContext = { name: replyingTo.nama.split('|')[0], text: replyingTo.teks };
-                        teks = `[REPLY:${JSON.stringify(replyContext)}][IMG]${url}`;
-                    }
-                    await supabaseClient.from('Pesan').insert([{ nama, teks }]);
-                    setReplyingTo(null);
-                } catch (err) {
-                    alert("Gagal mengunggah gambar");
-                } finally {
-                    setIsUploading(false);
-                }
+
+                setSelectedFile(file);
+                const reader = new FileReader();
+                reader.onload = (e) => setUploadPreview(e.target.result);
+                reader.readAsDataURL(file);
             };
 
             const handleFate = async (category) => {
-                if (activeCard) {
-                    const nama = "ORACLE";
-                    const teks = JSON.stringify({ content: activeCard.card_content, invoker: activeCard.invoker });
-                    await supabaseClient.from('Pesan').insert([{ nama, teks }]);
-                    setFateMode(false);
-                    return;
-                }
-
-                const isChaos = category === 'chaos';
-                if (isChaos && !chaosUnlocked) {
-                    alert("Mode Chaos terkunci. Verifikasi usia dan kode diperlukan.");
-                    return;
-                }
-                const cardContent = drawCard(category);
-                const { data, error } = await supabaseClient.from('Tantangan').insert([{ card_content: cardContent, invoker: username, is_active: true }]).select().single();
-                
-                if (error || !data) {
-                    console.error("Error drawing fate card:", error);
-                    alert("Gagal menarik takdir. Silakan coba lagi.");
-                    return;
-                }
-
-                setActiveCard(data);
-                const nama = "ORACLE";
-                const teks = JSON.stringify({ content: data.card_content, invoker: data.invoker });
-                await supabaseClient.from('Pesan').insert([{ nama, teks }]);
                 setFateMode(false);
+                drawGameCard(category);
+            };
+
+            const drawGameCard = (level) => {
+                if (level === 'chaos' && !chaosUnlocked) {
+                    setShowChaosUnlock(true);
+                    return;
+                }
+                const deck = window.GAME_DECK[level];
+                const rand = Math.random();
+                let type;
+                let card;
+
+                if (rand < deck.wildcardChance) {
+                    type = 'WILDCARD';
+                    card = deck.wildcard[Math.floor(Math.random() * deck.wildcard.length)];
+                } else {
+                    const subRand = Math.random();
+                    if (subRand < 0.5) {
+                        type = 'TRUTH';
+                        card = deck.truth[Math.floor(Math.random() * deck.truth.length)];
+                    } else {
+                        type = 'DARE';
+                        card = deck.dare[Math.floor(Math.random() * deck.dare.length)];
+                    }
+                }
+
+                setGameLevel(level);
+                setGameType(type);
+                setGameCard(card);
+                setLayer('GAME');
+                setShowMenu(false);
             };
 
             const handlePinSubmit = () => {
-                if (pinInput === '010304') {
+                const cleanPin = pinInput.trim();
+                if (!cleanPin) {
+                    alert("PIN tidak boleh kosong.");
+                    return;
+                }
+                if (!/^\d+$/.test(cleanPin)) {
+                    alert("PIN hanya boleh berisi angka.");
+                    return;
+                }
+
+                if (cleanPin === '010304') {
                     safeStorage.set('oracle_unlocked', 'true');
                     setLayer('MAIN');
                 } else {
@@ -1061,7 +881,30 @@ const chaosDeck = {
                                 <button key={a} onClick={() => setAvatar(a)} className={`text-2xl p-2 rounded-xl border ${avatar === a ? 'bg-gold/20 border-gold' : 'border-white/5'}`}>{a}</button>
                             ))}
                         </div>
-                        <button onClick={() => { safeStorage.set('oracle_user', username); safeStorage.set('oracle_avatar', avatar); safeStorage.set('oracle_color', userColor); setLayer('SECURITY'); }} className="w-full py-4 bg-gold text-black text-[10px] font-bold uppercase tracking-[5px] rounded-xl">MASUK SANCTUM</button>
+                        <button 
+                            onClick={() => { 
+                                const cleanName = username.trim();
+                                if (!cleanName) {
+                                    alert("Nama tidak boleh kosong.");
+                                    return;
+                                }
+                                if (cleanName.length < 2) {
+                                    alert("Nama terlalu pendek (min. 2 karakter).");
+                                    return;
+                                }
+                                if (!/^[a-zA-Z0-9\s]+$/.test(cleanName)) {
+                                    alert("Nama hanya boleh berisi huruf dan angka.");
+                                    return;
+                                }
+                                safeStorage.set('oracle_user', cleanName); 
+                                safeStorage.set('oracle_avatar', avatar); 
+                                safeStorage.set('oracle_color', userColor); 
+                                setLayer('SECURITY'); 
+                            }} 
+                            className="w-full py-4 bg-gold text-black text-[10px] font-bold uppercase tracking-[5px] rounded-xl"
+                        >
+                            MASUK SANCTUM
+                        </button>
                     </div>
                 </div>
             );
@@ -1082,6 +925,50 @@ const chaosDeck = {
                             className="w-full bg-transparent border-b border-white/10 py-3 text-center text-gold font-header tracking-widest focus:border-gold outline-none transition-all"
                         />
                         <button onClick={handlePinSubmit} className="w-full py-4 bg-gold text-black text-[10px] font-bold uppercase tracking-[5px] rounded-xl">BANGKITKAN KARAKTER</button>
+                    </div>
+                </div>
+            );
+
+            if (layer === 'GAME') return (
+                <div className="h-screen bg-black flex flex-col items-center justify-center p-8 space-y-12 relative overflow-hidden">
+                    <div className={`absolute inset-0 opacity-20 blur-[100px] transition-all duration-1000 ${
+                        gameType === 'TRUTH' ? 'bg-blue-500' : gameType === 'DARE' ? 'bg-red-500' : 'bg-gold'
+                    }`}></div>
+
+                    <div className="text-center space-y-4 z-10">
+                        <div className="text-[10px] font-header text-gold/60 tracking-[5px] uppercase">{gameLevel} MODE</div>
+                        <h2 className={`font-header text-4xl tracking-[10px] ${
+                            gameType === 'TRUTH' ? 'text-blue-400' : gameType === 'DARE' ? 'text-red-400' : 'text-gold'
+                        }`}>{gameType}</h2>
+                    </div>
+
+                    <div className="w-full max-w-xs glass p-8 rounded-3xl border border-white/10 text-center space-y-8 z-10 animate-fade-in">
+                        <p className="text-white/80 font-mystic text-xl leading-relaxed italic">
+                            "{gameCard}"
+                        </p>
+                        
+                        <div className="pt-4 space-y-3">
+                            <button 
+                                onClick={async () => {
+                                    const nama = "ORACLE";
+                                    const teks = JSON.stringify({ 
+                                        content: `GAME ${gameLevel.toUpperCase()} ${gameType}:${gameCard}`, 
+                                        invoker: username 
+                                    });
+                                    await supabaseClient.from('Pesan').insert([{ nama, teks }]);
+                                    setLayer('MAIN');
+                                }} 
+                                className="w-full py-4 bg-white/10 text-white text-[10px] font-bold uppercase tracking-[5px] rounded-xl hover:bg-white/20 transition-all"
+                            >
+                                SELESAI & KIRIM
+                            </button>
+                            <button 
+                                onClick={() => setLayer('MAIN')} 
+                                className="w-full py-4 text-white/40 text-[8px] font-bold uppercase tracking-[3px] hover:text-white transition-all"
+                            >
+                                KEMBALI
+                            </button>
+                        </div>
                     </div>
                 </div>
             );
@@ -1125,7 +1012,43 @@ const chaosDeck = {
                         )}
                     </div>
 
-                    <div className="p-3 bg-[#121b22] border-t border-white/5 relative">
+                    <div className="p-2 bg-[#121b22] border-t border-white/5 relative">
+                        {isViewOnce && (
+                            <div className="absolute top-[-30px] right-4 bg-red-600/90 text-white text-[8px] px-3 py-1 rounded-full uppercase tracking-[2px] font-bold animate-pulse shadow-lg z-[120] border border-white/20">
+                                👁️ Mode Rahasia Aktif
+                            </div>
+                        )}
+                        {uploadPreview && (
+                            <div className="absolute top-[-160px] left-4 right-4 bg-[#1e2a30] p-3 rounded-2xl border border-gold/30 shadow-2xl animate-fade-in flex flex-col gap-2 z-[110]">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] text-gold font-header tracking-widest uppercase">Pratinjau Gambar</span>
+                                    <button onClick={() => { setUploadPreview(null); setSelectedFile(null); }} className="text-white/40 text-xs p-1">✕</button>
+                                </div>
+                                <div className="relative h-24 w-full bg-black/20 rounded-lg overflow-hidden flex items-center justify-center">
+                                    <img src={uploadPreview} className="h-full object-contain" />
+                                    {isUploading && (
+                                        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
+                                            <div className="w-6 h-6 border-2 border-gold border-t-transparent rounded-full animate-spin"></div>
+                                            <span className="text-[8px] text-gold font-header tracking-widest uppercase">Mengirim...</span>
+                                        </div>
+                                    )}
+                                </div>
+                                {isViewOnce && (
+                                    <div className="flex items-center gap-2 text-[8px] text-red-400 uppercase tracking-widest font-bold">
+                                        <span>👁️ Mode Rahasia Aktif</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {isUploading && !uploadPreview && (
+                            <div className="absolute top-[-60px] left-4 right-4 bg-black/60 backdrop-blur-md p-2 rounded-xl flex items-center gap-3 animate-pulse border border-gold/20">
+                                <div className="w-10 h-10 bg-zinc-800 rounded-lg flex items-center justify-center text-xl">⏳</div>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] text-gold font-header tracking-widest uppercase">Uploading...</span>
+                                    <span className="text-[8px] text-white/40 uppercase">Takdir sedang diproses</span>
+                                </div>
+                            </div>
+                        )}
                         {replyingTo && (
                             <div className="absolute top-[-50px] left-0 right-0 bg-[#1e2a30] border-t border-gold/20 p-2 flex items-center justify-between animate-fade-in">
                                 <div className="text-[10px] text-white/60 truncate italic px-2">
@@ -1143,15 +1066,15 @@ const chaosDeck = {
                             </div>
                         )}
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                             <button 
                                 onClick={() => setShowAttachmentMenu(!showAttachmentMenu)} 
-                                className={`w-10 h-10 flex items-center justify-center text-white/60 transition-transform ${showAttachmentMenu ? 'rotate-45' : ''}`}
+                                className={`w-10 h-10 flex items-center justify-center text-white/60 transition-transform flex-shrink-0 ${showAttachmentMenu ? 'rotate-45' : ''}`}
                             >
                                 <span className="text-3xl">+</span>
                             </button>
                             
-                            <div className="flex-1 bg-[#2a3942] rounded-full flex items-center px-4 py-1">
+                            <div className="flex-1 bg-[#2a3942] rounded-full flex items-center px-4 py-1 shadow-inner min-w-0">
                                 <input 
                                     value={inputText} 
                                     onChange={handleInputChange} 
@@ -1159,25 +1082,30 @@ const chaosDeck = {
                                     onBlur={() => setIsInputFocused(false)}
                                     onKeyPress={e => e.key === 'Enter' && handleSend()} 
                                     placeholder="Ketik pesan..." 
-                                    className="flex-1 bg-transparent py-2.5 text-[15px] text-white outline-none" 
+                                    className="flex-1 bg-transparent py-2.5 text-[16px] text-white outline-none min-w-0" 
                                 />
                             </div>
 
-                            {inputText.trim() || editingMsg ? (
-                                <button onClick={handleSend} className="w-12 h-12 rounded-full bg-[#00a884] text-white flex items-center justify-center shadow-lg active:scale-90 transition-transform flex-shrink-0">
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                                {(!inputText.trim() && !editingMsg) && (
+                                    <button 
+                                        onMouseDown={startRecording} 
+                                        onMouseUp={stopRecording}
+                                        onTouchStart={startRecording} 
+                                        onTouchEnd={stopRecording}
+                                        className={`w-12 h-12 rounded-full flex items-center justify-center shadow-xl active:scale-125 transition-all flex-shrink-0 ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-[#00a884] text-white'}`}
+                                    >
+                                        <span className="text-xl">🎤</span>
+                                    </button>
+                                )}
+                                <button 
+                                    onClick={handleSend} 
+                                    disabled={(!inputText.trim() && !selectedFile) && !editingMsg}
+                                    className={`w-12 h-12 rounded-full text-white flex items-center justify-center shadow-xl active:scale-90 transition-transform flex-shrink-0 ${((!inputText.trim() && !selectedFile) && !editingMsg) ? 'bg-gray-600 opacity-50' : 'bg-[#00a884]'}`}
+                                >
                                     <span className="text-xl">{isUploading ? '...' : (editingMsg ? '✓' : '➤')}</span>
                                 </button>
-                            ) : (
-                                <button 
-                                    onMouseDown={startRecording} 
-                                    onMouseUp={stopRecording}
-                                    onTouchStart={startRecording} 
-                                    onTouchEnd={stopRecording}
-                                    className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg active:scale-125 transition-all flex-shrink-0 ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-[#00a884] text-white'}`}
-                                >
-                                    <span className="text-xl">🎤</span>
-                                </button>
-                            )}
+                            </div>
                         </div>
                         <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
                         
@@ -1191,7 +1119,13 @@ const chaosDeck = {
                                     <div className="w-14 h-14 rounded-full bg-orange-600 flex items-center justify-center text-2xl shadow-lg">🔮</div>
                                     <span className="text-[11px] text-white/80 font-medium">Takdir</span>
                                 </button>
-                                <button onClick={() => { setIsViewOnce(!isViewOnce); setShowAttachmentMenu(false); }} className="flex flex-col items-center gap-2">
+                                <button 
+                                    onClick={() => { 
+                                        setIsViewOnce(!isViewOnce); 
+                                        setShowAttachmentMenu(false); 
+                                    }} 
+                                    className="flex flex-col items-center gap-2"
+                                >
                                     <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-lg transition-colors ${isViewOnce ? 'bg-red-600' : 'bg-zinc-600'}`}>👁️</div>
                                     <span className="text-[11px] text-white/80 font-medium">Rahasia</span>
                                 </button>
@@ -1229,7 +1163,7 @@ const chaosDeck = {
                                     >
                                         <div className={`${chaosUnlocked ? 'text-red-400' : 'text-white/40'} font-header text-sm tracking-widest mb-1`}>CHAOS {chaosUnlocked ? '' : '🔒'}</div>
                                         <div className="text-[9px] text-white/40 uppercase tracking-widest">
-                                            {!isAdult ? 'Hanya untuk 18+' : chaosUnlocked ? 'Mode Pasangan (18+)' : 'Tekan untuk memasukkan PIN'}
+                                            {!isAdult ? 'Hanya untuk 18+' : chaosUnlocked ? 'Seksual & Sensual (18+)' : 'Tekan untuk memasukkan PIN'}
                                         </div>
                                     </button>
                                 </div>
@@ -1336,4 +1270,4 @@ const chaosDeck = {
         root.render(<App />);
     </script>
 </body>
-  </html>
+</html>
