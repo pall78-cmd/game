@@ -287,6 +287,24 @@
             } catch { return <div className="p-3 text-red-500 border border-red-500/20 rounded-lg text-xs italic">Takdir yang Terdistorsi</div>; }
         };
 
+        const MessageContent = ({ type, content, currentAudioId, msgId, onPlayAudio, isMe, isSecret = false }) => {
+            if (type === "vn") {
+                return <AudioPlayer url={content} isPlaying={currentAudioId === msgId} onToggle={() => onPlayAudio(currentAudioId === msgId ? null : msgId)} />;
+            }
+            if (type === "img") {
+                const parts = content.split("\n");
+                const url = parts[0];
+                const caption = parts.slice(1).join("\n");
+                return (
+                    <div className="flex flex-col gap-2">
+                        <img src={url} className={`rounded-lg ${isSecret ? 'max-h-96' : 'max-h-64'} w-full object-contain`} />
+                        {caption && <p className={`font-sans ${isSecret ? 'text-lg text-center' : 'text-[15px] pr-12'} leading-tight break-words whitespace-pre-wrap`}>{caption}</p>}
+                    </div>
+                );
+            }
+            return <p className={`font-sans ${isSecret ? 'text-xl text-center leading-relaxed' : 'text-[15px] pr-12'} leading-tight break-words whitespace-pre-wrap`}>{content}</p>;
+        };
+
         const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, onShare, currentAudioId, onPlayAudio, onVisible }) => {
             const [isExpanded, setIsExpanded] = useState(false);
             const [swipeX, setSwipeX] = useState(0);
@@ -306,33 +324,43 @@
                 return () => observer.disconnect();
             }, [bubbleRef, msg.id, isMe, onVisible]);
 
-            const content = msg.teks;
-            const isOracle = msg.nama === "ORACLE";
-            const isVO = content.startsWith("[VO]");
-            const isVN = content.startsWith("[VN]");
-            const isIMG = content.startsWith("[IMG]");
+            const parsed = useMemo(() => {
+                let teks = msg.teks || "";
+                let isVO = false;
+                let replyData = null;
 
-            // Parse Reply Context
-            let replyData = null;
-            let actualContent = content;
-            const replyRegex = /^\s*\[REPLY:(.+?)\](.*)$/s;
-            const match = content.match(replyRegex);
-
-            if (match) {
-                try {
-                    replyData = JSON.parse(match[1]);
-                    actualContent = match[2].trim();
-                } catch (e) {
-                    console.error('Failed to parse reply JSON:', e);
-                    actualContent = content; // Fallback to showing raw content on error
+                if (teks.startsWith("[VO]")) {
+                    isVO = true;
+                    teks = teks.substring(4);
                 }
-            } else {
-                actualContent = content;
-            }
 
+                const replyRegex = /^\[REPLY:(.+?)\](.*)$/s;
+                const match = teks.match(replyRegex);
+                if (match) {
+                    try {
+                        replyData = JSON.parse(match[1]);
+                        teks = match[2].trim();
+                    } catch (e) {}
+                }
+
+                let type = "text";
+                let content = teks;
+                if (teks.startsWith("[VN]")) {
+                    type = "vn";
+                    content = teks.substring(4);
+                } else if (teks.startsWith("[IMG]")) {
+                    type = "img";
+                    content = teks.substring(5);
+                }
+
+                return { isVO, replyData, type, content };
+            }, [msg.teks]);
+
+            const isOracle = msg.nama === "ORACLE";
+            
             const identity = useMemo(() => {
                 const parts = msg.nama.split('|');
-                return { name: parts[0], avatar: parts[1] || '👤', color: parts[2] || '#D4AF37' };
+                return { name: parts[0], avatar: parts[1] || '🔮', color: parts[2] || '#D4AF37' };
             }, [msg.nama]);
 
             const handleTouchStart = (e) => {
@@ -370,19 +398,14 @@
             };
 
             const renderReplyPreview = (data) => {
-                let actual = data.text;
-                while (actual.startsWith('[REPLY:')) {
-                    const endIdx = actual.indexOf('}]');
-                    if (endIdx !== -1) actual = actual.substring(endIdx + 2);
-                    else break;
-                }
-                const isImg = actual.startsWith('[IMG]');
-                const imgUrl = isImg ? actual.replace('[IMG]', '') : null;
+                const preview = parsePreviewText(data.text);
+                const isImg = data.text.includes("[IMG]");
+                const imgUrl = isImg ? data.text.match(/\[IMG\](.*?)(?:\n|$)/)?.[1] : null;
 
                 return (
                     <div className="mb-1 p-2 rounded bg-black/10 border-l-4 border-gold/50 text-[10px] opacity-80 italic flex justify-between items-center gap-2 overflow-hidden">
                         <div className="truncate">
-                            <span className="font-bold text-gold not-italic">{data.name}:</span> {parsePreviewText(data.text)}
+                            <span className="font-bold text-gold not-italic">{data.name}:</span> {preview}
                         </div>
                         {imgUrl && <img src={imgUrl} className="w-8 h-8 rounded object-cover flex-shrink-0" />}
                     </div>
@@ -411,10 +434,10 @@
                     
                     <div className={`relative p-3 w-fit max-w-[88%] rounded-2xl border transition-all shadow-md ${
                         isOracle ? 'w-full max-w-sm bg-transparent border-none' : 
-                        isVO ? 'bg-gradient-to-br from-red-950/60 to-red-900/40 border-red-500/30 text-red-400 cursor-pointer' :
+                        parsed.isVO ? 'bg-gradient-to-br from-red-950/60 to-red-900/40 border-red-500/30 text-red-400 cursor-pointer' :
                         isMe ? 'bg-gradient-to-br from-[#056162] to-[#075e54] border-none text-white rounded-tr-none' : 
                         'bg-gradient-to-br from-[#262d31] to-[#1f2428] border-none text-white rounded-tl-none'
-                    }`} onClick={() => isVO && onViewOnce(msg)}>
+                    }`} onClick={() => parsed.isVO && onViewOnce(msg)}>
                         {/* WhatsApp-style Tail */}
                         {!isOracle && (
                             <div className={`absolute top-0 w-0 h-0 border-t-[10px] border-t-transparent ${
@@ -422,14 +445,28 @@
                             }`}></div>
                         )}
 
-                        {replyData && renderReplyPreview(replyData)}
+                        {parsed.replyData && renderReplyPreview(parsed.replyData)}
                         
                         <div className="flex flex-col">
-                            {isOracle ? <FateCardDisplay raw={actualContent} onShare={onShare} /> :
-                             isVO ? <div className="flex items-center gap-3"><span className="text-xl">👁️</span><div className="flex flex-col"><span className="text-[9px] font-header tracking-widest uppercase">Secret Glimpse</span><span className="text-[7px] opacity-40 uppercase">Tap to reveal</span></div></div> :
-                             isVN ? <AudioPlayer url={actualContent.replace("[VN]", "")} isPlaying={currentAudioId === msg.id} onToggle={() => onPlayAudio(currentAudioId === msg.id ? null : msg.id)} /> :
-                             isIMG ? <img src={actualContent.replace("[IMG]", "")} className="rounded-lg max-h-64 w-full object-contain" /> :
-                             <p className="font-sans text-[15px] leading-tight break-words whitespace-pre-wrap pr-12">{actualContent}</p>
+                            {isOracle ? <FateCardDisplay raw={parsed.content} onShare={onShare} /> :
+                             parsed.isVO ? (
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xl">👁️</span>
+                                    <div className="flex flex-col">
+                                        <span className="text-[9px] font-header tracking-widest uppercase">Secret Glimpse</span>
+                                        <span className="text-[7px] opacity-40 uppercase">Tap to reveal</span>
+                                    </div>
+                                </div>
+                             ) : (
+                                <MessageContent 
+                                    type={parsed.type} 
+                                    content={parsed.content} 
+                                    msgId={msg.id} 
+                                    currentAudioId={currentAudioId} 
+                                    onPlayAudio={onPlayAudio} 
+                                    isMe={isMe} 
+                                />
+                             )
                             }
                             
                             {!isOracle && (
@@ -707,9 +744,30 @@
 
             const handleViewOnce = async (msg) => {
                 try {
-                    const content = msg.teks.replace("[VO]", "");
-                    if (!content) throw new Error("Empty");
-                    setViewingSecret(content);
+                    let teks = msg.teks || "";
+                    if (teks.startsWith("[VO]")) teks = teks.substring(4);
+
+                    let replyData = null;
+                    const replyRegex = /^\[REPLY:(.+?)\](.*)$/s;
+                    const match = teks.match(replyRegex);
+                    if (match) {
+                        try {
+                            replyData = JSON.parse(match[1]);
+                            teks = match[2].trim();
+                        } catch (e) {}
+                    }
+
+                    let type = "text";
+                    let content = teks;
+                    if (teks.startsWith("[VN]")) {
+                        type = "vn";
+                        content = teks.substring(4);
+                    } else if (teks.startsWith("[IMG]")) {
+                        type = "img";
+                        content = teks.substring(5);
+                    }
+
+                    setViewingSecret({ type, content, replyData });
                     
                     // Burn the message immediately from database
                     await supabaseClient.from('Pesan').delete().eq('id', msg.id);
@@ -1255,10 +1313,25 @@
 
                     {viewingSecret && (
                         <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[200] flex items-center justify-center p-8" onClick={() => setViewingSecret(null)}>
-                            <div className="text-center space-y-8 animate-fade-in max-w-sm">
+                            <div className="text-center space-y-8 animate-fade-in max-w-sm w-full" onClick={e => e.stopPropagation()}>
                                 <div className="text-gold text-[10px] font-header tracking-[10px] uppercase opacity-50">Secret Revealed</div>
-                                <div className="font-mystic text-3xl italic text-white leading-relaxed">"{viewingSecret}"</div>
-                                <div className="text-white/20 text-[8px] uppercase tracking-widest">Tap anywhere to burn this memory</div>
+                                <div className="bg-white/5 p-6 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden">
+                                    <div className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-transparent pointer-events-none"></div>
+                                    {viewingSecret.replyData && (
+                                        <div className="mb-4 p-2 rounded bg-black/20 border-l-4 border-gold/50 text-[10px] opacity-60 italic text-left">
+                                            <span className="font-bold text-gold not-italic">{viewingSecret.replyData.name}:</span> {parsePreviewText(viewingSecret.replyData.text)}
+                                        </div>
+                                    )}
+                                    <MessageContent 
+                                        type={viewingSecret.type} 
+                                        content={viewingSecret.content} 
+                                        msgId="secret" 
+                                        currentAudioId={currentAudioId} 
+                                        onPlayAudio={setCurrentAudioId} 
+                                        isSecret={true}
+                                    />
+                                </div>
+                                <button onClick={() => setViewingSecret(null)} className="text-white/20 text-[8px] uppercase tracking-widest border border-white/10 px-6 py-2 rounded-full hover:bg-white/5 transition-colors">Tap anywhere to burn this memory</button>
                             </div>
                         </div>
                     )}
