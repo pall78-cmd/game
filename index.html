@@ -144,9 +144,9 @@
                 }
             }
 
-            if (actual.startsWith('[IMG]')) return "📷 Photo";
-            if (actual.startsWith('[VN]')) return "🎤 Voice Message";
-            if (actual.startsWith('[VO]')) return "👁️ Secret Message";
+            if (actual.startsWith('[IMG]')) return "Image 🖼️";
+            if (actual.startsWith('[VN]')) return "Voice Note 🎙️";
+            if (actual.startsWith('[VO]')) return "Secret Glimpse 👁️";
             if (actual.startsWith('GAME ')) {
                 const parts = actual.split(':');
                 return `🔮 ${parts[0]}`;
@@ -469,8 +469,8 @@
 
             const renderReplyPreview = (data) => {
                 const preview = parsePreviewText(data.text);
-                const isImg = data.text.includes("[IMG]");
-                const imgUrl = isImg ? data.text.match(/\[IMG\](.*?)(?:\n|$)/)?.[1] : null;
+                const isImg = data.text.trim().startsWith("[IMG]");
+                const imgUrl = isImg ? data.text.trim().substring(5).split('\n')[0].trim() : null;
 
                 return (
                     <div className="mb-1 p-2 rounded bg-black/10 border-l-4 border-gold/50 text-[10px] opacity-80 italic flex justify-between items-center gap-2 overflow-hidden">
@@ -553,6 +553,68 @@
 
         // --- MAIN APP ---
 
+        const BackgroundMusic = ({ tracks, volume, isMuted, shouldDuck }) => {
+            const audioRef = useRef(null);
+            const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+            
+            useEffect(() => {
+                const audio = audioRef.current;
+                if (!audio) return;
+                
+                const playPromise = audio.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.log("Auto-play prevented:", error);
+                        const startAudio = () => {
+                            audio.play();
+                            document.removeEventListener('click', startAudio);
+                            document.removeEventListener('touchstart', startAudio);
+                        };
+                        document.addEventListener('click', startAudio);
+                        document.addEventListener('touchstart', startAudio);
+                    });
+                }
+            }, [currentTrackIndex]);
+
+            useEffect(() => {
+                const audio = audioRef.current;
+                if (!audio) return;
+
+                const targetVolume = (isMuted || shouldDuck) ? 0 : volume;
+                
+                const fade = setInterval(() => {
+                    const current = audio.volume;
+                    
+                    if (Math.abs(current - targetVolume) < 0.05) {
+                        audio.volume = targetVolume;
+                        if (targetVolume === 0) {
+                            if (isMuted) audio.pause();
+                        } else if (audio.paused) {
+                            audio.play().catch(() => {});
+                        }
+                        clearInterval(fade);
+                    } else {
+                        if (current < targetVolume) {
+                            if (audio.paused) audio.play().catch(() => {});
+                            audio.volume = Math.min(1, current + 0.05);
+                        } else {
+                            audio.volume = Math.max(0, current - 0.05);
+                        }
+                    }
+                }, 100);
+
+                return () => clearInterval(fade);
+            }, [volume, isMuted, shouldDuck]);
+
+            return (
+                <audio 
+                    ref={audioRef} 
+                    src={tracks[currentTrackIndex]} 
+                    onEnded={() => setCurrentTrackIndex(prev => (prev + 1) % tracks.length)}
+                />
+            );
+        };
+
         function App() {
             const [isAdult, setIsAdult] = useState(() => safeStorage.get('oracle_adult') === 'true');
             const [chaosUnlocked, setChaosUnlocked] = useState(() => safeStorage.get('oracle_chaos_unlocked') === 'true');
@@ -584,6 +646,8 @@
             const [isInputFocused, setIsInputFocused] = useState(false);
             const [isRecording, setIsRecording] = useState(false);
             const [viewingSecret, setViewingSecret] = useState(null);
+            const [bgMusicVolume, setBgMusicVolume] = useState(0.3);
+            const [bgMusicMuted, setBgMusicMuted] = useState(false);
             const [pinInput, setPinInput] = useState('');
             const [chaosPinInput, setChaosPinInput] = useState('');
             const [showChaosUnlock, setShowChaosUnlock] = useState(false);
@@ -812,15 +876,28 @@
                     
                     // Verify if the URL is accessible (Public Bucket Check)
                     try {
-                        const check = await fetch(publicUrl, { method: 'HEAD' });
+                        const check = await fetch(publicUrl); // Use GET to be more thorough
                         if (!check.ok) {
-                            console.warn("Public URL check failed:", check.status);
-                            if (check.status === 404 || check.status === 403 || check.status === 400) {
-                                alert("PERINGATAN: Audio mungkin tidak bisa diputar.\n\nBucket 'voice note' sepertinya PRIVATE.\nMohon ubah menjadi PUBLIC di dashboard Supabase:\nStorage > voice note > Configuration > Public Bucket.");
+                            console.error("Public URL check failed:", check.status, check.statusText);
+                            let warningMessage = `PERINGATAN: Audio mungkin tidak bisa diputar (Error: ${check.status}).\n\n`;
+                            if (check.status === 403 || check.status === 401) {
+                                warningMessage += "Bucket 'voice note' sepertinya PRIVATE atau memerlukan otorisasi.\nMohon ubah menjadi PUBLIC di dashboard Supabase:\nStorage > Policies > dan pastikan ada policy untuk SELECT publik.";
+                            } else if (check.status === 404) {
+                                warningMessage += "File tidak ditemukan setelah di-upload. Cek path upload dan aturan bucket.";
+                            } else {
+                                warningMessage += "Masalah koneksi atau konfigurasi server. Cek status Supabase.";
+                            }
+                            alert(warningMessage);
+                        } else {
+                            const returnedContentType = check.headers.get('content-type');
+                            console.log('Verified URL. Server Content-Type:', returnedContentType);
+                            if (returnedContentType && !returnedContentType.startsWith('audio/')) {
+                                alert(`PERINGATAN: Server mengirim tipe file yang salah! (${returnedContentType}). Audio mungkin tidak akan diputar.`);
                             }
                         }
                     } catch (e) {
-                        console.warn("Could not verify URL:", e);
+                        console.error("Could not verify URL due to network error (CORS?):", e);
+                        alert("Gagal memverifikasi URL audio setelah upload. Kemungkinan ada masalah CORS pada bucket Supabase Anda. Periksa pengaturan CORS di dashboard.");
                     }
 
                     const nama = `${username}|${avatar}|${userColor}`;
@@ -1183,6 +1260,16 @@
 
             return (
                 <div ref={appRef} className="flex flex-col bg-void overflow-hidden">
+                    <BackgroundMusic 
+                        tracks={[
+                            "https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/gemini_generated_media_49b9b318.mp3",
+                            "https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/gemini_generated_media_a10e9509.mp3",
+                            "https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/gemini_generated_media_6d98b4f4.mp3"
+                        ]}
+                        volume={bgMusicVolume}
+                        isMuted={bgMusicMuted}
+                        shouldDuck={isRecording || currentAudioId !== null}
+                    />
                     <header className="p-4 border-b border-white/5 bg-black/80 backdrop-blur-md z-10 flex justify-between items-center relative">
                         <div className="font-header text-gold text-[10px] tracking-widest">ORACLE v17.9</div>
                         <div className="text-[10px] font-mono text-white/60 tracking-[2px] uppercase">{currentTime.toLocaleTimeString()}</div>
@@ -1190,7 +1277,24 @@
                         <button onClick={() => setShowMenu(!showMenu)} className="text-white/40 text-xl">⋮</button>
                         
                         {showMenu && (
-                            <div className="absolute right-4 top-14 w-56 glass rounded-2xl shadow-2xl z-50 overflow-hidden animate-fade-in border border-white/10">
+                            <div className="absolute right-4 top-14 w-64 glass rounded-2xl shadow-2xl z-50 overflow-hidden animate-fade-in border border-white/10">
+                                <div className="p-4 border-b border-white/5 space-y-3">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[10px] uppercase tracking-widest text-gold">Musik Latar</span>
+                                        <button onClick={() => setBgMusicMuted(!bgMusicMuted)} className="text-xs text-white/60 hover:text-white">
+                                            {bgMusicMuted ? '🔇 Muted' : '🔊 On'}
+                                        </button>
+                                    </div>
+                                    <input 
+                                        type="range" 
+                                        min="0" 
+                                        max="1" 
+                                        step="0.1" 
+                                        value={bgMusicVolume} 
+                                        onChange={(e) => setBgMusicVolume(parseFloat(e.target.value))}
+                                        className="w-full accent-gold h-1 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                                    />
+                                </div>
                                 <button onClick={() => { setLayer('NAME'); setShowMenu(false); }} className="w-full p-4 text-left text-[10px] uppercase tracking-widest border-b border-white/5 hover:bg-white/5">Ubah Identitas</button>
                                 <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full p-4 text-left text-[10px] uppercase tracking-widest border-b border-white/5 hover:bg-white/5">Reset Profil & Usia</button>
                                 <button onClick={() => { setShowClearConfirm(true); setShowMenu(false); }} className="w-full p-4 text-left text-[10px] uppercase tracking-widest text-red-400 hover:bg-red-500/10">Hapus Semua Pesan</button>
