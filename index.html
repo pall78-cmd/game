@@ -557,24 +557,38 @@
             const audioRef = useRef(null);
             const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
             
+            // Ensure URLs are properly encoded
+            const encodedTracks = useMemo(() => tracks.map(t => encodeURI(t)), [tracks]);
+
             useEffect(() => {
                 const audio = audioRef.current;
                 if (!audio) return;
                 
-                const playPromise = audio.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(error => {
-                        console.log("Auto-play prevented:", error);
-                        const startAudio = () => {
-                            audio.play();
-                            document.removeEventListener('click', startAudio);
-                            document.removeEventListener('touchstart', startAudio);
-                        };
-                        document.addEventListener('click', startAudio);
-                        document.addEventListener('touchstart', startAudio);
-                    });
-                }
-            }, [currentTrackIndex]);
+                const playAudio = () => {
+                    audio.play().catch(err => console.warn("Playback failed:", err));
+                };
+
+                // Try playing immediately
+                playAudio();
+
+                // Stronger fallback for browser autoplay policies
+                const handleInteraction = () => {
+                    playAudio();
+                    document.removeEventListener('click', handleInteraction);
+                    document.removeEventListener('touchstart', handleInteraction);
+                    document.removeEventListener('keydown', handleInteraction);
+                };
+
+                document.addEventListener('click', handleInteraction);
+                document.addEventListener('touchstart', handleInteraction);
+                document.addEventListener('keydown', handleInteraction);
+
+                return () => {
+                    document.removeEventListener('click', handleInteraction);
+                    document.removeEventListener('touchstart', handleInteraction);
+                    document.removeEventListener('keydown', handleInteraction);
+                };
+            }, [currentTrackIndex, encodedTracks]);
 
             useEffect(() => {
                 const audio = audioRef.current;
@@ -584,24 +598,23 @@
                 
                 const fade = setInterval(() => {
                     const current = audio.volume;
-                    
-                    if (Math.abs(current - targetVolume) < 0.05) {
+                    if (Math.abs(current - targetVolume) < 0.02) {
                         audio.volume = targetVolume;
-                        if (targetVolume === 0) {
-                            if (isMuted) audio.pause();
-                        } else if (audio.paused) {
+                        if (targetVolume === 0 && isMuted) {
+                            audio.pause();
+                        } else if (targetVolume > 0 && audio.paused) {
                             audio.play().catch(() => {});
                         }
                         clearInterval(fade);
                     } else {
                         if (current < targetVolume) {
                             if (audio.paused) audio.play().catch(() => {});
-                            audio.volume = Math.min(1, current + 0.05);
+                            audio.volume = Math.min(1, current + 0.02);
                         } else {
-                            audio.volume = Math.max(0, current - 0.05);
+                            audio.volume = Math.max(0, current - 0.02);
                         }
                     }
-                }, 100);
+                }, 50);
 
                 return () => clearInterval(fade);
             }, [volume, isMuted, shouldDuck]);
@@ -609,8 +622,13 @@
             return (
                 <audio 
                     ref={audioRef} 
-                    src={tracks[currentTrackIndex]} 
+                    src={encodedTracks[currentTrackIndex]} 
                     onEnded={() => setCurrentTrackIndex(prev => (prev + 1) % tracks.length)}
+                    onError={(e) => {
+                        const error = e.target.error;
+                        console.error("Audio Load Error:", error ? error.message || error.code : "Unknown error");
+                    }}
+                    preload="auto"
                 />
             );
         };
@@ -625,6 +643,8 @@
                 if (user === null) return 'NAME';
                 return safeStorage.get('oracle_unlocked') === 'true' ? 'MAIN' : 'SECURITY';
             });
+
+            const [isAudioActivated, setIsAudioActivated] = useState(false);
 
             const [username, setUsername] = useState(() => safeStorage.get('oracle_user') || '');
             const [avatar, setAvatar] = useState(() => safeStorage.get('oracle_avatar') || '🔮');
@@ -782,10 +802,30 @@
                     }
 
                     if (replyingTo) {
+                        // Parse the text to get the actual content, stripping any existing reply metadata
+                        let replyText = replyingTo.teks;
+                        
+                        // Check if the message we are replying to is itself a reply
+                        const existingReplyRegex = /^\[REPLY:(.+?)\](.*)$/s;
+                        const match = replyText.match(existingReplyRegex);
+                        if (match) {
+                            // If it is, use only the actual message content (group 2)
+                            replyText = match[2].trim();
+                        }
+
+                        // Also strip [VO], [VN], [IMG] prefixes for the preview if needed, 
+                        // but usually we want to keep the content. 
+                        // However, for the reply CONTEXT, we just want the text representation.
+                        // Let's use parsePreviewText to get a clean representation for the reply context
+                        // OR just keep the raw content if it's not a nested reply structure.
+                        
+                        // Actually, the best way is to store the CLEAN text in the reply context.
                         const replyContext = {
                             name: replyingTo.nama.split('|')[0],
-                            text: replyingTo.teks
+                            text: replyText // Use the cleaned text
                         };
+                        
+                        // Construct the new message with the single-level reply context
                         teks = `[REPLY:${JSON.stringify(replyContext)}]${teks}`;
                     }
 
@@ -1269,6 +1309,19 @@
                         isMuted={bgMusicMuted}
                         shouldDuck={isRecording || currentAudioId !== null}
                     />
+
+                    {!isAudioActivated && (
+                        <div 
+                            className="fixed inset-0 bg-black/60 backdrop-blur-md z-[9999] flex flex-col items-center justify-center cursor-pointer group"
+                            onClick={() => setIsAudioActivated(true)}
+                        >
+                            <div className="w-20 h-20 rounded-full border border-gold/30 flex items-center justify-center animate-pulse group-hover:scale-110 transition-transform">
+                                <span className="text-3xl">🔊</span>
+                            </div>
+                            <p className="mt-6 font-header text-gold text-[10px] tracking-[5px] uppercase opacity-60">Ketuk untuk Memulai Harmoni</p>
+                        </div>
+                    )}
+
                     <header className="p-4 border-b border-white/5 bg-black/80 backdrop-blur-md z-10 flex justify-between items-center relative">
                         <div className="font-header text-gold text-[10px] tracking-widest">ORACLE v17.9</div>
                         <div className="text-[10px] font-mono text-white/60 tracking-[2px] uppercase">{currentTime.toLocaleTimeString()}</div>
