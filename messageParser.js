@@ -269,6 +269,7 @@ const MessageParser = {
         }
 
         return {
+            id: messageObj.id,
             name,
             text: currentText
         };

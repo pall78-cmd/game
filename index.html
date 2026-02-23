@@ -19,6 +19,7 @@
     <script src="./config.js"></script>
     <script src="./deck.js"></script>
     <script src="./audioManager.js"></script>
+    <script src="./manageraudio.js"></script>
     <script src="./messageParser.js"></script>
     <script src="./connectionManager.js"></script>
     
@@ -282,12 +283,18 @@
                         playsInline
                         onError={(e) => {
                             const err = e.target.error;
-                            console.error("Audio Playback Error:", err);
-                            if (err && err.code === 4) {
-                                console.warn("Source not supported or file not found:", cleanUrl);
+                            let msg = "Unknown Error";
+                            if (err) {
+                                switch (err.code) {
+                                    case 1: msg = "Aborted"; break;
+                                    case 2: msg = "Network Error"; break;
+                                    case 3: msg = "Decode Error (Format Not Supported)"; break;
+                                    case 4: msg = "Source Not Supported (404 or Codec)"; break;
+                                }
                             }
+                            console.error(`Audio Playback Error: ${msg}`, err);
                             setError(true);
-                            onToggle();
+                            onToggle(); // Stop playing state
                         }}
                         onTimeUpdate={() => {
                             const curr = audioRef.current.currentTime;
@@ -425,13 +432,29 @@
                 return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             };
 
+            const scrollToMessage = (id) => {
+                if (!id) return;
+                const element = document.getElementById(`msg-${id}`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    element.classList.add('bg-white/10');
+                    setTimeout(() => element.classList.remove('bg-white/10'), 1000);
+                }
+            };
+
             const renderReplyPreview = (data) => {
                 const preview = parsePreviewText(data.text);
                 const isImg = data.text.trim().startsWith("[IMG]");
                 const imgUrl = isImg ? data.text.trim().substring(5).split('\n')[0].trim() : null;
 
                 return (
-                    <div className="mb-1 p-2 rounded bg-black/10 border-l-4 border-gold/50 text-[10px] opacity-80 italic flex justify-between items-center gap-2 overflow-hidden">
+                    <div 
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            scrollToMessage(data.id);
+                        }}
+                        className="mb-1 p-2 rounded bg-black/10 border-l-4 border-gold/50 text-[10px] opacity-80 italic flex justify-between items-center gap-2 overflow-hidden cursor-pointer hover:bg-black/20 transition-colors"
+                    >
                         <div className="truncate">
                             <span className="font-bold text-gold not-italic">{data.name}:</span> {preview}
                         </div>
@@ -442,6 +465,7 @@
 
             return (
                 <div 
+                    id={`msg-${msg.id}`}
                     ref={bubbleRef}
                     className={`flex flex-col mb-2 animate-fade-in relative transition-transform duration-200 ${isOracle ? 'items-center w-full my-4' : isMe ? 'items-end' : 'items-start'}`}
                     style={{ transform: `translateX(${swipeX}px)` }}
@@ -510,88 +534,6 @@
         };
 
         // --- MAIN APP ---
-
-        const BackgroundMusic = ({ tracks, volume, isMuted, shouldDuck }) => {
-            const audioRef = useRef(null);
-            const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
-            
-            // URLs are already encoded from Supabase
-            const encodedTracks = useMemo(() => tracks, [tracks]);
-
-            useEffect(() => {
-                const audio = audioRef.current;
-                if (!audio) return;
-                
-                const playAudio = () => {
-                    audio.play().catch(err => console.warn("Playback failed:", err));
-                };
-
-                // Try playing immediately
-                playAudio();
-
-                // Stronger fallback for browser autoplay policies
-                const handleInteraction = () => {
-                    playAudio();
-                    document.removeEventListener('click', handleInteraction);
-                    document.removeEventListener('touchstart', handleInteraction);
-                    document.removeEventListener('keydown', handleInteraction);
-                };
-
-                document.addEventListener('click', handleInteraction);
-                document.addEventListener('touchstart', handleInteraction);
-                document.addEventListener('keydown', handleInteraction);
-
-                return () => {
-                    document.removeEventListener('click', handleInteraction);
-                    document.removeEventListener('touchstart', handleInteraction);
-                    document.removeEventListener('keydown', handleInteraction);
-                };
-            }, [currentTrackIndex, encodedTracks]);
-
-            useEffect(() => {
-                const audio = audioRef.current;
-                if (!audio) return;
-
-                const targetVolume = (isMuted || shouldDuck) ? 0 : volume;
-                
-                const fade = setInterval(() => {
-                    const current = audio.volume;
-                    if (Math.abs(current - targetVolume) < 0.02) {
-                        audio.volume = targetVolume;
-                        if (targetVolume === 0 && isMuted) {
-                            audio.pause();
-                        } else if (targetVolume > 0 && audio.paused) {
-                            audio.play().catch(() => {});
-                        }
-                        clearInterval(fade);
-                    } else {
-                        if (current < targetVolume) {
-                            if (audio.paused) audio.play().catch(() => {});
-                            audio.volume = Math.min(1, current + 0.02);
-                        } else {
-                            audio.volume = Math.max(0, current - 0.02);
-                        }
-                    }
-                }, 50);
-
-                return () => clearInterval(fade);
-            }, [volume, isMuted, shouldDuck]);
-
-            return (
-                <audio 
-                    ref={audioRef} 
-                    src={encodedTracks[currentTrackIndex]} 
-                    onEnded={() => setCurrentTrackIndex(prev => (prev + 1) % tracks.length)}
-                    onError={(e) => {
-                        const error = e.target.error;
-                        console.warn("Audio Load Error, skipping track:", error ? error.message || error.code : "Unknown error");
-                        // Skip to next track on error
-                        setCurrentTrackIndex(prev => (prev + 1) % tracks.length);
-                    }}
-                    preload="auto"
-                />
-            );
-        };
 
         function App() {
             const [isAdult, setIsAdult] = useState(() => safeStorage.get('oracle_adult') === 'true');
@@ -754,7 +696,27 @@
                     const { type, payload } = event;
                     
                     if (type === 'INSERT') {
-                        setMessages((prev) => [...prev, payload.new]);
+                        const newMsg = payload.new;
+                        setMessages((prev) => [...prev, newMsg]);
+                        
+                        // --- Notification Logic ---
+                        if (document.hidden || layer !== 'MAIN') {
+                            if (newMsg.nama && !newMsg.nama.startsWith(username)) {
+                                const senderName = newMsg.nama.split('|')[0];
+                                
+                                if (Notification.permission === 'granted' && navigator.serviceWorker.controller) {
+                                    navigator.serviceWorker.controller.postMessage({
+                                        type: 'SHOW_NOTIFICATION',
+                                        payload: {
+                                            title: senderName,
+                                            text: newMsg.teks,
+                                            tag: 'oracle-chat',
+                                            icon: './icon.png' // Placeholder, SW has default
+                                        }
+                                    });
+                                }
+                            }
+                        }
                     } else if (type === 'TYPING') {
                         const { user, isTyping } = payload.payload;
                         if (user !== username) {
@@ -771,6 +733,18 @@
                 // Start subscription
                 connectionManagerRef.current.subscribe('msgs', handleRealtimePayload);
                 
+                // --- Service Worker Registration ---
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.register('./sw.js')
+                        .then(reg => console.log('SW registered:', reg))
+                        .catch(err => console.error('SW registration failed:', err));
+                    
+                    // Request Notification Permission on load (or better, on user interaction)
+                    if (Notification.permission === 'default') {
+                        // We'll ask later or let user trigger it
+                    }
+                }
+
                 const typingCleanup = setInterval(() => {
                     const now = Date.now();
                     setTypingUsers(prev => {
@@ -827,6 +801,7 @@
                     let teks = inputText;
 
                     if (selectedFile) {
+                        if (window.BGMManager) window.BGMManager.onImageSend();
                         const url = await uploadImage(selectedFile);
                         teks = teks.trim() ? `[IMG]${url}\n${teks}` : `[IMG]${url}`;
                         setSelectedFile(null);
@@ -1101,6 +1076,7 @@
             };
 
             const drawGameCard = (level) => {
+                if (window.BGMManager) window.BGMManager.onFateCardDraw();
                 if (level === 'chaos' && !chaosUnlocked) {
                     setShowChaosUnlock(true);
                     return;
@@ -1324,17 +1300,32 @@
                 </div>
             );
 
+            useEffect(() => {
+                // Initialize BGM Manager
+                if (window.BGMManager && isAudioActivated) {
+                    window.BGMManager.play();
+                }
+            }, [isAudioActivated]);
+
+            // Handle BGM Pause/Play based on state
+            useEffect(() => {
+                if (!window.BGMManager) return;
+                
+                if (isRecording) {
+                    window.BGMManager.onVoiceNoteStart();
+                } else if (currentAudioId !== null) {
+                    window.BGMManager.onVoiceNotePlay();
+                } else {
+                    // Resume BGM if it was paused by these events
+                    // Only resume if audio is activated globally
+                    if (isAudioActivated) {
+                        window.BGMManager.play();
+                    }
+                }
+            }, [isRecording, currentAudioId, isAudioActivated]);
+
             return (
                 <div ref={appRef} className="flex flex-col bg-void overflow-hidden">
-                    <BackgroundMusic 
-                        tracks={[
-                            "https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/HINDIA%20FULL%20ALBUM%20_%207%20BEST%20SONG%20OF%20HINDIA%20_%20DANIEL%20BASKARA%20PUTRA(MP3_128K).mp3",
-                            "https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/Tarot%20-%20.Feast%20_%20Lirik%20Lagu(MP3_320K).mp3"
-                        ]}
-                        volume={bgMusicVolume}
-                        isMuted={bgMusicMuted}
-                        shouldDuck={isRecording || currentAudioId !== null}
-                    />
 
                     {!isAudioActivated && (
                         <div 
