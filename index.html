@@ -1077,34 +1077,49 @@
 
             const drawGameCard = (level) => {
                 if (window.BGMManager) window.BGMManager.onFateCardDraw();
+                
                 if (level === 'chaos' && !chaosUnlocked) {
                     setShowChaosUnlock(true);
                     return;
                 }
+
+                if (!window.GAME_DECK || !window.GAME_DECK[level]) {
+                    console.error("Game Deck not found for level:", level);
+                    alert("Gagal memuat kartu takdir. Silakan refresh aplikasi.");
+                    return;
+                }
+
                 const deck = window.GAME_DECK[level];
                 const rand = Math.random();
                 let type;
                 let card;
 
-                if (rand < deck.wildcardChance) {
-                    type = 'WILDCARD';
-                    card = deck.wildcard[Math.floor(Math.random() * deck.wildcard.length)];
-                } else {
-                    const subRand = Math.random();
-                    if (subRand < 0.5) {
-                        type = 'TRUTH';
-                        card = deck.truth[Math.floor(Math.random() * deck.truth.length)];
+                try {
+                    if (rand < deck.wildcardChance) {
+                        type = 'WILDCARD';
+                        card = deck.wildcard[Math.floor(Math.random() * deck.wildcard.length)];
                     } else {
-                        type = 'DARE';
-                        card = deck.dare[Math.floor(Math.random() * deck.dare.length)];
+                        const subRand = Math.random();
+                        if (subRand < 0.5) {
+                            type = 'TRUTH';
+                            card = deck.truth[Math.floor(Math.random() * deck.truth.length)];
+                        } else {
+                            type = 'DARE';
+                            card = deck.dare[Math.floor(Math.random() * deck.dare.length)];
+                        }
                     }
-                }
 
-                setGameLevel(level);
-                setGameType(type);
-                setGameCard(card);
-                setLayer('GAME');
-                setShowMenu(false);
+                    if (!card) throw new Error("Card is empty");
+
+                    setGameLevel(level);
+                    setGameType(type);
+                    setGameCard(card);
+                    setLayer('GAME');
+                    setShowMenu(false);
+                } catch (e) {
+                    console.error("Error drawing card:", e);
+                    alert("Terjadi kesalahan saat mengambil kartu.");
+                }
             };
 
             const handlePinSubmit = () => {
@@ -1178,6 +1193,38 @@
                 setShowClearConfirm(false);
                 setShowMenu(false);
             };
+
+            useEffect(() => {
+                // Initialize BGM Manager
+                if (window.BGMManager && isAudioActivated) {
+                    window.BGMManager.play();
+                }
+            }, [isAudioActivated]);
+
+            // Handle BGM Volume and Mute
+            useEffect(() => {
+                if (window.BGMManager) {
+                    window.BGMManager.setVolume(bgMusicVolume);
+                    window.BGMManager.mute(bgMusicMuted);
+                }
+            }, [bgMusicVolume, bgMusicMuted]);
+
+            // Handle BGM Pause/Play based on state
+            useEffect(() => {
+                if (!window.BGMManager) return;
+                
+                if (isRecording) {
+                    window.BGMManager.onVoiceNoteStart();
+                } else if (currentAudioId !== null) {
+                    window.BGMManager.onVoiceNotePlay();
+                } else {
+                    // Resume BGM if it was paused by these events
+                    // Only resume if audio is activated globally
+                    if (isAudioActivated) {
+                        window.BGMManager.play();
+                    }
+                }
+            }, [isRecording, currentAudioId, isAudioActivated]);
 
             if (layer === 'AGE') return (
                 <div className="h-screen bg-black flex flex-col items-center justify-center p-6 text-center space-y-12">
@@ -1299,30 +1346,6 @@
                     </div>
                 </div>
             );
-
-            useEffect(() => {
-                // Initialize BGM Manager
-                if (window.BGMManager && isAudioActivated) {
-                    window.BGMManager.play();
-                }
-            }, [isAudioActivated]);
-
-            // Handle BGM Pause/Play based on state
-            useEffect(() => {
-                if (!window.BGMManager) return;
-                
-                if (isRecording) {
-                    window.BGMManager.onVoiceNoteStart();
-                } else if (currentAudioId !== null) {
-                    window.BGMManager.onVoiceNotePlay();
-                } else {
-                    // Resume BGM if it was paused by these events
-                    // Only resume if audio is activated globally
-                    if (isAudioActivated) {
-                        window.BGMManager.play();
-                    }
-                }
-            }, [isRecording, currentAudioId, isAudioActivated]);
 
             return (
                 <div ref={appRef} className="flex flex-col bg-void overflow-hidden">

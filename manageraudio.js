@@ -12,7 +12,8 @@ class BGMManager {
         this.audio = new Audio();
         this.currentTrackIndex = 0;
         this.isPlaying = false;
-        this.baseVolume = 0.3;
+        this.userVolume = 0.3; // Volume set by user
+        this.isMuted = false;  // Mute state
         this.fadeInterval = null;
         
         // Preload
@@ -39,6 +40,29 @@ class BGMManager {
         });
     }
 
+    // Set User Volume (0.0 - 1.0)
+    setVolume(vol) {
+        this.userVolume = Math.max(0, Math.min(1, vol));
+        if (!this.isMuted && this.isPlaying) {
+            // Update current volume immediately if not fading
+            if (!this.fadeInterval) {
+                this.audio.volume = this.userVolume;
+            }
+        }
+    }
+
+    // Set Mute State
+    mute(muted) {
+        this.isMuted = muted;
+        if (this.isMuted) {
+            this.audio.volume = 0;
+        } else {
+            if (this.isPlaying) {
+                this.audio.volume = this.userVolume;
+            }
+        }
+    }
+
     // Memulai pemutaran (dengan fade in)
     play() {
         if (this.isPlaying) return;
@@ -48,15 +72,19 @@ class BGMManager {
             this.audio.src = this.tracks[this.currentTrackIndex];
         }
 
-        // Mulai dari volume 0 untuk fade in
-        this.audio.volume = 0; 
+        if (this.isMuted) {
+            this.audio.volume = 0;
+        } else {
+            // Mulai dari volume 0 untuk fade in
+            this.audio.volume = 0; 
+        }
         
         const playPromise = this.audio.play();
         
         if (playPromise !== undefined) {
             playPromise.then(() => {
                 this.isPlaying = true;
-                this.fadeIn();
+                if (!this.isMuted) this.fadeIn();
             }).catch(e => {
                 console.error("BGM Play failed (Autoplay policy?):", e);
                 // Kita bisa mencoba lagi nanti saat user interaksi
@@ -67,10 +95,16 @@ class BGMManager {
     // Pause pemutaran (dengan fade out)
     pause() {
         if (!this.isPlaying) return;
-        this.fadeOut(() => {
+        
+        if (this.isMuted) {
             this.audio.pause();
             this.isPlaying = false;
-        });
+        } else {
+            this.fadeOut(() => {
+                this.audio.pause();
+                this.isPlaying = false;
+            });
+        }
     }
 
     // Pindah ke track berikutnya
@@ -82,9 +116,10 @@ class BGMManager {
         }
     }
 
-    // Fade In ke Base Volume
+    // Fade In ke User Volume
     fadeIn() {
-        this.fadeTo(this.baseVolume);
+        if (this.isMuted) return;
+        this.fadeTo(this.userVolume);
     }
 
     // Fade Out ke 0
@@ -106,6 +141,7 @@ class BGMManager {
             if (Math.abs(current - targetVolume) < step) {
                 this.audio.volume = targetVolume;
                 clearInterval(this.fadeInterval);
+                this.fadeInterval = null;
                 if (callback) callback();
             } else {
                 // Bergerak menuju target
@@ -120,12 +156,14 @@ class BGMManager {
 
     // Ducking: Menurunkan volume sementara (misal saat ada suara lain)
     duck() {
-        this.fadeTo(0.05);
+        if (this.isMuted) return;
+        this.fadeTo(Math.min(0.05, this.userVolume));
     }
 
     // Unduck: Mengembalikan volume normal
     unduck() {
-        this.fadeTo(this.baseVolume);
+        if (this.isMuted) return;
+        this.fadeTo(this.userVolume);
     }
 
     // --- Event Handlers untuk Integrasi ---
