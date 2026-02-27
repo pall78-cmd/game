@@ -120,20 +120,55 @@
             animation-duration: 4s;
         }
 
-        .center-symbol {
+        .constellation {
             position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--gold);
-            font-size: 2rem;
-            animation: pulse 3s ease-in-out infinite;
-            text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+            top: 50%;
+            left: 50%;
+            width: 80px;
+            height: 80px;
+            transform: translate(-50%, -50%);
         }
 
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes pulse { 0%, 100% { opacity: 0.6; transform: scale(0.95); } 50% { opacity: 1; transform: scale(1.05); } }
+        .star {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--gold);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--gold);
+            animation: twinkle 3s infinite ease-in-out;
+        }
+
+        .line {
+            position: absolute;
+            background: rgba(212, 175, 55, 0.3);
+            height: 1px;
+            transform-origin: left center;
+        }
+
+        /* Sagittarius Shape (Teapot) */
+        .s1 { top: 20%; left: 40%; } /* Top of lid */
+        .s2 { top: 35%; left: 30%; } /* Spout tip */
+        .s3 { top: 45%; left: 50%; } /* Lid base */
+        .s4 { top: 45%; left: 70%; } /* Handle top */
+        .s5 { top: 65%; left: 40%; } /* Body left */
+        .s6 { top: 65%; left: 60%; } /* Body right */
+        .s7 { top: 80%; left: 30%; } /* Spout base */
+        .s8 { top: 80%; left: 80%; } /* Handle base */
+
+        /* Connecting Lines */
+        .l1 { top: 20%; left: 40%; width: 22px; transform: rotate(115deg); } /* s1 -> s2 */
+        .l2 { top: 20%; left: 40%; width: 15px; transform: rotate(65deg); } /* s1 -> s3 */
+        .l3 { top: 35%; left: 30%; width: 28px; transform: rotate(25deg); } /* s2 -> s3 */
+        .l4 { top: 45%; left: 50%; width: 20px; transform: rotate(0deg); } /* s3 -> s4 */
+        .l5 { top: 45%; left: 50%; width: 22px; transform: rotate(115deg); } /* s3 -> s5 */
+        .l6 { top: 45%; left: 70%; width: 22px; transform: rotate(65deg); } /* s4 -> s6 */
+        .l7 { top: 65%; left: 40%; width: 20px; transform: rotate(0deg); } /* s5 -> s6 */
+        .l8 { top: 65%; left: 40%; width: 22px; transform: rotate(135deg); } /* s5 -> s7 */
+        .l9 { top: 65%; left: 60%; width: 28px; transform: rotate(45deg); } /* s6 -> s8 */
+        .l10 { top: 45%; left: 70%; width: 25px; transform: rotate(65deg); } /* s4 -> s8 (handle) */
+
+        @keyframes twinkle { 0%, 100% { opacity: 0.4; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.2); } }
     </style>
 </head>
 <body>
@@ -143,7 +178,28 @@
                 <div class="orbit"></div>
                 <div class="orbit"></div>
                 <div class="orbit"></div>
-                <div class="center-symbol">♐</div>
+                <div class="constellation">
+                    <!-- Stars -->
+                    <div class="star s1" style="animation-delay: 0s"></div>
+                    <div class="star s2" style="animation-delay: 0.5s"></div>
+                    <div class="star s3" style="animation-delay: 1s"></div>
+                    <div class="star s4" style="animation-delay: 1.5s"></div>
+                    <div class="star s5" style="animation-delay: 0.2s"></div>
+                    <div class="star s6" style="animation-delay: 0.7s"></div>
+                    <div class="star s7" style="animation-delay: 1.2s"></div>
+                    <div class="star s8" style="animation-delay: 1.7s"></div>
+                    
+                    <!-- Lines -->
+                    <div class="line l1"></div>
+                    <div class="line l2"></div>
+                    <div class="line l3"></div>
+                    <div class="line l4"></div>
+                    <div class="line l5"></div>
+                    <div class="line l6"></div>
+                    <div class="line l7"></div>
+                    <div class="line l8"></div>
+                    <div class="line l9"></div>
+                </div>
             </div>
             <div class="font-header text-gold text-sm tracking-[8px] uppercase opacity-80" style="font-family: 'Cinzel', serif;">Connecting to Ether</div>
         </div>
