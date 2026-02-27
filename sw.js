@@ -17,12 +17,16 @@ const ASSETS = [
 
 // --- Message Parser Logic (Duplicated for SW independence) ---
 const parseMessageContent = (text) => {
-    if (!text) return { body: '', image: null };
+    if (!text) return { body: '', image: null, type: 'text' };
 
     let content = text;
+    let type = 'text';
     
     // Strip tags wrapper
-    if (content.startsWith("[VO]")) content = content.substring(4);
+    if (content.startsWith("[VO]")) {
+        content = content.substring(4);
+        type = 'secret';
+    }
     
     // Handle Reply wrapper
     const replyMatch = content.match(/^\[REPLY:(.+?)\](.*)$/s);
@@ -43,10 +47,10 @@ const parseMessageContent = (text) => {
 
     // Parse Types
     if (content.startsWith("[VN]")) {
-        content = "🎤 Mengirim Pesan Suara";
+        content = "🎤 Pesan Suara Baru";
+        type = 'voice';
     } else if (content.startsWith("[IMG]")) {
         const rawImg = content.substring(5).trim();
-        // Extract URL and Caption
         const firstSpace = rawImg.indexOf(' ');
         const firstNewline = rawImg.indexOf('\n');
         let splitIndex = -1;
@@ -57,29 +61,69 @@ const parseMessageContent = (text) => {
 
         if (splitIndex !== -1) {
             image = rawImg.substring(0, splitIndex);
-            content = "🖼️ " + rawImg.substring(splitIndex).trim();
+            content = rawImg.substring(splitIndex).trim() || "Mengirim Gambar";
         } else {
             image = rawImg;
-            content = "🖼️ Mengirim Gambar";
+            content = "🖼️ Gambar Baru";
         }
+        type = 'image';
     } else if (content.startsWith("GAME ")) {
-        content = "🔮 Kartu Takdir Terbuka";
+        content = "🔮 Takdir telah memanggilmu...";
+        type = 'game';
     }
 
-    return { body: content, image };
+    if (type === 'secret') {
+        content = "👁️ Seseorang mengirim pesan rahasia...";
+    }
+
+    return { body: content, image, type };
 };
 
 // --- Install & Activate ---
 self.addEventListener('install', (event) => {
     self.skipWaiting();
-    // Optional: Cache assets
-    // event.waitUntil(
-    //     caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS))
-    // );
 });
 
 self.addEventListener('activate', (event) => {
     event.waitUntil(self.clients.claim());
+});
+
+// --- Push Event Listener (For notifications when app is closed) ---
+self.addEventListener('push', (event) => {
+    let data = {};
+    if (event.data) {
+        try {
+            data = event.data.json();
+        } catch (e) {
+            data = { title: 'Oracle', text: event.data.text() };
+        }
+    }
+
+    const title = data.title || 'Oracle Chamber';
+    const text = data.text || 'Ada pesan baru untukmu.';
+    
+    const parsed = parseMessageContent(text);
+    
+    const options = {
+        body: parsed.body,
+        icon: 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png',
+        badge: 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png',
+        image: parsed.image,
+        tag: 'oracle-push',
+        renotify: true,
+        vibrate: [100, 50, 100],
+        data: {
+            url: self.registration.scope
+        },
+        actions: [
+            { action: 'open', title: '👁️ Buka Oracle' },
+            { action: 'close', title: 'Tutup' }
+        ]
+    };
+
+    event.waitUntil(
+        self.registration.showNotification(title, options)
+    );
 });
 
 // --- Handle Messages from Client (Main Thread) ---
@@ -91,23 +135,27 @@ self.addEventListener('message', (event) => {
         
         const options = {
             body: parsed.body,
-            icon: icon || 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png', // Default Oracle Icon
-            badge: 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png', // Small icon for status bar
-            tag: tag || 'oracle-chat', // Grouping key
-            renotify: true, // Vibrate/Sound again even if same tag
+            icon: icon || 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png',
+            badge: 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png',
+            tag: tag || 'oracle-chat',
+            renotify: true,
             data: {
                 url: self.registration.scope
             },
             vibrate: [200, 100, 200],
             actions: [
-                { action: 'open', title: 'Buka Chat' },
+                { action: 'open', title: '👁️ Masuk ke Chamber' },
                 { action: 'mark_read', title: 'Tandai Dibaca' }
             ]
         };
 
-        // Add image if exists
         if (parsed.image) {
             options.image = parsed.image;
+        }
+
+        // Customizing based on type
+        if (parsed.type === 'game') {
+            options.vibrate = [500, 100, 500];
         }
 
         self.registration.showNotification(title, options);

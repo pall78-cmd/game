@@ -657,9 +657,38 @@
                 
                 // Register Service Worker
                 if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.register('./sw.js').catch(e => console.error(e));
+                    navigator.serviceWorker.register('./sw.js')
+                        .then(reg => {
+                            console.log('SW registered:', reg);
+                            // Optional: Subscribe to push if we had a server
+                        })
+                        .catch(e => console.error('SW registration failed:', e));
                 }
             }, []);
+
+            const requestNotificationPermission = async () => {
+                if (!('Notification' in window)) {
+                    console.log('This browser does not support notifications');
+                    return;
+                }
+
+                if (Notification.permission !== 'granted') {
+                    const permission = await Notification.requestPermission();
+                    if (permission === 'granted') {
+                        console.log('Notification permission granted');
+                        if (navigator.serviceWorker.controller) {
+                            navigator.serviceWorker.controller.postMessage({
+                                type: 'SHOW_NOTIFICATION',
+                                payload: {
+                                    title: 'Oracle Chamber',
+                                    text: 'Notifikasi telah diaktifkan. Takdir akan selalu bersamamu.',
+                                    tag: 'oracle-system'
+                                }
+                            });
+                        }
+                    }
+                }
+            };
 
             const [connectionStatus, setConnectionStatus] = useState('CONNECTING'); // CONNECTING, ONLINE, OFFLINE, RECONNECTING
             const connectionManagerRef = useRef(null);
@@ -703,6 +732,7 @@
                         if (document.hidden || layer !== 'MAIN') {
                             if (newMsg.nama && !newMsg.nama.startsWith(username)) {
                                 const senderName = newMsg.nama.split('|')[0];
+                                const senderAvatar = newMsg.nama.split('|')[1];
                                 
                                 if (Notification.permission === 'granted' && navigator.serviceWorker.controller) {
                                     navigator.serviceWorker.controller.postMessage({
@@ -711,7 +741,7 @@
                                             title: senderName,
                                             text: newMsg.teks,
                                             tag: 'oracle-chat',
-                                            icon: './icon.png' // Placeholder, SW has default
+                                            icon: senderAvatar || 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png'
                                         }
                                     });
                                 }
@@ -1273,6 +1303,7 @@
                                 safeStorage.set('oracle_user', cleanName); 
                                 safeStorage.set('oracle_avatar', avatar); 
                                 safeStorage.set('oracle_color', userColor); 
+                                requestNotificationPermission();
                                 setLayer('SECURITY'); 
                             }} 
                             className="w-full py-4 bg-gold text-black text-[10px] font-bold uppercase tracking-[5px] rounded-xl"
@@ -1456,6 +1487,7 @@
                                     />
                                 </div>
                                 <button onClick={() => { setLayer('NAME'); setShowMenu(false); }} className="w-full p-4 text-left text-[10px] uppercase tracking-widest border-b border-white/5 hover:bg-white/5">Ubah Identitas</button>
+                                <button onClick={() => { requestNotificationPermission(); setShowMenu(false); }} className="w-full p-4 text-left text-[10px] uppercase tracking-widest border-b border-white/5 hover:bg-white/5">🔔 Aktifkan Notifikasi</button>
                                 <button onClick={fetchHistory} className="w-full p-4 text-left text-[10px] uppercase tracking-widest border-b border-white/5 hover:bg-white/5">📜 Riwayat Takdir</button>
                                 <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="w-full p-4 text-left text-[10px] uppercase tracking-widest border-b border-white/5 hover:bg-white/5">Reset Profil & Usia</button>
                                 <button onClick={() => { setShowClearConfirm(true); setShowMenu(false); }} className="w-full p-4 text-left text-[10px] uppercase tracking-widest text-red-400 hover:bg-red-500/10">Hapus Semua Pesan</button>
