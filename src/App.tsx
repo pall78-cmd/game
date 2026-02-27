@@ -261,9 +261,32 @@ function App() {
     const [bgmVolume, setBgmVolume] = useState(0.3);
     const [isBgmMuted, setIsBgmMuted] = useState(false);
 
+    const [filterType, setFilterType] = useState<'all' | 'unread' | 'sender'>('all');
+    const [filterSender, setFilterSender] = useState('');
+
     const feedRef = useRef<HTMLElement>(null);
     const audioManagerRef = useRef<any>(null);
     const connManagerRef = useRef<any>(null);
+
+    // Smart BGM Autoplay Logic
+    useEffect(() => {
+        const handleInteraction = () => {
+            const bgm = (window as any).BGMManager;
+            if (bgm && !bgm.isPlaying && !bgm.isMuted) {
+                bgm.play();
+            }
+        };
+
+        window.addEventListener('click', handleInteraction);
+        window.addEventListener('touchstart', handleInteraction);
+        window.addEventListener('keydown', handleInteraction);
+
+        return () => {
+            window.removeEventListener('click', handleInteraction);
+            window.removeEventListener('touchstart', handleInteraction);
+            window.removeEventListener('keydown', handleInteraction);
+        };
+    }, []);
 
     useEffect(() => {
         const loader = document.getElementById('loader');
@@ -339,9 +362,20 @@ function App() {
         };
     }, [layer, username]);
 
+    const filteredMessages = useMemo(() => {
+        if (filterType === 'unread') return messages.filter(m => !m.is_read && m.nama.split('|')[0] !== username);
+        if (filterType === 'sender' && filterSender) return messages.filter(m => m.nama.split('|')[0] === filterSender);
+        return messages;
+    }, [messages, filterType, filterSender, username]);
+
+    const uniqueSenders = useMemo(() => {
+        const senders = new Set(messages.map(m => m.nama.split('|')[0]));
+        return Array.from(senders).filter(s => s !== username && s !== 'ORACLE');
+    }, [messages, username]);
+
     useEffect(() => {
         if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
-    }, [messages]);
+    }, [filteredMessages]);
 
     const handleSend = async () => {
         if (!inputText.trim() && !selectedFile) return;
@@ -524,7 +558,15 @@ function App() {
             </header>
 
             <main ref={feedRef as any} className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
-                {messages.map(msg => (
+                {filterType !== 'all' && (
+                    <div className="sticky top-0 z-30 bg-black/80 backdrop-blur p-2 mb-4 rounded-lg border border-gold/20 flex justify-between items-center animate-fade-in">
+                        <span className="text-xs text-gold uppercase tracking-widest">
+                            Filter: {filterType === 'unread' ? 'Belum Dibaca' : `Sender: ${filterSender}`}
+                        </span>
+                        <button onClick={() => { setFilterType('all'); setFilterSender(''); }} className="text-xs text-white/50 hover:text-white">CLEAR</button>
+                    </div>
+                )}
+                {filteredMessages.map(msg => (
                     <Bubble 
                         key={msg.id} 
                         msg={msg} 
@@ -536,6 +578,11 @@ function App() {
                         onVisible={(id: number) => supabaseClient.from('Pesan').update({ is_read: true }).eq('id', id)}
                     />
                 ))}
+                {filteredMessages.length === 0 && (
+                    <div className="text-center py-10 opacity-30 italic font-mystic">
+                        Tidak ada pesan yang ditemukan dalam takdir ini...
+                    </div>
+                )}
             </main>
 
             <footer className="p-3 bg-black/60 border-t border-white/10 backdrop-blur-xl z-40">
@@ -652,6 +699,20 @@ function App() {
                                     onChange={e => setBgmVolume(parseFloat(e.target.value))} 
                                     className="w-full accent-gold h-1 bg-white/10 rounded-full appearance-none"
                                 />
+                            </div>
+                        </div>
+                        <div className="px-4 py-3 border-b border-white/5">
+                            <div className="text-[10px] uppercase tracking-widest opacity-50 mb-2">Filter Chat</div>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button onClick={() => setFilterType('unread')} className={`p-2 rounded text-xs border ${filterType === 'unread' ? 'bg-gold text-black border-gold' : 'bg-white/5 border-white/10'}`}>Belum Dibaca</button>
+                                <select 
+                                    onChange={e => { setFilterType('sender'); setFilterSender(e.target.value); }} 
+                                    className="p-2 rounded text-xs bg-white/5 border border-white/10 outline-none"
+                                    value={filterSender}
+                                >
+                                    <option value="">Pilih Pengirim</option>
+                                    {uniqueSenders.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
                             </div>
                         </div>
                         <button onClick={async () => {
