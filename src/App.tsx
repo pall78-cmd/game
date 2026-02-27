@@ -22,13 +22,29 @@ function parsePreviewText(text) {
 }
 
 const uploadImage = async (file) => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `uploads/${fileName}`;
-    const { data, error } = await supabaseClient.storage.from('bukti').upload(filePath, file);
-    if (error) throw error;
-    const { data: { publicUrl } } = supabaseClient.storage.from('bukti').getPublicUrl(filePath);
-    return publicUrl;
+    try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}.${fileExt}`;
+        const filePath = `uploads/${fileName}`;
+        
+        const { data, error } = await supabaseClient.storage.from('bukti').upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+        });
+        
+        if (error) {
+            if (error.message === 'Failed to fetch' || error.message.includes('fetch')) {
+                throw new Error("Koneksi gagal (Fetch Failed). Pastikan bucket 'bukti' sudah dibuat dan memiliki policy publik.");
+            }
+            throw error;
+        }
+        
+        const { data: { publicUrl } } = supabaseClient.storage.from('bukti').getPublicUrl(filePath);
+        return publicUrl;
+    } catch (err) {
+        console.error("Upload failed:", err);
+        throw err;
+    }
 };
 
 const safeStorage = {

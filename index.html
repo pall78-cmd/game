@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ORACLE v17.9 - HARMONY</title>
     
+    <!-- PWA & iOS Support -->
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#D4AF37">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Oracle">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/4712/4712035.png">
+    
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -146,13 +154,33 @@
         const supabaseClient = createClient(SUPA_URL, SUPA_KEY);
 
         const uploadImage = async (file) => {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Math.random()}.${fileExt}`;
-            const filePath = `uploads/${fileName}`;
-            const { data, error } = await supabaseClient.storage.from('bukti').upload(filePath, file);
-            if (error) throw new Error(error.message);
-            const { data: { publicUrl } } = supabaseClient.storage.from('bukti').getPublicUrl(filePath);
-            return publicUrl;
+            try {
+                const fileExt = file.name.split('.').pop();
+                const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}.${fileExt}`;
+                const filePath = `uploads/${fileName}`;
+                
+                console.log(`Uploading image to 'bukti' bucket: ${filePath}`);
+                
+                const { data, error } = await supabaseClient.storage.from('bukti').upload(filePath, file, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+                
+                if (error) {
+                    console.error("Supabase Storage Error:", error);
+                    // If error is "fetch failed", it might be a network issue or missing bucket
+                    if (error.message === 'Failed to fetch' || error.message.includes('fetch')) {
+                        throw new Error("Koneksi gagal (Fetch Failed). Pastikan bucket 'bukti' sudah dibuat dan memiliki policy publik.");
+                    }
+                    throw new Error(error.message);
+                }
+                
+                const { data: { publicUrl } } = supabaseClient.storage.from('bukti').getPublicUrl(filePath);
+                return publicUrl;
+            } catch (err) {
+                console.error("uploadImage Exception:", err);
+                throw err;
+            }
         };
 
         const safeStorage = {
@@ -1060,14 +1088,23 @@
                         content = teks.substring(5);
                     }
 
+                    // Set state first so user can see it
                     setViewingSecret({ type, content, replyData });
                     
                     // Burn the message immediately from database
-                    await supabaseClient.from('Pesan').delete().eq('id', msg.id);
+                    // Use a background task so it doesn't block the UI if it fails
+                    supabaseClient.from('Pesan').delete().eq('id', msg.id).then(({ error }) => {
+                        if (error) {
+                            console.warn("Burn error (DB):", error);
+                        } else {
+                            console.log("Message burned successfully");
+                        }
+                    }).catch(e => console.warn("Burn exception:", e));
+
                     // Also remove locally to prevent re-clicks before sync
                     setMessages(prev => prev.filter(m => m.id !== msg.id));
                 } catch (e) {
-                    console.error("Burn error:", e);
+                    console.error("ViewOnce error:", e);
                     alert("⚠️ Pesan Tidak Terbaca atau Sudah Terbakar");
                 }
             };
