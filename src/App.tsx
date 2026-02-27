@@ -315,7 +315,7 @@ function App() {
                                     payload: {
                                         title: `Pesan dari ${newMsg.nama.split('|')[0]}`,
                                         text: previewText,
-                                        icon: newMsg.nama.split('|')[1] || 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png'
+                                        icon: newMsg.nama.split('|')[1] || 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png'
                                     }
                                 });
                             }

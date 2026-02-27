@@ -106,8 +106,8 @@ self.addEventListener('push', (event) => {
     
     const options = {
         body: parsed.body,
-        icon: 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png',
-        badge: 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png',
+        icon: 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png',
+        badge: 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png',
         image: parsed.image,
         tag: 'oracle-push',
         renotify: true,
@@ -135,8 +135,8 @@ self.addEventListener('message', (event) => {
         
     const options = {
         body: parsed.body,
-        icon: icon || 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png',
-        badge: 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png',
+        icon: icon || 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png',
+        badge: 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png',
         tag: 'oracle-group', // Use a single tag to group all messages
         renotify: true, // Vibrate/Sound again for new messages in the group
         data: {
