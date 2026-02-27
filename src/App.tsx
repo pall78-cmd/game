@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
+import { askOracle } from './services/oracle';
+import { ConnectionManager } from './utils/ConnectionManager';
+
 // --- CONSTANTS & UTILS ---
 const SUPA_URL = import.meta.env.VITE_SUPA_URL || (window as any).ORACLE_CONFIG?.SUPA_URL;
 const SUPA_KEY = import.meta.env.VITE_SUPA_KEY || (window as any).ORACLE_CONFIG?.SUPA_KEY;
@@ -97,6 +100,10 @@ const FateCardDisplay = ({ raw }: { raw: string }) => {
             const parts = contentStr.split(":");
             type = parts[0];
             content = parts.slice(1).join(":").trim();
+        } else if (!contentStr.includes(":")) {
+            // AI Response
+            type = "ORACLE SPEAKS";
+            content = contentStr;
         } else {
             const parts = contentStr.split(":");
             type = parts[0] || "FATE";
@@ -275,10 +282,11 @@ function App() {
 
     const feedRef = useRef<HTMLElement>(null);
     const audioManagerRef = useRef<any>(null);
-    const connManagerRef = useRef<any>(null);
+    const connManagerRef = useRef<ConnectionManager | null>(null);
     const typingTimeoutRef = useRef<any>(null);
 
     const [unreadCount, setUnreadCount] = useState(0);
+    const [updateAvailable, setUpdateAvailable] = useState(false);
     const notificationAudioRef = useRef<HTMLAudioElement>(new Audio('https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/notification.mp3')); // Placeholder or use a real URL
 
     // Smart BGM Autoplay Logic
@@ -327,7 +335,19 @@ function App() {
         // Register Service Worker
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')
-                .then(reg => console.log('SW registered:', reg))
+                .then(reg => {
+                    console.log('SW registered:', reg);
+                    reg.onupdatefound = () => {
+                        const installingWorker = reg.installing;
+                        if (installingWorker) {
+                            installingWorker.onstatechange = () => {
+                                if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    setUpdateAvailable(true);
+                                }
+                            };
+                        }
+                    };
+                })
                 .catch(err => console.error('SW registration failed:', err));
         }
     }, []);
@@ -348,11 +368,10 @@ function App() {
             const { data } = await supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
             if (data) setMessages(data);
 
-            if ((window as any).ConnectionManager) {
-                connManagerRef.current = new (window as any).ConnectionManager(supabaseClient, setConnStatus);
-                connManagerRef.current.subscribe('msgs', (event: any) => {
-                    if (event.type === 'INSERT') {
-                        const newMsg = event.payload.new;
+            connManagerRef.current = new ConnectionManager(supabaseClient, setConnStatus);
+            connManagerRef.current.subscribe('msgs', (event: any) => {
+                if (event.type === 'INSERT') {
+                    const newMsg = event.payload.new;
                         setMessages(prev => [...prev, newMsg]);
                         
                         // Notification logic
@@ -407,7 +426,6 @@ function App() {
                         }
                     }
                 });
-            }
         };
 
         initialize();
@@ -476,6 +494,29 @@ function App() {
             if (isViewOnce) teks = `[VO]${teks}`;
             
             await supabaseClient.from('Pesan').insert([{ nama, teks }]);
+
+            // Oracle AI Trigger
+            if (teks.includes('@ORACLE') || teks.includes('@oracle')) {
+                const query = teks.replace(/@ORACLE/gi, '').trim();
+                // Show typing indicator for Oracle
+                if (connManagerRef.current && connManagerRef.current.channel) {
+                    connManagerRef.current.channel.send({
+                        type: 'broadcast',
+                        event: 'typing',
+                        payload: { user: 'ORACLE' }
+                    });
+                }
+                
+                setTimeout(async () => {
+                    const answer = await askOracle(query);
+                    const oraclePayload = JSON.stringify({
+                        content: answer,
+                        invoker: username
+                    });
+                    await supabaseClient.from('Pesan').insert([{ nama: 'ORACLE', teks: oraclePayload }]);
+                }, 2000);
+            }
+
             setInputText('');
             setIsViewOnce(false);
             setReplyingTo(null);
@@ -765,6 +806,11 @@ function App() {
             {showMenu && (
                 <div className="fixed inset-0 z-[150]" onClick={() => setShowMenu(false)}>
                     <div className="absolute top-16 right-4 w-64 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl py-2 animate-fade-in" onClick={e => e.stopPropagation()}>
+                        {updateAvailable && (
+                            <button onClick={() => window.location.reload()} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-green-400 border-b border-white/5 font-bold animate-pulse">
+                                🔄 Update Tersedia (Klik)
+                            </button>
+                        )}
                         {isIOS && (
                             <div className="px-4 py-3 text-xs uppercase tracking-widest text-gold border-b border-white/5">
                                 📱 Install: Tap Share → Add to Home Screen
@@ -833,6 +879,9 @@ function App() {
                             localStorage.clear();
                             window.location.reload();
                         }} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-red-400">🚪 Reset Identitas</button>
+                        <div className="px-4 py-2 text-[8px] text-white/20 text-center uppercase tracking-widest border-t border-white/5">
+                            v1.2.0 • Oracle Chamber
+                        </div>
                     </div>
                 </div>
             )}

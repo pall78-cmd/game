@@ -3,7 +3,7 @@
  * Menangani notifikasi push, caching aset, dan background sync.
  */
 
-const CACHE_NAME = 'oracle-v1';
+const CACHE_NAME = 'oracle-v1.2';
 const ASSETS = [
     './',
     './index.html',

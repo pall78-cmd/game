@@ -1,19 +1,21 @@
-/**
- * Connection Manager for ORACLE
- * Handles Supabase Realtime connection stability, auto-reconnection, and status monitoring.
- */
+import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 
-class ConnectionManager {
-    constructor(supabaseClient, onStatusChange) {
+export type ConnectionStatus = 'CONNECTING' | 'ONLINE' | 'OFFLINE' | 'RECONNECTING' | 'FAILED' | 'RETRY_INIT';
+
+export class ConnectionManager {
+    private supabase: SupabaseClient;
+    private onStatusChange: (status: ConnectionStatus) => void;
+    private reconnectAttempts: number = 0;
+    private readonly maxAttempts: number = 10;
+    private readonly baseDelay: number = 1000;
+    public channel: RealtimeChannel | null = null;
+    private isReconnecting: boolean = false;
+    private checkInterval: any = null;
+    private lastHeartbeat: number = Date.now();
+
+    constructor(supabaseClient: SupabaseClient, onStatusChange?: (status: ConnectionStatus) => void) {
         this.supabase = supabaseClient;
         this.onStatusChange = onStatusChange || (() => {});
-        this.reconnectAttempts = 0;
-        this.maxAttempts = 10;
-        this.baseDelay = 1000; // 1 second
-        this.channel = null;
-        this.isReconnecting = false;
-        this.checkInterval = null;
-        this.lastHeartbeat = Date.now();
         
         // Bind methods
         this.handleStatus = this.handleStatus.bind(this);
@@ -23,10 +25,8 @@ class ConnectionManager {
 
     /**
      * Initialize the realtime channel subscription with monitoring.
-     * @param {string} channelName - The name of the channel to subscribe to.
-     * @param {function} onPayload - Callback for receiving messages.
      */
-    subscribe(channelName, onPayload) {
+    subscribe(channelName: string, onPayload: (event: any) => void) {
         if (this.channel) {
             this.supabase.removeChannel(this.channel);
         }
@@ -59,7 +59,7 @@ class ConnectionManager {
     /**
      * Handle connection status updates from Supabase.
      */
-    handleStatus(status, err) {
+    handleStatus(status: string, err?: any) {
         console.log(`[ConnectionManager] Status: ${status}`, err || '');
         
         switch (status) {
@@ -118,14 +118,7 @@ class ConnectionManager {
             await this.supabase.removeChannel(this.channel);
         }
         
-        // The subscription logic is handled by the consumer re-calling subscribe, 
-        // OR we can just re-subscribe the existing channel object if Supabase client supports it.
-        // However, usually it's cleaner to rebuild the channel.
-        // To keep it simple here, we assume the App component will react to 'RECONNECTING' 
-        // or we just re-trigger the subscription if we stored the params.
-        
-        // Actually, Supabase client handles some auto-reconnect, but often fails on network switch.
-        // We will signal the App to re-run the subscription effect.
+        // Signal the App to re-run the subscription effect.
         this.onStatusChange('RETRY_INIT'); 
     }
 
@@ -163,5 +156,3 @@ class ConnectionManager {
         if (this.channel) this.supabase.removeChannel(this.channel);
     }
 }
-
-window.ConnectionManager = ConnectionManager;
