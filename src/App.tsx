@@ -263,10 +263,12 @@ function App() {
 
     const [filterType, setFilterType] = useState<'all' | 'unread' | 'sender'>('all');
     const [filterSender, setFilterSender] = useState('');
+    const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
 
     const feedRef = useRef<HTMLElement>(null);
     const audioManagerRef = useRef<any>(null);
     const connManagerRef = useRef<any>(null);
+    const typingTimeoutRef = useRef<any>(null);
 
     // Smart BGM Autoplay Logic
     useEffect(() => {
@@ -345,6 +347,24 @@ function App() {
                         }
                     } else if (event.type === 'UPDATE') {
                         setMessages(prev => prev.map(m => m.id === event.payload.new.id ? event.payload.new : m));
+                    } else if (event.type === 'TYPING') {
+                        const typer = event.payload.payload.user;
+                        if (typer && typer !== username) {
+                            setTypingUsers(prev => {
+                                const next = new Set(prev);
+                                next.add(typer);
+                                return next;
+                            });
+                            
+                            // Clear typing status after 3 seconds
+                            setTimeout(() => {
+                                setTypingUsers(prev => {
+                                    const next = new Set(prev);
+                                    next.delete(typer);
+                                    return next;
+                                });
+                            }, 3000);
+                        }
                     }
                 });
             }
@@ -376,6 +396,22 @@ function App() {
     useEffect(() => {
         if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
     }, [filteredMessages]);
+
+    const handleTyping = () => {
+        if (typingTimeoutRef.current) return;
+        
+        if (connManagerRef.current && connManagerRef.current.channel) {
+            connManagerRef.current.channel.send({
+                type: 'broadcast',
+                event: 'typing',
+                payload: { user: username }
+            });
+            
+            typingTimeoutRef.current = setTimeout(() => {
+                typingTimeoutRef.current = null;
+            }, 1000);
+        }
+    };
 
     const handleSend = async () => {
         if (!inputText.trim() && !selectedFile) return;
@@ -542,8 +578,8 @@ function App() {
     );
 
     return (
-        <div className="h-screen w-full bg-void flex flex-col font-sans text-sm text-white/90 overflow-hidden overflow-x-hidden">
-            <header className="flex items-center justify-between p-3 border-b border-white/10 bg-black/40 backdrop-blur-md z-50">
+        <div className="h-[100dvh] w-full bg-void flex flex-col font-sans text-sm text-white/90 overflow-hidden overflow-x-hidden supports-[height:100dvh]:h-[100dvh]">
+            <header className="flex items-center justify-between p-3 border-b border-white/10 bg-black/40 backdrop-blur-md z-50 shrink-0">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gold/20 border border-gold/40 flex items-center justify-center text-lg font-header text-gold">O</div>
                     <div>
@@ -585,7 +621,7 @@ function App() {
                 )}
             </main>
 
-            <footer className="p-3 bg-black/60 border-t border-white/10 backdrop-blur-xl z-40">
+            <footer className="p-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-black/60 border-t border-white/10 backdrop-blur-xl z-40 shrink-0">
                 {replyingTo && (
                     <div className="bg-white/5 p-2 rounded-t-xl flex justify-between items-center mb-2 border-l-4 border-gold">
                         <div className="text-xs italic truncate opacity-70">
@@ -602,6 +638,11 @@ function App() {
                         <button onClick={() => setSelectedFile(null)} className="text-lg opacity-50">×</button>
                     </div>
                 )}
+                {typingUsers.size > 0 && (
+                    <div className="px-4 py-1 text-[10px] text-gold/70 italic animate-pulse">
+                        {Array.from(typingUsers).join(', ')} is typing...
+                    </div>
+                )}
                 <div className="flex items-center gap-2">
                     <button onClick={() => setFateMode(!fateMode)} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${fateMode ? 'bg-gold text-black' : 'bg-white/10'}`}>
                         <span className="font-header text-xl">?</span>
@@ -610,7 +651,7 @@ function App() {
                         <input 
                             type="text" 
                             value={inputText} 
-                            onChange={e => setInputText(e.target.value)}
+                            onChange={e => { setInputText(e.target.value); handleTyping(); }}
                             placeholder="Kirim pesan..." 
                             className="w-full h-12 bg-white/5 rounded-full px-5 pr-12 outline-none focus:ring-1 ring-gold/30 transition-all"
                             onKeyDown={e => e.key === 'Enter' && handleSend()}
