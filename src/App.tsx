@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { lightDeck, deepDeck, chaosDeck } from './deck';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // --- CONSTANTS & UTILS ---
 const SUPA_URL = import.meta.env.VITE_SUPA_URL;
@@ -580,6 +581,7 @@ function App() {
                     </div>
                 </div>
             )}
+            <SpeedInsights />
         </div>
     );
 }
