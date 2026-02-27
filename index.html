@@ -54,31 +54,98 @@
         #loader {
             position: fixed;
             inset: 0;
-            background: black;
+            background: url('https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?q=80&w=2072&auto=format&fit=crop') no-repeat center center/cover;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             z-index: 9999;
-            transition: opacity 0.5s ease-out;
+            transition: opacity 0.8s ease-out;
+        }
+
+        #loader::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(5, 5, 8, 0.7);
+            backdrop-filter: blur(3px);
+        }
+
+        .loader-content {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             gap: 2rem;
         }
 
-        @keyframes shimmer {
-            0% { left: -50%; }
-            100% { left: 100%; }
+        .constellation-spinner {
+            position: relative;
+            width: 120px;
+            height: 120px;
         }
 
-        .animate-shimmer {
-            animation: shimmer 2s infinite;
+        .orbit {
+            position: absolute;
+            inset: 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            animation: spin 8s linear infinite;
         }
+
+        .orbit::after {
+            content: '';
+            position: absolute;
+            top: -3px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6px;
+            height: 6px;
+            background: var(--gold);
+            border-radius: 50%;
+            box-shadow: 0 0 15px var(--gold);
+        }
+
+        .orbit:nth-child(2) {
+            inset: 20px;
+            border-color: rgba(212, 175, 55, 0.2);
+            animation-duration: 6s;
+            animation-direction: reverse;
+        }
+
+        .orbit:nth-child(3) {
+            inset: 40px;
+            border-color: rgba(255, 255, 255, 0.05);
+            animation-duration: 4s;
+        }
+
+        .center-symbol {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gold);
+            font-size: 2rem;
+            animation: pulse 3s ease-in-out infinite;
+            text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%, 100% { opacity: 0.6; transform: scale(0.95); } 50% { opacity: 1; transform: scale(1.05); } }
     </style>
 </head>
 <body>
     <div id="loader">
-        <div class="font-header text-gold text-lg tracking-[12px] animate-pulse" style="font-family: 'Cinzel', serif;">ORACLE AWAKENING</div>
-        <div class="w-64 h-[2px] bg-white/5 relative overflow-hidden" style="width: 16rem; height: 2px;">
-            <div class="absolute inset-0 bg-gold/40 animate-shimmer" style="position: absolute; inset: 0; background-color: rgba(212, 175, 55, 0.4); width: 50%; left: -50%;"></div>
+        <div class="loader-content">
+            <div class="constellation-spinner">
+                <div class="orbit"></div>
+                <div class="orbit"></div>
+                <div class="orbit"></div>
+                <div class="center-symbol">♐</div>
+            </div>
+            <div class="font-header text-gold text-sm tracking-[8px] uppercase opacity-80" style="font-family: 'Cinzel', serif;">Connecting to Ether</div>
         </div>
     </div>
 
