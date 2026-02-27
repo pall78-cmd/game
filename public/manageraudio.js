@@ -84,10 +84,23 @@ class BGMManager {
         if (playPromise !== undefined) {
             playPromise.then(() => {
                 this.isPlaying = true;
+                this.autoplayFailed = false;
                 if (!this.isMuted) this.fadeIn();
             }).catch(e => {
-                console.error("BGM Play failed (Autoplay policy?):", e);
-                // Kita bisa mencoba lagi nanti saat user interaksi
+                console.warn("BGM Autoplay prevented. Waiting for interaction...");
+                this.autoplayFailed = true;
+                
+                // Add one-time interaction listener to unlock audio
+                const unlock = () => {
+                    this.play();
+                    document.removeEventListener('click', unlock);
+                    document.removeEventListener('keydown', unlock);
+                    document.removeEventListener('touchstart', unlock);
+                };
+                
+                document.addEventListener('click', unlock, { once: true });
+                document.addEventListener('keydown', unlock, { once: true });
+                document.addEventListener('touchstart', unlock, { once: true });
             });
         }
     }

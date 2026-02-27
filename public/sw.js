@@ -133,21 +133,20 @@ self.addEventListener('message', (event) => {
         
         const parsed = parseMessageContent(text);
         
-        const options = {
-            body: parsed.body,
-            icon: icon || 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png',
-            badge: 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png',
-            tag: tag || 'oracle-chat',
-            renotify: true,
-            data: {
-                url: self.registration.scope
-            },
-            vibrate: [200, 100, 200],
-            actions: [
-                { action: 'open', title: '👁️ Masuk ke Chamber' },
-                { action: 'mark_read', title: 'Tandai Dibaca' }
-            ]
-        };
+    const options = {
+        body: parsed.body,
+        icon: icon || 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png',
+        badge: 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png',
+        tag: 'oracle-group', // Use a single tag to group all messages
+        renotify: true, // Vibrate/Sound again for new messages in the group
+        data: {
+            url: self.registration.scope
+        },
+        vibrate: [200, 100, 200],
+        actions: [
+            { action: 'open', title: '👁️ Masuk ke Chamber' }
+        ]
+    };
 
         if (parsed.image) {
             options.image = parsed.image;

@@ -258,6 +258,9 @@ function App() {
     const [connStatus, setConnStatus] = useState('OFFLINE');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+    const [bgmVolume, setBgmVolume] = useState(0.3);
+    const [isBgmMuted, setIsBgmMuted] = useState(false);
+
     const feedRef = useRef<HTMLElement>(null);
     const audioManagerRef = useRef<any>(null);
     const connManagerRef = useRef<any>(null);
@@ -277,6 +280,15 @@ function App() {
         }
     }, []);
 
+    // BGM Control Effect
+    useEffect(() => {
+        const bgm = (window as any).BGMManager;
+        if (bgm) {
+            bgm.setVolume(bgmVolume);
+            bgm.mute(isBgmMuted);
+        }
+    }, [bgmVolume, isBgmMuted]);
+
     useEffect(() => {
         if (layer !== 'MAIN') return;
 
@@ -294,11 +306,15 @@ function App() {
                         // Notification logic
                         if (document.hidden && newMsg.nama.split('|')[0] !== username) {
                             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                                const previewText = (window as any).MessageParser 
+                                    ? (window as any).MessageParser.getPreview(newMsg.teks)
+                                    : (newMsg.teks.startsWith('[') ? 'Mengirim media...' : newMsg.teks);
+
                                 navigator.serviceWorker.controller.postMessage({
                                     type: 'SHOW_NOTIFICATION',
                                     payload: {
                                         title: `Pesan dari ${newMsg.nama.split('|')[0]}`,
-                                        text: newMsg.teks,
+                                        text: previewText,
                                         icon: newMsg.nama.split('|')[1] || 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png'
                                     }
                                 });
@@ -313,7 +329,10 @@ function App() {
 
         initialize();
         if ((window as any).AudioManager) audioManagerRef.current = new (window as any).AudioManager();
-        if ((window as any).BGMManager) (window as any).BGMManager.play();
+        if ((window as any).BGMManager) {
+            (window as any).BGMManager.play();
+            (window as any).BGMManager.setVolume(bgmVolume);
+        }
 
         return () => {
             if (connManagerRef.current) connManagerRef.current.cleanup();
@@ -391,6 +410,18 @@ function App() {
     };
 
     const handleDrawFate = async (category: string) => {
+        if (category === 'chaos') {
+            const pin = prompt("Masukkan PIN Chaos Mode:");
+            if (pin !== '131201') {
+                if (navigator.vibrate) navigator.vibrate(200);
+                alert("Akses Ditolak. PIN Salah.");
+                return;
+            }
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        }
+
+        if ((window as any).BGMManager) (window as any).BGMManager.onFateCardDraw();
+
         const deck = (window as any).GAME_DECK[category];
         const isWildcard = Math.random() < deck.wildcardChance;
         const type = isWildcard ? 'wildcard' : (Math.random() < 0.5 ? 'truth' : 'dare');
@@ -419,6 +450,18 @@ function App() {
         }, 10000); // 10 seconds to view
     };
 
+    const handleDeleteHistory = async () => {
+        if (confirm("⚠️ PERINGATAN: Ini akan menghapus SEMUA pesan di database secara permanen. Lanjutkan?")) {
+            const { error } = await supabaseClient.from('Pesan').delete().neq('id', 0);
+            if (error) alert("Gagal menghapus: " + error.message);
+            else {
+                setMessages([]);
+                alert("Riwayat telah dibersihkan.");
+                window.location.reload();
+            }
+        }
+    };
+
     if (layer === 'AGE') return (
         <div className="fixed inset-0 bg-black flex flex-col items-center justify-center text-center p-4 animate-fade-in">
             <h1 className="font-header text-2xl text-gold tracking-[8px] mb-4">VERIFIKASI USIA</h1>
@@ -434,10 +477,19 @@ function App() {
         <div className="fixed inset-0 bg-black flex flex-col items-center justify-center text-center p-4 animate-fade-in">
             <h1 className="font-header text-2xl text-gold tracking-[8px] mb-4">IDENTITAS</h1>
             <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Nama..." className="bg-white/10 text-center p-2 rounded-lg mb-4 w-64" />
-            <div className="flex gap-4 mb-6">
-                <input type="text" value={avatar} onChange={e => setAvatar(e.target.value)} placeholder="Avatar..." className="bg-white/10 text-center p-2 rounded-lg w-20" />
-                <input type="color" value={userColor} onChange={e => setUserColor(e.target.value)} className="w-20 h-10 rounded-lg" />
+            
+            <div className="flex flex-col gap-2 mb-6 items-center">
+                <div className="flex gap-2">
+                    <input type="text" value={avatar} onChange={e => setAvatar(e.target.value)} placeholder="Avatar..." className="bg-white/10 text-center p-2 rounded-lg w-20" />
+                    <input type="color" value={userColor} onChange={e => setUserColor(e.target.value)} className="w-20 h-10 rounded-lg" />
+                </div>
+                <div className="flex gap-2 text-xl">
+                    {['🔮', '👻', '💀', '👽', '🦊', '🦉', '🦋', '🕸️'].map(emoji => (
+                        <button key={emoji} onClick={() => setAvatar(emoji)} className="hover:scale-125 transition-transform">{emoji}</button>
+                    ))}
+                </div>
             </div>
+
             <button onClick={() => { safeStorage.set('oracle_user', username); safeStorage.set('oracle_avatar', avatar); safeStorage.set('oracle_color', userColor); setLayer('SECURITY'); }} className="px-8 py-2 bg-gold text-black font-bold rounded-lg shadow-lg">Lanjutkan</button>
         </div>
     );
@@ -447,7 +499,7 @@ function App() {
             <h1 className="font-header text-2xl text-gold tracking-[8px] mb-4">AKSES</h1>
             <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} className="bg-white/10 text-center p-2 rounded-lg mb-4 w-64 tracking-[8px]" />
             <button onClick={() => {
-                if (pinInput === '179') {
+                if (pinInput === '179' || pinInput === '010304') {
                     safeStorage.set('oracle_unlocked', 'true');
                     setLayer('MAIN');
                 } else alert('PIN salah.');
@@ -486,7 +538,7 @@ function App() {
                 ))}
             </main>
 
-            <footer className="p-3 bg-black/60 border-t border-white/10 backdrop-blur-xl">
+            <footer className="p-3 bg-black/60 border-t border-white/10 backdrop-blur-xl z-40">
                 {replyingTo && (
                     <div className="bg-white/5 p-2 rounded-t-xl flex justify-between items-center mb-2 border-l-4 border-gold">
                         <div className="text-xs italic truncate opacity-70">
@@ -541,9 +593,15 @@ function App() {
                         <h2 className="font-header text-center text-gold text-xl tracking-[8px]">PILIH TAKDIR</h2>
                         <div className="grid grid-cols-1 gap-3">
                             {['light', 'deep', 'chaos'].map(cat => (
-                                <button key={cat} onClick={() => handleDrawFate(cat)} className="p-4 bg-white/5 border border-white/10 rounded-2xl text-left hover:border-gold/50 transition-all group">
-                                    <div className="font-header text-gold uppercase tracking-widest">{cat}</div>
-                                    <div className="text-[10px] opacity-40 uppercase mt-1">Invoke the spirits of {cat}</div>
+                                <button key={cat} onClick={() => handleDrawFate(cat)} className="p-4 bg-white/5 border border-white/10 rounded-2xl text-left hover:border-gold/50 transition-all group relative overflow-hidden">
+                                    <div className="flex justify-between items-center">
+                                        <div className="font-header text-gold uppercase tracking-widest text-lg">{cat}</div>
+                                        {cat === 'chaos' && <span className="text-xl opacity-70 group-hover:scale-110 transition-transform">🔒</span>}
+                                    </div>
+                                    <div className="text-[10px] opacity-40 uppercase mt-1 font-sans tracking-wide">
+                                        {cat === 'chaos' ? 'Restricted Access • PIN Required' : `Invoke the spirits of ${cat}`}
+                                    </div>
+                                    <div className="absolute inset-0 bg-gold/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </button>
                             ))}
                         </div>
@@ -578,7 +636,24 @@ function App() {
 
             {showMenu && (
                 <div className="fixed inset-0 z-[150]" onClick={() => setShowMenu(false)}>
-                    <div className="absolute top-16 right-4 w-48 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl py-2 animate-fade-in" onClick={e => e.stopPropagation()}>
+                    <div className="absolute top-16 right-4 w-64 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl py-2 animate-fade-in" onClick={e => e.stopPropagation()}>
+                        <div className="px-4 py-3 border-b border-white/5">
+                            <div className="text-[10px] uppercase tracking-widest opacity-50 mb-2">Background Music</div>
+                            <div className="flex items-center gap-3">
+                                <button onClick={() => setIsBgmMuted(!isBgmMuted)} className="text-xl">
+                                    {isBgmMuted ? '🔇' : '🔊'}
+                                </button>
+                                <input 
+                                    type="range" 
+                                    min="0" 
+                                    max="1" 
+                                    step="0.1" 
+                                    value={bgmVolume} 
+                                    onChange={e => setBgmVolume(parseFloat(e.target.value))} 
+                                    className="w-full accent-gold h-1 bg-white/10 rounded-full appearance-none"
+                                />
+                            </div>
+                        </div>
                         <button onClick={async () => {
                             const permission = await Notification.requestPermission();
                             if (permission === 'granted') {
@@ -597,6 +672,7 @@ function App() {
                                 alert("Izin notifikasi ditolak.");
                             }
                         }} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5">🔔 Aktifkan Notifikasi</button>
+                        <button onClick={handleDeleteHistory} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-red-400 border-t border-white/5">🗑️ Hapus Riwayat</button>
                         <button onClick={() => {
                             localStorage.clear();
                             window.location.reload();
