@@ -261,14 +261,25 @@ function App() {
     const [bgmVolume, setBgmVolume] = useState(0.3);
     const [isBgmMuted, setIsBgmMuted] = useState(false);
 
+    const [isIOS, setIsIOS] = useState(false);
+
+    useEffect(() => {
+        const isIosDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+        setIsIOS(isIosDevice && !(window.navigator as any).standalone);
+    }, []);
+
     const [filterType, setFilterType] = useState<'all' | 'unread' | 'sender'>('all');
     const [filterSender, setFilterSender] = useState('');
     const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
+    const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
     const feedRef = useRef<HTMLElement>(null);
     const audioManagerRef = useRef<any>(null);
     const connManagerRef = useRef<any>(null);
     const typingTimeoutRef = useRef<any>(null);
+
+    const [unreadCount, setUnreadCount] = useState(0);
+    const notificationAudioRef = useRef<HTMLAudioElement>(new Audio('https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/notification.mp3')); // Placeholder or use a real URL
 
     // Smart BGM Autoplay Logic
     useEffect(() => {
@@ -279,14 +290,30 @@ function App() {
             }
         };
 
+        const handleVisibilityChange = () => {
+            if (!document.hidden) {
+                setUnreadCount(0);
+                if ('setAppBadge' in navigator) navigator.clearAppBadge();
+            }
+        };
+
         window.addEventListener('click', handleInteraction);
         window.addEventListener('touchstart', handleInteraction);
         window.addEventListener('keydown', handleInteraction);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        
+        const handleBeforeInstallPrompt = (e: any) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+        };
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
 
         return () => {
             window.removeEventListener('click', handleInteraction);
             window.removeEventListener('touchstart', handleInteraction);
             window.removeEventListener('keydown', handleInteraction);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
         };
     }, []);
 
@@ -330,6 +357,18 @@ function App() {
                         
                         // Notification logic
                         if (document.hidden && newMsg.nama.split('|')[0] !== username) {
+                            // Play sound
+                            if (notificationAudioRef.current) {
+                                notificationAudioRef.current.play().catch(() => {});
+                            }
+                            
+                            // Update badge
+                            setUnreadCount(prev => {
+                                const next = prev + 1;
+                                if ('setAppBadge' in navigator) navigator.setAppBadge(next);
+                                return next;
+                            });
+
                             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
                                 const previewText = (window as any).MessageParser 
                                     ? (window as any).MessageParser.getPreview(newMsg.teks)
@@ -340,7 +379,8 @@ function App() {
                                     payload: {
                                         title: `Pesan dari ${newMsg.nama.split('|')[0]}`,
                                         text: previewText,
-                                        icon: newMsg.nama.split('|')[1] || 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png'
+                                        icon: newMsg.nama.split('|')[1] || 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png',
+                                        tag: 'oracle-group'
                                     }
                                 });
                             }
@@ -725,6 +765,20 @@ function App() {
             {showMenu && (
                 <div className="fixed inset-0 z-[150]" onClick={() => setShowMenu(false)}>
                     <div className="absolute top-16 right-4 w-64 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl py-2 animate-fade-in" onClick={e => e.stopPropagation()}>
+                        {isIOS && (
+                            <div className="px-4 py-3 text-xs uppercase tracking-widest text-gold border-b border-white/5">
+                                📱 Install: Tap Share → Add to Home Screen
+                            </div>
+                        )}
+                        {deferredPrompt && (
+                            <button onClick={async () => {
+                                deferredPrompt.prompt();
+                                const { outcome } = await deferredPrompt.userChoice;
+                                if (outcome === 'accepted') setDeferredPrompt(null);
+                            }} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-gold border-b border-white/5 font-bold animate-pulse">
+                                ⬇️ Install Aplikasi
+                            </button>
+                        )}
                         <div className="px-4 py-3 border-b border-white/5">
                             <div className="text-[10px] uppercase tracking-widest opacity-50 mb-2">Background Music</div>
                             <div className="flex items-center gap-3">
