@@ -1,106 +1,69 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { lightDeck, deepDeck, chaosDeck } from './deck';
 
 // --- CONSTANTS & UTILS ---
-const SUPA_URL = import.meta.env.VITE_SUPA_URL;
-const SUPA_KEY = import.meta.env.VITE_SUPA_KEY;
+const SUPA_URL = import.meta.env.VITE_SUPA_URL || (window as any).ORACLE_CONFIG?.SUPA_URL;
+const SUPA_KEY = import.meta.env.VITE_SUPA_KEY || (window as any).ORACLE_CONFIG?.SUPA_KEY;
+
+if (!SUPA_URL || !SUPA_KEY) {
+    console.error("Supabase configuration missing! Check environment variables.");
+}
 
 const supabaseClient = createClient(SUPA_URL, SUPA_KEY);
 
-function parsePreviewText(text) {
-    if (!text) return "";
-    let actual = text;
-    if (text.startsWith('[REPLY:')) {
-        const endIdx = text.indexOf('}]');
-        if (endIdx !== -1) actual = text.substring(endIdx + 2);
+const safeStorage = {
+    get: (key: string) => {
+        try { return localStorage.getItem(key); } catch { return null; }
+    },
+    set: (key: string, value: string) => {
+        try { localStorage.setItem(key, value); } catch { }
     }
-    if (actual.startsWith('[IMG]')) return "📷 Photo";
-    if (actual.startsWith('[VN]')) return "🎤 Voice Message";
-    if (actual.startsWith('[VO]')) return "👁️ Secret Message";
-    return actual.substring(0, 40) + (actual.length > 40 ? "..." : "");
-}
+};
 
-const uploadImage = async (file) => {
+const uploadImage = async (file: File) => {
     try {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}.${fileExt}`;
         const filePath = `uploads/${fileName}`;
         
-        const { data, error } = await supabaseClient.storage.from('bukti').upload(filePath, file, {
+        console.log(`Uploading image to 'bukti' bucket: ${filePath}`);
+        
+        const { error } = await supabaseClient.storage.from('bukti').upload(filePath, file, {
             cacheControl: '3600',
             upsert: false
         });
         
         if (error) {
+            console.error("Supabase Storage Error:", error);
             if (error.message === 'Failed to fetch' || error.message.includes('fetch')) {
                 throw new Error("Koneksi gagal (Fetch Failed). Pastikan bucket 'bukti' sudah dibuat dan memiliki policy publik.");
             }
-            throw error;
+            throw new Error(error.message);
         }
         
         const { data: { publicUrl } } = supabaseClient.storage.from('bukti').getPublicUrl(filePath);
         return publicUrl;
-    } catch (err) {
-        console.error("Upload failed:", err);
+    } catch (err: any) {
+        console.error("uploadImage Exception:", err);
         throw err;
     }
 };
 
-const safeStorage = {
-    get: (key) => {
-        try { return localStorage.getItem(key); } catch { return null; }
-    },
-    set: (key, value) => {
-        try { localStorage.setItem(key, value); } catch { }
-    }
-};
-
-const drawCard = (category) => {
-    let deck;
-    let wildcardChance = 0;
-
-    if (category === 'light') {
-        deck = lightDeck;
-        wildcardChance = 0.15; // 15%
-    } else if (category === 'deep') {
-        deck = deepDeck;
-        wildcardChance = 0.10; // 10%
-    } else { // chaos
-        deck = chaosDeck;
-        wildcardChance = 0.06; // 6%
-    }
-
-    const isWildcard = Math.random() < wildcardChance;
-    let cardType;
-
-    if (isWildcard) {
-        cardType = 'wildcard';
-    } else {
-        cardType = Math.random() < 0.5 ? 'truth' : 'dare';
-    }
-
-    const cardPool = deck[cardType];
-    if (!cardPool || cardPool.length === 0) return `Tidak ada kartu ${cardType} tersisa.`;
-
-    const randomIndex = Math.floor(Math.random() * cardPool.length);
-    return cardPool[randomIndex];
-};
-
 // --- COMPONENTS ---
 
-const AudioPlayer = ({ url, isPlaying, onToggle }) => {
+const AudioPlayer = ({ url, isPlaying, onToggle }: { url: string, isPlaying: boolean, onToggle: () => void }) => {
     const [progress, setProgress] = useState(0);
-    const [duration, setDuration] = useState(0);
-    const audioRef = useRef(null);
+    const audioRef = useRef<HTMLAudioElement>(null);
 
     useEffect(() => {
         if (isPlaying) {
             audioRef.current?.play().catch(() => onToggle());
+            if ((window as any).BGMManager) (window as any).BGMManager.onVoiceNotePlay();
         } else {
             audioRef.current?.pause();
+            if ((window as any).BGMManager) (window as any).BGMManager.onVoiceNoteEnd();
         }
-    }, [isPlaying]);
+    }, [isPlaying, onToggle]);
 
     return (
         <div className="flex items-center gap-3 min-w-[200px] py-2 px-3 bg-black/20 rounded-xl">
@@ -115,8 +78,7 @@ const AudioPlayer = ({ url, isPlaying, onToggle }) => {
             <audio 
                 ref={audioRef} 
                 src={url} 
-                onTimeUpdate={() => setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100)} 
-                onLoadedMetadata={() => setDuration(audioRef.current.duration)}
+                onTimeUpdate={() => setProgress(audioRef.current ? (audioRef.current.currentTime / audioRef.current.duration) * 100 : 0)} 
                 onEnded={onToggle} 
                 className="hidden" 
             />
@@ -124,16 +86,25 @@ const AudioPlayer = ({ url, isPlaying, onToggle }) => {
     );
 };
 
-const FateCardDisplay = ({ raw, onShare }) => {
+const FateCardDisplay = ({ raw }: { raw: string }) => {
     try {
         const d = JSON.parse(raw);
-        const parts = d.content.split(":");
-        const type = parts[0] || "FATE";
-        const content = parts.slice(1).join(":").trim() || d.content;
-        const isChaos = type.includes("CHAOS");
+        const contentStr = d.content || "";
+        let type = "FATE";
+        let content = contentStr;
+
+        if (contentStr.startsWith("GAME ")) {
+            const parts = contentStr.split(":");
+            type = parts[0];
+            content = parts.slice(1).join(":").trim();
+        } else {
+            const parts = contentStr.split(":");
+            type = parts[0] || "FATE";
+            content = parts.slice(1).join(":").trim() || contentStr;
+        }
 
         return (
-            <div className={`p-4 rounded-xl border border-gold/30 bg-gradient-to-br from-black to-zinc-900 text-center space-y-3 shadow-lg relative overflow-hidden group`}>
+            <div className="p-4 rounded-xl border border-gold/30 bg-gradient-to-br from-black to-zinc-900 text-center space-y-3 shadow-lg relative overflow-hidden group">
                 <div className="text-[8px] font-header tracking-[4px] uppercase opacity-60 text-gold">{type}</div>
                 <div className="font-mystic text-xl italic text-white/90 leading-normal">"{content}"</div>
                 <div className="text-[7px] opacity-30 uppercase tracking-widest font-header pt-1">Invoked by {d.invoker}</div>
@@ -142,15 +113,31 @@ const FateCardDisplay = ({ raw, onShare }) => {
     } catch { return <div className="p-3 text-red-500 border border-red-500/20 rounded-lg text-xs italic">Takdir yang Terdistorsi</div>; }
 };
 
-const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, onShare, currentAudioId, onPlayAudio, onVisible }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
+const MessageContent = ({ type, content, currentAudioId, msgId, onPlayAudio, isMe, isSecret = false }: any) => {
+    if (type === "vn") {
+        return <AudioPlayer url={content} isPlaying={currentAudioId === msgId} onToggle={() => onPlayAudio(currentAudioId === msgId ? null : msgId)} />;
+    }
+    if (type === "img") {
+        const parts = content.split("\n");
+        const url = parts[0];
+        const caption = parts.slice(1).join("\n");
+        return (
+            <div className="flex flex-col gap-2">
+                <img src={url} className={`rounded-lg ${isSecret ? 'max-h-96' : 'max-h-64'} w-full object-contain`} referrerPolicy="no-referrer" />
+                {caption && <p className={`font-sans ${isSecret ? 'text-lg text-center' : 'text-[15px] pr-12'} leading-tight break-words whitespace-pre-wrap`}>{caption}</p>}
+            </div>
+        );
+    }
+    return <p className={`font-sans ${isSecret ? 'text-xl text-center leading-relaxed' : 'text-[15px] pr-12'} leading-tight break-words whitespace-pre-wrap`}>{content}</p>;
+};
+
+const Bubble = ({ msg, isMe, onReply, onViewOnce, currentAudioId, onPlayAudio, onVisible }: any) => {
+    const bubbleRef = useRef<HTMLDivElement>(null);
     const [swipeX, setSwipeX] = useState(0);
     const touchStartRef = useRef(0);
-    const longPressTimerRef = useRef(null);
-    const bubbleRef = useRef(null);
 
     useEffect(() => {
-        if (!bubbleRef.current || isMe) return;
+        if (!bubbleRef.current || isMe || msg.is_read) return;
         const observer = new IntersectionObserver(([entry]) => {
             if (entry.isIntersecting) {
                 onVisible(msg.id);
@@ -159,116 +146,83 @@ const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, onShare, currentAudioI
         }, { threshold: 0.8 });
         observer.observe(bubbleRef.current);
         return () => observer.disconnect();
-    }, [bubbleRef, msg.id, isMe, onVisible]);
+    }, [msg.id, isMe, msg.is_read, onVisible]);
 
-    const content = msg.teks;
-    const isOracle = msg.nama === "ORACLE";
-    const isVO = content.startsWith("[VO]");
-    const isVN = content.startsWith("[VN]");
-    const isIMG = content.startsWith("[IMG]");
-
-    let replyData = null;
-    let actualContent = content;
-    const replyRegex = /^\s*\[REPLY:(.+?)\](.*)$/s;
-    const match = content.match(replyRegex);
-
-    if (match) {
-        try {
-            replyData = JSON.parse(match[1]);
-            actualContent = match[2].trim();
-        } catch (e) {
-            console.error('Failed to parse reply JSON:', e);
-            actualContent = content;
-        }
-    } else {
-        actualContent = content;
-    }
-
+    const parsed = useMemo(() => {
+        if (!(window as any).MessageParser) return { type: 'text', content: msg.teks, isVO: false, replyData: null };
+        return (window as any).MessageParser.parse(msg.teks);
+    }, [msg.teks]);
+    
     const identity = useMemo(() => {
         const parts = msg.nama.split('|');
         return { name: parts[0], avatar: parts[1] || '👤', color: parts[2] || '#D4AF37' };
     }, [msg.nama]);
 
-    const handleTouchStart = (e) => {
+    const handleTouchStart = (e: any) => {
         touchStartRef.current = e.touches[0].clientX;
-        if (isMe && !isOracle) {
-            longPressTimerRef.current = setTimeout(() => {
-                if (navigator.vibrate) navigator.vibrate(50);
-                onEdit(msg);
-            }, 600);
-        }
     };
 
-    const handleTouchMove = (e) => {
+    const handleTouchMove = (e: any) => {
         const diff = e.touches[0].clientX - touchStartRef.current;
-        if (Math.abs(diff) > 10 && longPressTimerRef.current) {
-            clearTimeout(longPressTimerRef.current);
-        }
-        if (diff > 0 && diff < 80) {
-            setSwipeX(diff);
-        }
+        if (diff > 0 && diff < 80) setSwipeX(diff);
     };
 
     const handleTouchEnd = () => {
-        if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
-        if (swipeX > 40) {
-            if (navigator.vibrate) navigator.vibrate(20);
-            onReply(msg);
-        }
+        if (swipeX > 40) onReply(msg);
         setSwipeX(0);
-    };
-
-    const formatTime = (dateStr) => {
-        const d = new Date(dateStr);
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    };
-
-    const renderReplyPreview = (data) => {
-        return (
-            <div className="mb-1 p-2 rounded bg-black/10 border-l-4 border-gold/50 text-[10px] opacity-80 italic truncate">
-                <span className="font-bold text-gold not-italic">{data.name}:</span> {parsePreviewText(data.text)}
-            </div>
-        );
     };
 
     return (
         <div 
             ref={bubbleRef}
-            className={`flex flex-col mb-2 animate-fade-in relative transition-transform duration-200 ${isOracle ? 'items-center w-full my-4' : isMe ? 'items-end' : 'items-start'}`}
+            className={`flex flex-col mb-2 animate-fade-in relative transition-transform duration-200 ${msg.nama === "ORACLE" ? 'items-center w-full my-4' : isMe ? 'items-end' : 'items-start'}`}
             style={{ transform: `translateX(${swipeX}px)` }}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
         >
-            {swipeX > 20 && (
-                <div className="absolute left-[-30px] top-1/2 -translate-y-1/2 text-gold opacity-50">↩️</div>
-            )}
-
-            {!isOracle && (
-                <div className={`flex items-center gap-1.5 mb-0.5 px-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+            {!isMe && msg.nama !== "ORACLE" && (
+                <div className="flex items-center gap-1.5 mb-0.5 px-2">
                     <span className="text-[10px]">{identity.avatar}</span>
                     <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: identity.color }}>{identity.name}</span>
                 </div>
             )}
             
-            <div className={`relative p-2.5 w-fit max-w-[85%] rounded-xl border transition-all shadow-sm ${isOracle ? 'w-full max-w-sm bg-transparent border-none' : isVO ? 'bg-red-950/40 border-red-500/30 text-red-400 cursor-pointer' : isMe ? 'bg-[#056162] border-none text-white rounded-tr-none' : 'bg-[#262d31] border-none text-white rounded-tl-none'}`} onClick={() => isVO && onViewOnce(msg)}>
-                {!isOracle && (
-                    <div className={`absolute top-0 w-0 h-0 border-t-[10px] border-t-transparent ${isMe ? 'right-[-8px] border-l-[10px] border-l-[#056162]' : 'left-[-8px] border-r-[10px] border-r-[#262d31]'}`}></div>
+            <div 
+                className={`relative p-2.5 w-fit max-w-[85%] rounded-xl border transition-all shadow-sm ${msg.nama === "ORACLE" ? 'w-full max-w-sm bg-transparent border-none' : parsed.isVO ? 'bg-red-950/40 border-red-500/30 text-red-400 cursor-pointer' : isMe ? 'bg-[#056162] border-none text-white rounded-tr-none' : 'bg-[#262d31] border-none text-white rounded-tl-none'}`}
+                onClick={() => parsed.isVO && onViewOnce(msg)}
+            >
+                {parsed.replyData && (
+                    <div className="mb-1 p-2 rounded bg-black/10 border-l-4 border-gold/50 text-[10px] opacity-80 italic truncate">
+                        <span className="font-bold text-gold not-italic">{parsed.replyData.name}:</span> {(window as any).MessageParser?.getPreview(parsed.replyData.text)}
+                    </div>
                 )}
-
-                {replyData && renderReplyPreview(replyData)}
                 
                 <div className="flex flex-col">
-                    {isOracle ? <FateCardDisplay raw={actualContent} onShare={onShare} /> :
-                     isVO ? <div className="flex items-center gap-3"><span className="text-xl">👁️</span><div className="flex flex-col"><span className="text-[9px] font-header tracking-widest uppercase">Secret Glimpse</span><span className="text-[7px] opacity-40 uppercase">Tap to reveal</span></div></div> :
-                     isVN ? <AudioPlayer url={actualContent.replace("[VN]", "")} isPlaying={currentAudioId === msg.id} onToggle={() => onPlayAudio(currentAudioId === msg.id ? null : msg.id)} /> :
-                     isIMG ? <img src={actualContent.replace("[IMG]", "")} className="rounded-lg max-h-64 w-full object-contain" /> :
-                     <p className="font-sans text-[15px] leading-tight break-words whitespace-pre-wrap pr-12">{actualContent}</p>
+                    {msg.nama === "ORACLE" ? <FateCardDisplay raw={parsed.content} /> :
+                     parsed.isVO ? (
+                        <div className="flex items-center gap-3">
+                            <span className="text-xl">👁️</span>
+                            <div className="flex flex-col">
+                                <span className="text-[9px] font-header tracking-widest uppercase">Secret Glimpse</span>
+                                <span className="text-[7px] opacity-40 uppercase">Tap to reveal</span>
+                            </div>
+                        </div>
+                     ) : (
+                        <MessageContent 
+                            type={parsed.type} 
+                            content={parsed.content} 
+                            msgId={msg.id} 
+                            currentAudioId={currentAudioId} 
+                            onPlayAudio={onPlayAudio} 
+                            isMe={isMe} 
+                        />
+                     )
                     }
                     
-                    {!isOracle && (
+                    {msg.nama !== "ORACLE" && (
                         <div className="flex items-center justify-end gap-1 mt-1 self-end">
-                            <span className="text-[9px] opacity-50 font-sans">{formatTime(msg.created_at)}</span>
+                            <span className="text-[9px] opacity-50">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             {isMe && <span className={`text-[10px] ${msg.is_read ? 'text-[#34b7f1]' : 'text-white/40'}`}>✓✓</span>}
                         </div>
                     )}
@@ -281,44 +235,32 @@ const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, onShare, currentAudioI
 // --- MAIN APP ---
 
 function App() {
-    const [isAdult, setIsAdult] = useState(() => safeStorage.get('oracle_adult') === 'true');
-    const [chaosUnlocked, setChaosUnlocked] = useState(() => safeStorage.get('oracle_chaos_unlocked') === 'true');
     const [layer, setLayer] = useState(() => {
-        const adult = safeStorage.get('oracle_adult');
-        const user = safeStorage.get('oracle_user');
-        if (adult === null) return 'AGE';
-        if (user === null) return 'NAME';
+        if (safeStorage.get('oracle_adult') === null) return 'AGE';
+        if (safeStorage.get('oracle_user') === null) return 'NAME';
         return safeStorage.get('oracle_unlocked') === 'true' ? 'MAIN' : 'SECURITY';
     });
 
     const [username, setUsername] = useState(() => safeStorage.get('oracle_user') || '');
     const [avatar, setAvatar] = useState(() => safeStorage.get('oracle_avatar') || '🔮');
     const [userColor, setUserColor] = useState(() => safeStorage.get('oracle_color') || '#D4AF37');
-    const [messages, setMessages] = useState([]);
+    const [messages, setMessages] = useState<any[]>([]);
     const [inputText, setInputText] = useState('');
     const [isViewOnce, setIsViewOnce] = useState(false);
     const [fateMode, setFateMode] = useState(false);
-    const [currentTime, setCurrentTime] = useState(new Date());
-    const [currentAudioId, setCurrentAudioId] = useState(null);
-    const [typingUsers, setTypingUsers] = useState({});
-    const [replyingTo, setReplyingTo] = useState(null);
-    const [editingMsg, setEditingMsg] = useState(null);
+    const [currentAudioId, setCurrentAudioId] = useState<number | null>(null);
+    const [replyingTo, setReplyingTo] = useState<any>(null);
     const [showMenu, setShowMenu] = useState(false);
-    const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
-    const [showClearConfirm, setShowClearConfirm] = useState(false);
-    const [isInputFocused, setIsInputFocused] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
-    const [viewingSecret, setViewingSecret] = useState(null);
+    const [viewingSecret, setViewingSecret] = useState<any>(null);
     const [pinInput, setPinInput] = useState('');
-    const [chaosPinInput, setChaosPinInput] = useState('');
-    const [showChaosUnlock, setShowChaosUnlock] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [connStatus, setConnStatus] = useState('OFFLINE');
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-    const [activeCard, setActiveCard] = useState(null);
-    const [readReceipts, setReadReceipts] = useState({});
-    const feedRef = useRef(null);
-    const lastTypingRef = useRef(0);
-    const fileInputRef = useRef(null);
+    const feedRef = useRef<HTMLElement>(null);
+    const audioManagerRef = useRef<any>(null);
+    const connManagerRef = useRef<any>(null);
 
     useEffect(() => {
         const loader = document.getElementById('loader');
@@ -326,273 +268,339 @@ function App() {
             loader.style.opacity = '0';
             setTimeout(() => loader.remove(), 500);
         }
+
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('SW registered:', reg))
+                .catch(err => console.error('SW registration failed:', err));
+        }
     }, []);
 
     useEffect(() => {
         if (layer !== 'MAIN') return;
 
         const initialize = async () => {
-            const { data: messagesData } = await supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
-            if (messagesData) setMessages(messagesData);
+            const { data } = await supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
+            if (data) setMessages(data);
 
-            const { data: cardData } = await supabaseClient.from('Tantangan').select('*').eq('is_active', true).single();
-            if (cardData) setActiveCard(cardData);
+            if ((window as any).ConnectionManager) {
+                connManagerRef.current = new (window as any).ConnectionManager(supabaseClient, setConnStatus);
+                connManagerRef.current.subscribe('msgs', (event: any) => {
+                    if (event.type === 'INSERT') {
+                        const newMsg = event.payload.new;
+                        setMessages(prev => [...prev, newMsg]);
+                        
+                        // Notification logic
+                        if (document.hidden && newMsg.nama.split('|')[0] !== username) {
+                            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                                navigator.serviceWorker.controller.postMessage({
+                                    type: 'SHOW_NOTIFICATION',
+                                    payload: {
+                                        title: `Pesan dari ${newMsg.nama.split('|')[0]}`,
+                                        text: newMsg.teks,
+                                        icon: newMsg.nama.split('|')[1] || 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png'
+                                    }
+                                });
+                            }
+                        }
+                    } else if (event.type === 'UPDATE') {
+                        setMessages(prev => prev.map(m => m.id === event.payload.new.id ? event.payload.new : m));
+                    }
+                });
+            }
         };
 
         initialize();
-        
-        const channel = supabaseClient.channel('msgs');
-        
-        channel
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'Pesan' }, (p) => {
-                setMessages(prev => [...prev, p.new]);
-            })
-            .on('broadcast', { event: 'typing' }, ({ payload }) => {
-                if (payload.user !== username) {
-                    setTypingUsers(prev => ({ ...prev, [payload.user]: payload.isTyping ? Date.now() : 0 }));
-                }
-            })
-            .on('broadcast', { event: 'read' }, ({ payload }) => {
-                setMessages(prev => prev.map(m => 
-                    m.id === payload.messageId ? { ...m, is_read: true } : m
-                ));
-            })
-            .subscribe();
-        
-        const typingCleanup = setInterval(() => {
-            const now = Date.now();
-            setTypingUsers(prev => {
-                const next = { ...prev };
-                let changed = false;
-                for (const user in next) {
-                    if (next[user] > 0 && now - next[user] > 3000) {
-                        next[user] = 0;
-                        changed = true;
-                    }
-                }
-                return changed ? next : prev;
-            });
-        }, 1000);
+        if ((window as any).AudioManager) audioManagerRef.current = new (window as any).AudioManager();
+        if ((window as any).BGMManager) (window as any).BGMManager.play();
 
         return () => {
-            supabaseClient.removeChannel(channel);
-            clearInterval(typingCleanup);
+            if (connManagerRef.current) connManagerRef.current.cleanup();
         };
-    }, [layer]);
+    }, [layer, username]);
 
     useEffect(() => {
         if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
     }, [messages]);
 
-    useEffect(() => {
-        const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-        return () => clearInterval(timer);
-    }, []);
-
     const handleSend = async () => {
-        if (!inputText.trim()) return;
+        if (!inputText.trim() && !selectedFile) return;
         
-        const nama = `${username}|${avatar}|${userColor}`;
-        let teks = inputText;
-
-        if (editingMsg) {
-            await supabaseClient.from('Pesan').update({ teks }).eq('id', editingMsg.id);
-            setMessages(prev => prev.map(m => m.id === editingMsg.id ? { ...m, teks } : m));
-            setEditingMsg(null);
-            setInputText('');
-            return;
-        }
-
-        if (replyingTo) {
-            const replyContext = {
-                name: replyingTo.nama.split('|')[0],
-                text: replyingTo.teks
-            };
-            teks = `[REPLY:${JSON.stringify(replyContext)}]${inputText}`;
-        }
-
-        if (isViewOnce) teks = `[VO]${teks}`;
-        
-        await supabaseClient.from('Pesan').insert([{ nama, teks }]);
-        setInputText('');
-        setIsViewOnce(false);
-        setReplyingTo(null);
-    };
-
-    const handleTyping = () => {
-        const now = Date.now();
-        if (now - lastTypingRef.current > 2000) {
-            lastTypingRef.current = now;
-            supabaseClient.channel('msgs').send({
-                type: 'broadcast',
-                event: 'typing',
-                payload: { user: username, isTyping: true },
-            });
-        }
-    };
-
-    const handleImageUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
         setIsUploading(true);
         try {
-            const url = await uploadImage(file);
             const nama = `${username}|${avatar}|${userColor}`;
-            const teks = `[IMG]${url}`;
+            let teks = inputText;
+
+            if (selectedFile) {
+                if ((window as any).BGMManager) (window as any).BGMManager.onImageSend();
+                const url = await uploadImage(selectedFile);
+                teks = teks.trim() ? `[IMG]${url}\n${teks}` : `[IMG]${url}`;
+                setSelectedFile(null);
+            }
+
+            if (replyingTo) {
+                const context = (window as any).MessageParser.createReplyContext(replyingTo);
+                teks = `[REPLY:${JSON.stringify(context)}]${teks}`;
+            }
+
+            if (isViewOnce) teks = `[VO]${teks}`;
+            
             await supabaseClient.from('Pesan').insert([{ nama, teks }]);
-        } catch (error) {
-            console.error('Upload failed:', error);
-            alert('Gagal mengunggah gambar.');
+            setInputText('');
+            setIsViewOnce(false);
+            setReplyingTo(null);
+        } catch (err: any) {
+            alert(`Gagal mengirim: ${err.message}`);
         } finally {
             setIsUploading(false);
-            setShowAttachmentMenu(false);
         }
     };
 
-    const handleClearChat = async () => {
-        await supabaseClient.from('Pesan').delete().gt('id', 0);
-        setMessages([]);
-        setShowClearConfirm(false);
+    const handleVoiceNote = async () => {
+        if (!isRecording) {
+            try {
+                await audioManagerRef.current.startRecording();
+                setIsRecording(true);
+                if ((window as any).BGMManager) (window as any).BGMManager.onVoiceNoteStart();
+            } catch (e) { alert("Gagal akses mic"); }
+        } else {
+            setIsRecording(false);
+            const blob = await audioManagerRef.current.stopRecording();
+            if ((window as any).BGMManager) (window as any).BGMManager.onVoiceNoteStop();
+            
+            if (blob) {
+                setIsUploading(true);
+                try {
+                    const fileName = `vn-${Date.now()}.mp4`;
+                    const { error } = await supabaseClient.storage.from('bukti').upload(`audio/${fileName}`, blob);
+                    if (error) throw error;
+                    const { data: { publicUrl } } = supabaseClient.storage.from('bukti').getPublicUrl(`audio/${fileName}`);
+                    
+                    const nama = `${username}|${avatar}|${userColor}`;
+                    await supabaseClient.from('Pesan').insert([{ nama, teks: `[VN]${publicUrl}` }]);
+                } catch (e) { alert("Gagal kirim VN"); }
+                finally { setIsUploading(false); }
+            }
+        }
     };
 
-    const handleDrawFateCard = async (category) => {
-        if (activeCard) {
-            alert("Satu kartu takdir sudah aktif.");
-            return;
-        }
-        const isChaos = category === 'chaos';
-        if (isChaos && !chaosUnlocked) {
-            setShowChaosUnlock(true);
-            return;
-        }
-        const cardContent = drawCard(category);
-        const { data, error } = await supabaseClient.from('Tantangan').insert([{ card_content: cardContent, invoker: username, is_active: true }]).select().single();
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) setSelectedFile(file);
+    };
+
+    const handleDrawFate = async (category: string) => {
+        const deck = (window as any).GAME_DECK[category];
+        const isWildcard = Math.random() < deck.wildcardChance;
+        const type = isWildcard ? 'wildcard' : (Math.random() < 0.5 ? 'truth' : 'dare');
+        const pool = deck[type];
+        const content = pool[Math.floor(Math.random() * pool.length)];
         
-        if (error || !data) {
-            console.error("Gagal menarik takdir:", error);
-            alert("Gagal menarik takdir. Coba lagi.");
-            return;
-        }
-        setActiveCard(data);
+        const payload = JSON.stringify({
+            content: `${category.toUpperCase()} ${type.toUpperCase()}: ${content}`,
+            invoker: username
+        });
+
+        await supabaseClient.from('Pesan').insert([{ nama: 'ORACLE', teks: payload }]);
         setFateMode(false);
     };
 
-    // Layer Renderers
-    const renderAgeGate = () => (
+    const handleViewOnce = (msg: any) => {
+        const parsed = (window as any).MessageParser.parse(msg.teks);
+        setViewingSecret({ ...msg, ...parsed });
+        
+        // Burn logic
+        setTimeout(() => {
+            supabaseClient.from('Pesan').delete().eq('id', msg.id).then(() => {
+                setMessages(prev => prev.filter(m => m.id !== msg.id));
+                setViewingSecret(null);
+            });
+        }, 10000); // 10 seconds to view
+    };
+
+    if (layer === 'AGE') return (
         <div className="fixed inset-0 bg-black flex flex-col items-center justify-center text-center p-4 animate-fade-in">
             <h1 className="font-header text-2xl text-gold tracking-[8px] mb-4">VERIFIKASI USIA</h1>
-            <p className="font-mystic text-lg mb-8 max-w-sm">Aplikasi ini mengandung konten dewasa dan tidak cocok untuk semua penonton. Mohon konfirmasi bahwa Anda berusia 18 tahun atau lebih.</p>
+            <p className="font-mystic text-lg mb-8 max-w-sm">Aplikasi ini mengandung konten dewasa. Konfirmasi usia Anda.</p>
             <div className="flex gap-4">
-                <button onClick={() => { safeStorage.set('oracle_adult', 'true'); setIsAdult(true); setLayer('NAME'); }} className="px-8 py-2 bg-gold text-black font-bold rounded-lg shadow-lg transition-transform active:scale-95">SAYA 18+</button>
-                <button onClick={() => window.location.href = 'about:blank'} className="px-8 py-2 bg-gray-700 text-white rounded-lg">Keluar</button>
+                <button onClick={() => { safeStorage.set('oracle_adult', 'true'); setLayer('NAME'); }} className="px-8 py-2 bg-gold text-black font-bold rounded-lg shadow-lg">SAYA 18+</button>
+                <button onClick={() => window.location.href = 'https://google.com'} className="px-8 py-2 bg-gray-700 text-white rounded-lg">Keluar</button>
             </div>
         </div>
     );
 
-    const renderNameScreen = () => (
+    if (layer === 'NAME') return (
         <div className="fixed inset-0 bg-black flex flex-col items-center justify-center text-center p-4 animate-fade-in">
             <h1 className="font-header text-2xl text-gold tracking-[8px] mb-4">IDENTITAS</h1>
-            <p className="font-mystic text-lg mb-6">Pilih nama, avatar, dan warna untuk dikenali.</p>
             <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Nama..." className="bg-white/10 text-center p-2 rounded-lg mb-4 w-64" />
             <div className="flex gap-4 mb-6">
                 <input type="text" value={avatar} onChange={e => setAvatar(e.target.value)} placeholder="Avatar..." className="bg-white/10 text-center p-2 rounded-lg w-20" />
                 <input type="color" value={userColor} onChange={e => setUserColor(e.target.value)} className="w-20 h-10 rounded-lg" />
             </div>
-            <button onClick={() => { safeStorage.set('oracle_user', username); safeStorage.set('oracle_avatar', avatar); safeStorage.set('oracle_color', userColor); setLayer('SECURITY'); }} className="px-8 py-2 bg-gold text-black font-bold rounded-lg shadow-lg transition-transform active:scale-95">Lanjutkan</button>
+            <button onClick={() => { safeStorage.set('oracle_user', username); safeStorage.set('oracle_avatar', avatar); safeStorage.set('oracle_color', userColor); setLayer('SECURITY'); }} className="px-8 py-2 bg-gold text-black font-bold rounded-lg shadow-lg">Lanjutkan</button>
         </div>
     );
 
-    const renderSecurityScreen = () => (
+    if (layer === 'SECURITY') return (
         <div className="fixed inset-0 bg-black flex flex-col items-center justify-center text-center p-4 animate-fade-in">
             <h1 className="font-header text-2xl text-gold tracking-[8px] mb-4">AKSES</h1>
-            <p className="font-mystic text-lg mb-6">Masukkan PIN untuk membuka Oracle.</p>
             <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} className="bg-white/10 text-center p-2 rounded-lg mb-4 w-64 tracking-[8px]" />
             <button onClick={() => {
-                if (pinInput === '179') { // Your PIN
+                if (pinInput === '179') {
                     safeStorage.set('oracle_unlocked', 'true');
                     setLayer('MAIN');
-                } else {
-                    alert('PIN salah.');
-                }
-            }} className="px-8 py-2 bg-gold text-black font-bold rounded-lg shadow-lg transition-transform active:scale-95">Buka</button>
+                } else alert('PIN salah.');
+            }} className="px-8 py-2 bg-gold text-black font-bold rounded-lg shadow-lg">Buka</button>
         </div>
     );
 
-    if (layer === 'AGE') return renderAgeGate();
-    if (layer === 'NAME') return renderNameScreen();
-    if (layer === 'SECURITY') return renderSecurityScreen();
-
     return (
-        <div className="h-screen w-screen bg-void flex flex-col font-sans text-sm text-white/90">
-            {/* Header */}
-            <header className="flex items-center justify-between p-3 border-b border-white/10 glass">
+        <div className="h-screen w-screen bg-void flex flex-col font-sans text-sm text-white/90 overflow-hidden">
+            <header className="flex items-center justify-between p-3 border-b border-white/10 bg-black/40 backdrop-blur-md z-50">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gold/20 border border-gold/40 flex items-center justify-center text-lg font-header text-gold shadow-md">O</div>
+                    <div className="w-10 h-10 rounded-full bg-gold/20 border border-gold/40 flex items-center justify-center text-lg font-header text-gold">O</div>
                     <div>
                         <h1 className="font-bold text-base">Oracle Chamber</h1>
-                        <p className="text-xs text-white/50">Connected</p>
+                        <div className="flex items-center gap-1.5">
+                            <div className={`w-1.5 h-1.5 rounded-full ${connStatus === 'ONLINE' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                            <p className="text-[10px] text-white/40 uppercase tracking-widest">{connStatus}</p>
+                        </div>
                     </div>
                 </div>
-                <button onClick={() => setShowMenu(true)} className="text-2xl">⋮</button>
+                <button onClick={() => setShowMenu(!showMenu)} className="text-2xl opacity-60">⋮</button>
             </header>
 
-            {/* Feed */}
-            <main ref={feedRef} className="flex-1 overflow-y-auto p-3 custom-scrollbar feed-container">
-                {messages.map(msg => <Bubble key={msg.id} msg={msg} isMe={msg.nama.startsWith(username)} onReply={setReplyingTo} onEdit={setEditingMsg} onViewOnce={setViewingSecret} currentAudioId={currentAudioId} onPlayAudio={setCurrentAudioId} onVisible={(id) => supabaseClient.channel('msgs').send({ type: 'broadcast', event: 'read', payload: { messageId: id } })} />)}
+            <main ref={feedRef as any} className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
+                {messages.map(msg => (
+                    <Bubble 
+                        key={msg.id} 
+                        msg={msg} 
+                        isMe={msg.nama.startsWith(username)} 
+                        onReply={setReplyingTo} 
+                        onViewOnce={handleViewOnce}
+                        currentAudioId={currentAudioId} 
+                        onPlayAudio={setCurrentAudioId}
+                        onVisible={(id: number) => supabaseClient.from('Pesan').update({ is_read: true }).eq('id', id)}
+                    />
+                ))}
             </main>
 
-            {/* Footer / Input */}
-            <footer className="p-3 glass border-t border-white/10">
+            <footer className="p-3 bg-black/60 border-t border-white/10 backdrop-blur-xl">
                 {replyingTo && (
-                    <div className="bg-black/20 p-2 rounded-t-lg flex justify-between items-center">
-                        <div className="border-l-4 border-gold pl-2 text-xs italic truncate">
-                            Replying to <span className="font-bold not-italic text-gold">{replyingTo.nama.split('|')[0]}</span>: {parsePreviewText(replyingTo.teks)}
+                    <div className="bg-white/5 p-2 rounded-t-xl flex justify-between items-center mb-2 border-l-4 border-gold">
+                        <div className="text-xs italic truncate opacity-70">
+                            Replying to <span className="font-bold text-gold">{replyingTo.nama.split('|')[0]}</span>
                         </div>
-                        <button onClick={() => setReplyingTo(null)} className="text-xl">×</button>
+                        <button onClick={() => setReplyingTo(null)} className="text-lg opacity-50">×</button>
+                    </div>
+                )}
+                {selectedFile && (
+                    <div className="bg-white/5 p-2 rounded-t-xl flex justify-between items-center mb-2 border-l-4 border-blue-500">
+                        <div className="text-xs italic truncate opacity-70">
+                            📎 {selectedFile.name}
+                        </div>
+                        <button onClick={() => setSelectedFile(null)} className="text-lg opacity-50">×</button>
                     </div>
                 )}
                 <div className="flex items-center gap-2">
-                    <button onClick={() => setFateMode(!fateMode)} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${fateMode ? 'bg-gold text-black scale-110' : 'bg-white/10'}`}>
+                    <button onClick={() => setFateMode(!fateMode)} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${fateMode ? 'bg-gold text-black' : 'bg-white/10'}`}>
                         <span className="font-header text-xl">?</span>
                     </button>
                     <div className="flex-1 relative">
                         <input 
                             type="text" 
                             value={inputText} 
-                            onChange={e => { setInputText(e.target.value); handleTyping(); }}
-                            onFocus={() => setIsInputFocused(true)}
-                            onBlur={() => setIsInputFocused(false)}
+                            onChange={e => setInputText(e.target.value)}
                             placeholder="Kirim pesan..." 
-                            className="w-full h-12 bg-white/5 rounded-full px-5 pr-14 text-white placeholder-white/40 border border-transparent focus:border-gold/50 outline-none transition-all"
+                            className="w-full h-12 bg-white/5 rounded-full px-5 pr-12 outline-none focus:ring-1 ring-gold/30 transition-all"
+                            onKeyDown={e => e.key === 'Enter' && handleSend()}
                         />
-                        <button onClick={() => setShowAttachmentMenu(true)} className="absolute right-3 top-1/2 -translate-y-1/2 text-2xl text-white/60">+</button>
+                        <label className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer opacity-40 hover:opacity-100">
+                            <input type="file" className="hidden" onChange={handleFileChange} accept="image/*" />
+                            📎
+                        </label>
                     </div>
-                    <button onClick={handleSend} className="w-12 h-12 rounded-full bg-gold text-black flex items-center justify-center text-2xl active:scale-90 transition-transform">
-                        <span>➤</span>
+                    <button 
+                        onClick={(inputText.trim() || selectedFile) ? handleSend : handleVoiceNote} 
+                        className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-gold text-black'}`}
+                    >
+                        {(inputText.trim() || selectedFile) ? '➤' : (isRecording ? '⏹' : '🎤')}
+                    </button>
+                </div>
+                <div className="flex justify-center mt-2 gap-4">
+                    <button onClick={() => setIsViewOnce(!isViewOnce)} className={`text-[10px] uppercase tracking-widest px-3 py-1 rounded-full border transition-all ${isViewOnce ? 'bg-red-500/20 border-red-500 text-red-400' : 'border-white/10 opacity-40'}`}>
+                        Sekali Lihat {isViewOnce ? 'ON' : 'OFF'}
                     </button>
                 </div>
             </footer>
 
-            {/* Fate Mode Overlay */}
             {fateMode && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center animate-fade-in z-50" onClick={() => setFateMode(false)}>
-                    <div className="bg-zinc-900/80 border border-gold/20 p-6 rounded-2xl shadow-2xl space-y-4 w-80" onClick={e => e.stopPropagation()}>
-                        <h2 className="font-header text-center text-gold text-lg tracking-[5px]">PILIH TAKDIR</h2>
-                        <p className="text-center text-xs text-white/60 font-mystic italic">Pilih mode untuk menentukan intensitas permainan.</p>
-                        <div className="space-y-3 pt-2">
-                            <button onClick={() => handleDrawFateCard('light')} className="w-full text-left p-3 bg-black/20 rounded-lg border border-transparent hover:border-gold/50 transition-all">
-                                <h3 className="font-bold">Light</h3>
-                                <p className="text-xs text-white/50">Percakapan ringan dan menyenangkan.</p>
-                            </button>
-                            <button onClick={() => handleDrawFateCard('deep')} className="w-full text-left p-3 bg-black/20 rounded-lg border border-transparent hover:border-gold/50 transition-all">
-                                <h3 className="font-bold">Deep</h3>
-                                <p className="text-xs text-white/50">Pertanyaan mendalam untuk koneksi lebih.</p>
-                            </button>
-                            <button onClick={() => handleDrawFateCard('chaos')} className={`w-full text-left p-3 rounded-lg transition-all ${chaosUnlocked ? 'bg-black/20 hover:border-gold/50' : 'bg-red-900/30 text-white/50'}`}>
-                                <h3 className="font-bold flex items-center gap-2">{chaosUnlocked ? 'Chaos (18+)' : 'Chaos (Terkunci)'}</h3>
-                                <p className="text-xs">Tantangan liar dan tak terduga.</p>
-                            </button>
+                <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex flex-col items-center justify-center p-6 animate-fade-in" onClick={() => setFateMode(false)}>
+                    <div className="w-full max-w-xs space-y-4" onClick={e => e.stopPropagation()}>
+                        <h2 className="font-header text-center text-gold text-xl tracking-[8px]">PILIH TAKDIR</h2>
+                        <div className="grid grid-cols-1 gap-3">
+                            {['light', 'deep', 'chaos'].map(cat => (
+                                <button key={cat} onClick={() => handleDrawFate(cat)} className="p-4 bg-white/5 border border-white/10 rounded-2xl text-left hover:border-gold/50 transition-all group">
+                                    <div className="font-header text-gold uppercase tracking-widest">{cat}</div>
+                                    <div className="text-[10px] opacity-40 uppercase mt-1">Invoke the spirits of {cat}</div>
+                                </button>
+                            ))}
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {viewingSecret && (
+                <div className="fixed inset-0 bg-black/98 z-[200] flex items-center justify-center p-8 animate-fade-in" onClick={() => setViewingSecret(null)}>
+                    <div className="text-center space-y-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+                        <div className="text-red-500 font-header tracking-[8px] uppercase animate-pulse">Secret Revealed</div>
+                        <div className="bg-white/5 p-6 rounded-3xl border border-red-500/20">
+                            <MessageContent 
+                                type={viewingSecret.type} 
+                                content={viewingSecret.content} 
+                                msgId="secret" 
+                                currentAudioId={currentAudioId} 
+                                onPlayAudio={setCurrentAudioId} 
+                                isSecret={true}
+                            />
+                        </div>
+                        <div className="text-[10px] text-white/20 uppercase tracking-widest">Pesan ini akan terbakar selamanya...</div>
+                    </div>
+                </div>
+            )}
+
+            {isUploading && (
+                <div className="fixed top-4 left-1/2 -translate-x-1/2 bg-gold text-black px-4 py-2 rounded-full text-xs font-bold shadow-2xl z-[300] animate-bounce">
+                    TRANSMITTING...
+                </div>
+            )}
+
+            {showMenu && (
+                <div className="fixed inset-0 z-[150]" onClick={() => setShowMenu(false)}>
+                    <div className="absolute top-16 right-4 w-48 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl py-2 animate-fade-in" onClick={e => e.stopPropagation()}>
+                        <button onClick={async () => {
+                            const permission = await Notification.requestPermission();
+                            if (permission === 'granted') {
+                                alert("Notifikasi diaktifkan!");
+                                if (navigator.serviceWorker.controller) {
+                                    navigator.serviceWorker.controller.postMessage({
+                                        type: 'SHOW_NOTIFICATION',
+                                        payload: {
+                                            title: 'Oracle Chamber',
+                                            text: 'Takdir akan selalu bersamamu.',
+                                            tag: 'oracle-system'
+                                        }
+                                    });
+                                }
+                            } else {
+                                alert("Izin notifikasi ditolak.");
+                            }
+                        }} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5">🔔 Aktifkan Notifikasi</button>
+                        <button onClick={() => {
+                            localStorage.clear();
+                            window.location.reload();
+                        }} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-red-400">🚪 Reset Identitas</button>
                     </div>
                 </div>
             )}
