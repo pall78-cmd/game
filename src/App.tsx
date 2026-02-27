@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Reply } from 'lucide-react';
 
 import { ConnectionManager } from './utils/ConnectionManager';
 
@@ -141,10 +143,12 @@ const MessageContent = ({ type, content, currentAudioId, msgId, onPlayAudio, isM
     return <p className={`font-sans ${isSecret ? 'text-xl text-center leading-relaxed' : 'text-[15px] pr-12'} leading-tight break-words whitespace-pre-wrap`}>{content}</p>;
 };
 
-const Bubble = ({ msg, isMe, onReply, onViewOnce, currentAudioId, onPlayAudio, onVisible }: any) => {
+const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, currentAudioId, onPlayAudio, onVisible }: any) => {
     const bubbleRef = useRef<HTMLDivElement>(null);
     const [swipeX, setSwipeX] = useState(0);
     const touchStartRef = useRef(0);
+    const longPressTimer = useRef<any>(null);
+    const isSwiping = useRef(false);
 
     useEffect(() => {
         if (!bubbleRef.current || isMe || msg.is_read) return;
@@ -170,27 +174,78 @@ const Bubble = ({ msg, isMe, onReply, onViewOnce, currentAudioId, onPlayAudio, o
 
     const handleTouchStart = (e: any) => {
         touchStartRef.current = e.touches[0].clientX;
+        isSwiping.current = false;
+        
+        // Long press for Edit (only if isMe)
+        if (isMe && msg.nama !== "ORACLE") {
+            longPressTimer.current = setTimeout(() => {
+                if (!isSwiping.current) {
+                    if (navigator.vibrate) navigator.vibrate(50);
+                    onEdit(msg);
+                }
+            }, 600);
+        }
     };
 
     const handleTouchMove = (e: any) => {
         const diff = e.touches[0].clientX - touchStartRef.current;
-        if (diff > 0 && diff < 80) setSwipeX(diff);
+        
+        // Reduce sensitivity: only start swiping if diff is significant
+        if (Math.abs(diff) > 10) {
+            isSwiping.current = true;
+            if (longPressTimer.current) {
+                clearTimeout(longPressTimer.current);
+                longPressTimer.current = null;
+            }
+        }
+
+        if (diff > 0 && diff < 100) {
+            setSwipeX(diff);
+        }
     };
 
     const handleTouchEnd = () => {
-        if (swipeX > 40) onReply(msg);
+        // Trigger reply if swipe is beyond threshold (60px for reduced sensitivity)
+        if (swipeX > 60) {
+            if (navigator.vibrate) navigator.vibrate(30);
+            onReply(msg);
+        }
         setSwipeX(0);
+        
+        if (longPressTimer.current) {
+            clearTimeout(longPressTimer.current);
+            longPressTimer.current = null;
+        }
     };
 
     return (
         <div 
             ref={bubbleRef}
-            className={`flex flex-col mb-2 animate-fade-in relative transition-transform duration-200 ${msg.nama === "ORACLE" ? 'items-center w-full my-4' : isMe ? 'items-end' : 'items-start'}`}
-            style={{ transform: `translateX(${swipeX}px)` }}
+            className={`flex flex-col mb-2 animate-fade-in relative ${msg.nama === "ORACLE" ? 'items-center w-full my-4' : isMe ? 'items-end' : 'items-start'}`}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
+            onContextMenu={(e) => {
+                if (isMe && msg.nama !== "ORACLE") {
+                    e.preventDefault();
+                    onEdit(msg);
+                }
+            }}
         >
+            {/* Swipe Indicator Icon */}
+            <AnimatePresence>
+                {swipeX > 20 && (
+                    <motion.div 
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: swipeX / 60, x: (swipeX / 2) - 20 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="absolute left-0 top-1/2 -translate-y-1/2 z-0 text-gold"
+                    >
+                        <Reply size={20} className={swipeX > 60 ? 'scale-125 transition-transform' : ''} />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             {!isMe && msg.nama !== "ORACLE" && (
                 <div className="flex items-center gap-1.5 mb-0.5 px-2">
                     <span className="text-[10px] avatar-animate">{identity.avatar}</span>
@@ -198,7 +253,9 @@ const Bubble = ({ msg, isMe, onReply, onViewOnce, currentAudioId, onPlayAudio, o
                 </div>
             )}
             
-            <div 
+            <motion.div 
+                animate={{ x: swipeX }}
+                transition={{ type: 'spring', damping: 20, stiffness: 200 }}
                 className={`message-content relative w-fit max-w-[85%] transition-all ${msg.nama === "ORACLE" ? 'w-full max-w-sm bg-transparent border-none shadow-none' : parsed.isVO ? 'bg-red-950/40 border border-red-500/30 text-red-400 cursor-pointer' : isMe ? 'bg-[#056162] text-white is-me' : 'bg-[#262d31] text-white is-other'}`}
                 onClick={() => parsed.isVO && onViewOnce(msg)}
             >
@@ -237,7 +294,7 @@ const Bubble = ({ msg, isMe, onReply, onViewOnce, currentAudioId, onPlayAudio, o
                         </div>
                     )}
                 </div>
-            </div>
+            </motion.div>
         </div>
     );
 };
@@ -260,6 +317,7 @@ function App() {
     const [fateMode, setFateMode] = useState(false);
     const [currentAudioId, setCurrentAudioId] = useState<number | null>(null);
     const [replyingTo, setReplyingTo] = useState<any>(null);
+    const [editingMsg, setEditingMsg] = useState<any>(null);
     const [showMenu, setShowMenu] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [viewingSecret, setViewingSecret] = useState<any>(null);
@@ -496,7 +554,16 @@ function App() {
 
             if (isViewOnce) teks = `[VO]${teks}`;
             
-            await supabaseClient.from('Pesan').insert([{ nama, teks }]);
+            if (editingMsg) {
+                // Keep the original tags if they were there? 
+                // Actually, if we edit, we might want to re-apply the current state of VO/Reply
+                // But usually edit is just for the text.
+                // Let's re-apply the current UI state (isViewOnce, etc) to the edited text.
+                await supabaseClient.from('Pesan').update({ teks }).eq('id', editingMsg.id);
+                setEditingMsg(null);
+            } else {
+                await supabaseClient.from('Pesan').insert([{ nama, teks }]);
+            }
 
             setInputText('');
             setIsViewOnce(false);
@@ -539,6 +606,21 @@ function App() {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) setSelectedFile(file);
+    };
+
+    const handleStartEdit = (msg: any) => {
+        const parsed = (window as any).MessageParser.parse(msg.teks);
+        // If it's an image, we only edit the caption part
+        let editContent = parsed.content;
+        if (parsed.type === 'img') {
+            const parts = parsed.content.split('\n');
+            editContent = parts.slice(1).join('\n');
+        }
+        
+        setInputText(editContent);
+        setEditingMsg(msg);
+        setIsViewOnce(parsed.isVO);
+        setReplyingTo(null); // Cancel reply if editing
     };
 
     const handleDrawFate = async (category: string) => {
@@ -670,6 +752,7 @@ function App() {
                         msg={msg} 
                         isMe={msg.nama.startsWith(username)} 
                         onReply={setReplyingTo} 
+                        onEdit={handleStartEdit}
                         onViewOnce={handleViewOnce}
                         currentAudioId={currentAudioId} 
                         onPlayAudio={setCurrentAudioId}
@@ -690,6 +773,14 @@ function App() {
                             Replying to <span className="font-bold text-gold">{replyingTo.nama.split('|')[0]}</span>
                         </div>
                         <button onClick={() => setReplyingTo(null)} className="text-lg opacity-50">×</button>
+                    </div>
+                )}
+                {editingMsg && (
+                    <div className="bg-white/5 p-2 rounded-t-xl flex justify-between items-center mb-2 border-l-4 border-blue-400">
+                        <div className="text-xs italic truncate opacity-70">
+                            Editing message...
+                        </div>
+                        <button onClick={() => { setEditingMsg(null); setInputText(''); }} className="text-lg opacity-50">×</button>
                     </div>
                 )}
                 {selectedFile && (
