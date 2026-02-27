@@ -120,11 +120,15 @@ const FateCardDisplay = ({ raw }: { raw: string }) => {
 };
 
 const MessageContent = ({ type, content, currentAudioId, msgId, onPlayAudio, isMe, isSecret = false }: any) => {
-    if (type === "vn") {
-        return <AudioPlayer url={content} isPlaying={currentAudioId === msgId} onToggle={() => onPlayAudio(currentAudioId === msgId ? null : msgId)} />;
+    // Robust detection: if type is vn OR content starts with [VN] (fallback for parser delay)
+    if (type === "vn" || (typeof content === 'string' && content.startsWith("[VN]"))) {
+        const url = type === "vn" ? content : content.substring(4).trim();
+        return <AudioPlayer url={url} isPlaying={currentAudioId === msgId} onToggle={() => onPlayAudio(currentAudioId === msgId ? null : msgId)} />;
     }
-    if (type === "img") {
-        const parts = content.split("\n");
+
+    if (type === "img" || (typeof content === 'string' && content.startsWith("[IMG]"))) {
+        const rawContent = type === "img" ? content : content.substring(5).trim();
+        const parts = rawContent.split("\n");
         const url = parts[0];
         const caption = parts.slice(1).join("\n");
         return (
