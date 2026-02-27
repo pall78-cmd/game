@@ -793,15 +793,18 @@ function App() {
                                 📱 Install: Tap Share → Add to Home Screen
                             </div>
                         )}
-                        {deferredPrompt && (
-                            <button onClick={async () => {
+                        {/* Always show install button for debugging, but handle the case where deferredPrompt is null */}
+                        <button onClick={async () => {
+                            if (deferredPrompt) {
                                 deferredPrompt.prompt();
                                 const { outcome } = await deferredPrompt.userChoice;
                                 if (outcome === 'accepted') setDeferredPrompt(null);
-                            }} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-gold border-b border-white/5 font-bold animate-pulse">
-                                ⬇️ Install Aplikasi
-                            </button>
-                        )}
+                            } else {
+                                alert("Browser Anda sudah menginstal aplikasi ini, atau tidak mendukung instalasi otomatis. \n\nCara Manual:\n- Android: Klik titik tiga (⋮) di Chrome -> 'Tambahkan ke Layar Utama'\n- iOS: Klik tombol Share -> 'Tambah ke Layar Utama'");
+                            }
+                        }} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-gold border-b border-white/5 font-bold animate-pulse">
+                            ⬇️ Install Aplikasi
+                        </button>
                         <div className="px-4 py-3 border-b border-white/5">
                             <div className="text-[10px] uppercase tracking-widest opacity-50 mb-2">Background Music</div>
                             <div className="flex items-center gap-3">
