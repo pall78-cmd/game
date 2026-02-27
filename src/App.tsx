@@ -499,7 +499,7 @@ function App() {
     if (layer === 'AGE') return (
         <div className="fixed inset-0 bg-black flex flex-col items-center justify-center text-center p-4 animate-fade-in">
             <h1 className="font-header text-2xl text-gold tracking-[8px] mb-4">VERIFIKASI USIA</h1>
-            <p className="font-mystic text-lg mb-8 max-w-sm">Aplikasi ini mengandung konten dewasa. Konfirmasi usia Anda.</p>
+            <p className="font-mystic text-lg mb-8 max-w-sm">Konfirmasi usia Anda.</p>
             <div className="flex gap-4">
                 <button onClick={() => { safeStorage.set('oracle_adult', 'true'); setLayer('NAME'); }} className="px-8 py-2 bg-gold text-black font-bold rounded-lg shadow-lg">SAYA 18+</button>
                 <button onClick={() => window.location.href = 'https://google.com'} className="px-8 py-2 bg-gray-700 text-white rounded-lg">Keluar</button>
@@ -542,7 +542,7 @@ function App() {
     );
 
     return (
-        <div className="h-screen w-screen bg-void flex flex-col font-sans text-sm text-white/90 overflow-hidden">
+        <div className="h-screen w-full bg-void flex flex-col font-sans text-sm text-white/90 overflow-hidden overflow-x-hidden">
             <header className="flex items-center justify-between p-3 border-b border-white/10 bg-black/40 backdrop-blur-md z-50">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gold/20 border border-gold/40 flex items-center justify-center text-lg font-header text-gold">O</div>
