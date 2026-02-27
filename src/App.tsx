@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-import { askOracle } from './services/oracle';
 import { ConnectionManager } from './utils/ConnectionManager';
 
 // --- CONSTANTS & UTILS ---
@@ -190,13 +189,13 @@ const Bubble = ({ msg, isMe, onReply, onViewOnce, currentAudioId, onPlayAudio, o
         >
             {!isMe && msg.nama !== "ORACLE" && (
                 <div className="flex items-center gap-1.5 mb-0.5 px-2">
-                    <span className="text-[10px]">{identity.avatar}</span>
+                    <span className="text-[10px] avatar-animate">{identity.avatar}</span>
                     <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: identity.color }}>{identity.name}</span>
                 </div>
             )}
             
             <div 
-                className={`relative p-2.5 w-fit max-w-[85%] rounded-xl border transition-all shadow-sm ${msg.nama === "ORACLE" ? 'w-full max-w-sm bg-transparent border-none' : parsed.isVO ? 'bg-red-950/40 border-red-500/30 text-red-400 cursor-pointer' : isMe ? 'bg-[#056162] border-none text-white rounded-tr-none' : 'bg-[#262d31] border-none text-white rounded-tl-none'}`}
+                className={`message-content relative w-fit max-w-[85%] transition-all ${msg.nama === "ORACLE" ? 'w-full max-w-sm bg-transparent border-none shadow-none' : parsed.isVO ? 'bg-red-950/40 border border-red-500/30 text-red-400 cursor-pointer' : isMe ? 'bg-[#056162] text-white is-me' : 'bg-[#262d31] text-white is-other'}`}
                 onClick={() => parsed.isVO && onViewOnce(msg)}
             >
                 {parsed.replyData && (
@@ -494,28 +493,6 @@ function App() {
             if (isViewOnce) teks = `[VO]${teks}`;
             
             await supabaseClient.from('Pesan').insert([{ nama, teks }]);
-
-            // Oracle AI Trigger
-            if (teks.includes('@ORACLE') || teks.includes('@oracle')) {
-                const query = teks.replace(/@ORACLE/gi, '').trim();
-                // Show typing indicator for Oracle
-                if (connManagerRef.current && connManagerRef.current.channel) {
-                    connManagerRef.current.channel.send({
-                        type: 'broadcast',
-                        event: 'typing',
-                        payload: { user: 'ORACLE' }
-                    });
-                }
-                
-                setTimeout(async () => {
-                    const answer = await askOracle(query);
-                    const oraclePayload = JSON.stringify({
-                        content: answer,
-                        invoker: username
-                    });
-                    await supabaseClient.from('Pesan').insert([{ nama: 'ORACLE', teks: oraclePayload }]);
-                }, 2000);
-            }
 
             setInputText('');
             setIsViewOnce(false);

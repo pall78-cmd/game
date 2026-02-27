@@ -59,4 +59,33 @@
   .font-mystic {
     font-family: var(--font-mystic);
   }
+
+  /* Message Bubble Styling */
+  .message-content {
+    padding: 8px 12px;
+    margin-bottom: 2px;
+    border-radius: 12px;
+    box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
+    position: relative;
+  }
+
+  .message-content.is-me {
+    border-top-right-radius: 0;
+  }
+
+  .message-content.is-other {
+    border-top-left-radius: 0;
+  }
+
+  /* Avatar Animation */
+  @keyframes avatarPop {
+    0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+    60% { transform: scale(1.2) rotate(10deg); }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+
+  .avatar-animate {
+    display: inline-block;
+    animation: avatarPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
 }
