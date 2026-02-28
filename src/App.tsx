@@ -151,11 +151,11 @@ const MessageContent = ({ type, content, currentAudioId, msgId, onPlayAudio, isM
         return (
             <div className="flex flex-col gap-2">
                 <img src={url} className={`rounded-lg ${isSecret ? 'max-h-96' : 'max-h-64'} w-full object-contain`} referrerPolicy="no-referrer" />
-                {caption && <p className={`font-sans ${isSecret ? 'text-lg text-center' : 'text-[15px] pr-12'} leading-tight break-words whitespace-pre-wrap`}>{caption}</p>}
+                {caption && <p className={`font-sans ${isSecret ? 'text-lg text-center' : 'text-[15px]'} leading-tight break-words whitespace-pre-wrap`}>{caption}</p>}
             </div>
         );
     }
-    return <p className={`font-sans ${isSecret ? 'text-xl text-center leading-relaxed' : 'text-[15px] pr-12'} leading-tight break-words whitespace-pre-wrap`}>{content}</p>;
+    return <p className={`font-sans ${isSecret ? 'text-xl text-center leading-relaxed' : 'text-[15px]'} leading-tight break-words whitespace-pre-wrap`}>{content}</p>;
 };
 
 const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, currentAudioId, onPlayAudio, onVisible }: any) => {
@@ -389,17 +389,9 @@ function App() {
             }
         };
 
-        const handleVisibilityChange = () => {
-            if (!document.hidden) {
-                setUnreadCount(0);
-                if ('setAppBadge' in navigator) navigator.clearAppBadge();
-            }
-        };
-
         window.addEventListener('click', handleInteraction);
         window.addEventListener('touchstart', handleInteraction);
         window.addEventListener('keydown', handleInteraction);
-        document.addEventListener('visibilitychange', handleVisibilityChange);
         
         const handleBeforeInstallPrompt = (e: any) => {
             e.preventDefault();
@@ -411,7 +403,6 @@ function App() {
             window.removeEventListener('click', handleInteraction);
             window.removeEventListener('touchstart', handleInteraction);
             window.removeEventListener('keydown', handleInteraction);
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
         };
     }, []);
@@ -526,6 +517,27 @@ function App() {
                 });
         };
 
+        const handleVisibilityChange = async () => {
+            if (!document.hidden) {
+                setUnreadCount(0);
+                if ('setAppBadge' in navigator) navigator.clearAppBadge();
+                
+                console.log("Tab is visible again, syncing messages...");
+                setConnStatus('RECONNECTING');
+                
+                // 1. Fetch latest messages to catch up
+                const { data } = await supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
+                if (data) setMessages(data);
+
+                // 2. Force reconnect realtime channel
+                if (connManagerRef.current) {
+                    connManagerRef.current.triggerReconnect();
+                }
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
         initialize();
         if ((window as any).AudioManager) audioManagerRef.current = new (window as any).AudioManager();
         if ((window as any).BGMManager) {
@@ -534,6 +546,7 @@ function App() {
         }
 
         return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             if (connManagerRef.current) connManagerRef.current.cleanup();
         };
     }, [layer, username]);
