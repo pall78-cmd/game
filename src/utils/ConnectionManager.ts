@@ -12,6 +12,10 @@ export class ConnectionManager {
     private isReconnecting: boolean = false;
     private checkInterval: any = null;
     private lastHeartbeat: number = Date.now();
+    
+    // Store subscription details for auto-reconnect
+    private currentChannelName: string = '';
+    private currentOnPayload: ((event: any) => void) | null = null;
 
     constructor(supabaseClient: SupabaseClient, onStatusChange?: (status: ConnectionStatus) => void) {
         this.supabase = supabaseClient;
@@ -27,6 +31,9 @@ export class ConnectionManager {
      * Initialize the realtime channel subscription with monitoring.
      */
     subscribe(channelName: string, onPayload: (event: any) => void) {
+        this.currentChannelName = channelName;
+        this.currentOnPayload = onPayload;
+
         if (this.channel) {
             this.supabase.removeChannel(this.channel);
         }
@@ -113,13 +120,18 @@ export class ConnectionManager {
 
         this.reconnectAttempts++;
 
-        // Force remove and re-subscribe
+        // Force remove old channel
         if (this.channel) {
             await this.supabase.removeChannel(this.channel);
+            this.channel = null;
         }
         
-        // Signal the App to re-run the subscription effect.
-        this.onStatusChange('RETRY_INIT'); 
+        // Re-subscribe using stored details
+        if (this.currentChannelName && this.currentOnPayload) {
+            this.subscribe(this.currentChannelName, this.currentOnPayload);
+        } else {
+            this.onStatusChange('FAILED');
+        }
     }
 
     /**
