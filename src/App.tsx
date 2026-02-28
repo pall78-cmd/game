@@ -628,9 +628,9 @@ function App() {
                 setIsUploading(true);
                 try {
                     const fileName = `vn-${Date.now()}.mp4`;
-                    const { error } = await supabaseClient.storage.from('bukti').upload(`audio/${fileName}`, blob);
+                    const { error } = await supabaseClient.storage.from('voicenote').upload(`${fileName}`, blob);
                     if (error) throw error;
-                    const { data: { publicUrl } } = supabaseClient.storage.from('bukti').getPublicUrl(`audio/${fileName}`);
+                    const { data: { publicUrl } } = supabaseClient.storage.from('voicenote').getPublicUrl(`${fileName}`);
                     
                     const nama = `${username}|${avatar}|${userColor}`;
                     await supabaseClient.from('Pesan').insert([{ nama, teks: `[VN]${publicUrl}` }]);
@@ -706,13 +706,54 @@ function App() {
     };
 
     const handleDeleteHistory = async () => {
-        if (confirm("⚠️ PERINGATAN: Ini akan menghapus SEMUA pesan di database secara permanen. Lanjutkan?")) {
-            const { error } = await supabaseClient.from('Pesan').delete().neq('id', 0);
-            if (error) alert("Gagal menghapus: " + error.message);
-            else {
+        if (confirm("⚠️ PERINGATAN: Ini akan menghapus SEMUA pesan di database secara permanen beserta file media (Gambar & VN). Lanjutkan?")) {
+            try {
+                // 1. Ambil semua pesan untuk mencari file media
+                const { data: messagesToDelete } = await supabaseClient.from('Pesan').select('teks');
+                
+                if (messagesToDelete && messagesToDelete.length > 0) {
+                    const buktiFilesToRemove: string[] = [];
+                    const vnFilesToRemove: string[] = [];
+                    
+                    messagesToDelete.forEach(msg => {
+                        const parsed = (window as any).MessageParser.parse(msg.teks);
+                        if (parsed.type === 'img') {
+                            const url = parsed.content;
+                            const urlParts = url.split('/bukti/');
+                            if (urlParts.length > 1) {
+                                const filePath = urlParts[1].split('?')[0];
+                                buktiFilesToRemove.push(filePath);
+                            }
+                        } else if (parsed.type === 'vn') {
+                            const url = parsed.content;
+                            const urlParts = url.split('/voicenote/');
+                            if (urlParts.length > 1) {
+                                const filePath = urlParts[1].split('?')[0];
+                                vnFilesToRemove.push(filePath);
+                            }
+                        }
+                    });
+
+                    // 2. Hapus file dari storage bucket masing-masing
+                    if (buktiFilesToRemove.length > 0) {
+                        const { error: storageError } = await supabaseClient.storage.from('bukti').remove(buktiFilesToRemove);
+                        if (storageError) console.error("Gagal menghapus file gambar:", storageError);
+                    }
+                    if (vnFilesToRemove.length > 0) {
+                        const { error: storageError } = await supabaseClient.storage.from('voicenote').remove(vnFilesToRemove);
+                        if (storageError) console.error("Gagal menghapus file voicenote:", storageError);
+                    }
+                }
+
+                // 3. Hapus semua pesan dari database
+                const { error } = await supabaseClient.from('Pesan').delete().neq('id', 0);
+                if (error) throw error;
+                
                 setMessages([]);
-                alert("Riwayat telah dibersihkan.");
+                alert("Riwayat pesan dan media telah dibersihkan.");
                 window.location.reload();
+            } catch (err: any) {
+                alert("Gagal menghapus: " + err.message);
             }
         }
     };
