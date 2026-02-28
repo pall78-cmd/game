@@ -380,14 +380,6 @@ function App() {
     const [updateAvailable, setUpdateAvailable] = useState(false);
     const notificationAudioRef = useRef<HTMLAudioElement>(new Audio('https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/notification.mp3')); // Placeholder or use a real URL
 
-    const [notifySound, setNotifySound] = useState(safeStorage.get('notify_sound') !== 'false');
-    const [notifyPush, setNotifyPush] = useState(safeStorage.get('notify_push') !== 'false');
-    const notifyPrefsRef = useRef({ sound: notifySound, push: notifyPush });
-    
-    useEffect(() => {
-        notifyPrefsRef.current = { sound: notifySound, push: notifyPush };
-    }, [notifySound, notifyPush]);
-
     // Smart BGM Autoplay Logic
     useEffect(() => {
         const handleInteraction = () => {
@@ -474,33 +466,31 @@ function App() {
                         // Notification logic
                         if (document.hidden && newMsg.nama.split('|')[0] !== username) {
                             // Play sound
-                            if (notifyPrefsRef.current.sound && notificationAudioRef.current) {
+                            if (notificationAudioRef.current) {
                                 notificationAudioRef.current.play().catch(() => {});
                             }
                             
                             // Update badge
-                            if (notifyPrefsRef.current.push) {
-                                setUnreadCount(prev => {
-                                    const next = prev + 1;
-                                    if ('setAppBadge' in navigator) navigator.setAppBadge(next);
-                                    return next;
+                            setUnreadCount(prev => {
+                                const next = prev + 1;
+                                if ('setAppBadge' in navigator) navigator.setAppBadge(next);
+                                return next;
+                            });
+
+                            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                                const previewText = (window as any).MessageParser 
+                                    ? (window as any).MessageParser.getPreview(newMsg.teks)
+                                    : (newMsg.teks.startsWith('[') ? 'Mengirim media...' : newMsg.teks);
+
+                                navigator.serviceWorker.controller.postMessage({
+                                    type: 'SHOW_NOTIFICATION',
+                                    payload: {
+                                        title: `Pesan dari ${newMsg.nama.split('|')[0]}`,
+                                        text: previewText,
+                                        icon: newMsg.nama.split('|')[1] || 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png',
+                                        tag: 'oracle-group'
+                                    }
                                 });
-
-                                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                                    const previewText = (window as any).MessageParser 
-                                        ? (window as any).MessageParser.getPreview(newMsg.teks)
-                                        : (newMsg.teks.startsWith('[') ? 'Mengirim media...' : newMsg.teks);
-
-                                    navigator.serviceWorker.controller.postMessage({
-                                        type: 'SHOW_NOTIFICATION',
-                                        payload: {
-                                            title: `Pesan dari ${newMsg.nama.split('|')[0]}`,
-                                            text: previewText,
-                                            icon: newMsg.nama.split('|')[1] || 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png',
-                                            tag: 'oracle-group'
-                                        }
-                                    });
-                                }
                             }
                         }
                     } else if (event.type === 'UPDATE') {
@@ -1040,46 +1030,24 @@ function App() {
                                 </select>
                             </div>
                         </div>
-                        <div className="px-4 py-3 border-b border-white/5">
-                            <div className="text-[10px] uppercase tracking-widest opacity-50 mb-2">Notifikasi</div>
-                            <label className="flex items-center justify-between py-2 text-xs uppercase tracking-widest cursor-pointer">
-                                <span>🔊 Suara Notifikasi</span>
-                                <input 
-                                    type="checkbox" 
-                                    checked={notifySound} 
-                                    onChange={(e) => {
-                                        setNotifySound(e.target.checked);
-                                        safeStorage.set('notify_sound', e.target.checked ? 'true' : 'false');
-                                    }} 
-                                    className="accent-gold w-4 h-4" 
-                                />
-                            </label>
-                            <label className="flex items-center justify-between py-2 text-xs uppercase tracking-widest cursor-pointer">
-                                <span>🔔 Push Notifikasi</span>
-                                <input 
-                                    type="checkbox" 
-                                    checked={notifyPush} 
-                                    onChange={async (e) => {
-                                        const checked = e.target.checked;
-                                        if (checked) {
-                                            const perm = await Notification.requestPermission();
-                                            if (perm === 'granted') {
-                                                setNotifyPush(true);
-                                                safeStorage.set('notify_push', 'true');
-                                            } else {
-                                                alert("Izin notifikasi ditolak oleh browser.");
-                                                setNotifyPush(false);
-                                                safeStorage.set('notify_push', 'false');
-                                            }
-                                        } else {
-                                            setNotifyPush(false);
-                                            safeStorage.set('notify_push', 'false');
+                        <button onClick={async () => {
+                            const permission = await Notification.requestPermission();
+                            if (permission === 'granted') {
+                                alert("Notifikasi diaktifkan!");
+                                if (navigator.serviceWorker.controller) {
+                                    navigator.serviceWorker.controller.postMessage({
+                                        type: 'SHOW_NOTIFICATION',
+                                        payload: {
+                                            title: 'Oracle Chamber',
+                                            text: 'Takdir akan selalu bersamamu.',
+                                            tag: 'oracle-system'
                                         }
-                                    }} 
-                                    className="accent-gold w-4 h-4" 
-                                />
-                            </label>
-                        </div>
+                                    });
+                                }
+                            } else {
+                                alert("Izin notifikasi ditolak.");
+                            }
+                        }} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5">🔔 Aktifkan Notifikasi</button>
                         <button onClick={handleDeleteHistory} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-red-400 border-t border-white/5">🗑️ Hapus Riwayat</button>
                         <button onClick={() => {
                             localStorage.clear();
