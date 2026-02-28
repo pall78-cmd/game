@@ -102,7 +102,6 @@ const FateCardDisplay = ({ raw }: { raw: string }) => {
             type = parts[0];
             content = parts.slice(1).join(":").trim();
         } else if (!contentStr.includes(":")) {
-            // AI Response
             type = "ORACLE SPEAKS";
             content = contentStr;
         } else {
@@ -112,11 +111,27 @@ const FateCardDisplay = ({ raw }: { raw: string }) => {
         }
 
         return (
-            <div className="p-4 rounded-xl border border-gold/30 bg-gradient-to-br from-black to-zinc-900 text-center space-y-3 shadow-lg relative overflow-hidden group">
-                <div className="text-[8px] font-header tracking-[4px] uppercase opacity-60 text-gold">{type}</div>
-                <div className="font-mystic text-xl italic text-white/90 leading-normal">"{content}"</div>
-                <div className="text-[7px] opacity-30 uppercase tracking-widest font-header pt-1">Invoked by {d.invoker}</div>
-            </div>
+            <motion.div 
+                initial={{ rotateY: 90, opacity: 0, scale: 0.8 }}
+                animate={{ rotateY: 0, opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', damping: 12, stiffness: 100 }}
+                className="p-5 rounded-2xl border-2 border-gold/40 bg-gradient-to-br from-zinc-900 via-black to-zinc-900 text-center space-y-4 shadow-[0_0_30px_rgba(212,175,55,0.2)] relative overflow-hidden group"
+            >
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.1)_0%,transparent_70%)] animate-pulse-slow"></div>
+                
+                <div className="relative z-10">
+                    <div className="text-[9px] font-header tracking-[6px] uppercase opacity-70 text-gold mb-1">{type}</div>
+                    <div className="h-[1px] w-12 bg-gold/30 mx-auto mb-4"></div>
+                    <div className="font-mystic text-2xl italic text-white leading-relaxed drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                        "{content}"
+                    </div>
+                    <div className="text-[8px] opacity-40 uppercase tracking-[3px] font-header mt-4">
+                        Invoked by <span className="text-gold/80">{d.invoker}</span>
+                    </div>
+                </div>
+                
+                <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-gold/5 rounded-full blur-3xl group-hover:bg-gold/10 transition-colors"></div>
+            </motion.div>
         );
     } catch { return <div className="p-3 text-red-500 border border-red-500/20 rounded-lg text-xs italic">Takdir yang Terdistorsi</div>; }
 };
@@ -176,7 +191,6 @@ const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, currentAudioId, onPlay
         touchStartRef.current = e.touches[0].clientX;
         isSwiping.current = false;
         
-        // Long press for Edit (only if isMe)
         if (isMe && msg.nama !== "ORACLE") {
             longPressTimer.current = setTimeout(() => {
                 if (!isSwiping.current) {
@@ -189,8 +203,6 @@ const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, currentAudioId, onPlay
 
     const handleTouchMove = (e: any) => {
         const diff = e.touches[0].clientX - touchStartRef.current;
-        
-        // Reduce sensitivity: only start swiping if diff is significant
         if (Math.abs(diff) > 10) {
             isSwiping.current = true;
             if (longPressTimer.current) {
@@ -198,30 +210,35 @@ const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, currentAudioId, onPlay
                 longPressTimer.current = null;
             }
         }
-
-        if (diff > 0 && diff < 100) {
-            setSwipeX(diff);
-        }
+        if (diff > 0 && diff < 100) setSwipeX(diff);
     };
 
     const handleTouchEnd = () => {
-        // Trigger reply if swipe is beyond threshold (60px for reduced sensitivity)
         if (swipeX > 60) {
             if (navigator.vibrate) navigator.vibrate(30);
             onReply(msg);
         }
         setSwipeX(0);
-        
         if (longPressTimer.current) {
             clearTimeout(longPressTimer.current);
             longPressTimer.current = null;
         }
     };
 
+    if (msg.nama === "ORACLE") {
+        return (
+            <div ref={bubbleRef} className="flex flex-col items-center w-full my-6 px-4 animate-fade-in">
+                <div className="w-full max-w-sm">
+                    <FateCardDisplay raw={parsed.content} />
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div 
             ref={bubbleRef}
-            className={`flex flex-col mb-2 animate-fade-in relative ${msg.nama === "ORACLE" ? 'items-center w-full my-4' : isMe ? 'items-end' : 'items-start'}`}
+            className={`flex w-full mb-3 animate-fade-in relative px-3 ${isMe ? 'justify-end' : 'justify-start'}`}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -232,69 +249,81 @@ const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, currentAudioId, onPlay
                 }
             }}
         >
-            {/* Swipe Indicator Icon */}
             <AnimatePresence>
                 {swipeX > 20 && (
                     <motion.div 
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: swipeX / 60, x: (swipeX / 2) - 20 }}
                         exit={{ opacity: 0, x: -20 }}
-                        className="absolute left-0 top-1/2 -translate-y-1/2 z-0 text-gold"
+                        className="absolute left-4 top-1/2 -translate-y-1/2 z-0 text-gold"
                     >
                         <Reply size={20} className={swipeX > 60 ? 'scale-125 transition-transform' : ''} />
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {!isMe && msg.nama !== "ORACLE" && (
-                <div className="flex items-center gap-1.5 mb-0.5 px-2">
-                    <span className="text-[10px] avatar-animate">{identity.avatar}</span>
-                    <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: identity.color }}>{identity.name}</span>
-                </div>
-            )}
-            
-            <motion.div 
-                animate={{ x: swipeX }}
-                transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-                className={`message-content relative w-fit max-w-[85%] transition-all ${msg.nama === "ORACLE" ? 'w-full max-w-sm bg-transparent border-none shadow-none' : parsed.isVO ? 'bg-red-950/40 border border-red-500/30 text-red-400 cursor-pointer' : isMe ? 'bg-[#056162] text-white is-me' : 'bg-[#262d31] text-white is-other'}`}
-                onClick={() => parsed.isVO && onViewOnce(msg)}
-            >
-                {parsed.replyData && (
-                    <div className="mb-1 p-2 rounded bg-black/10 border-l-4 border-gold/50 text-[10px] opacity-80 italic truncate">
-                        <span className="font-bold text-gold not-italic">{parsed.replyData.name}:</span> {(window as any).MessageParser?.getPreview(parsed.replyData.text)}
+            <div className={`flex max-w-[85%] ${isMe ? 'flex-row-reverse' : 'flex-row'} items-end gap-2`}>
+                {!isMe && (
+                    <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-sm shrink-0 mb-1 avatar-animate shadow-lg">
+                        {identity.avatar}
                     </div>
                 )}
-                
-                <div className="flex flex-col">
-                    {msg.nama === "ORACLE" ? <FateCardDisplay raw={parsed.content} /> :
-                     parsed.isVO ? (
-                        <div className="flex items-center gap-3">
-                            <span className="text-xl">👁️</span>
-                            <div className="flex flex-col">
-                                <span className="text-[9px] font-header tracking-widest uppercase">Secret Glimpse</span>
-                                <span className="text-[7px] opacity-40 uppercase">Tap to reveal</span>
-                            </div>
-                        </div>
-                     ) : (
-                        <MessageContent 
-                            type={parsed.type} 
-                            content={parsed.content} 
-                            msgId={msg.id} 
-                            currentAudioId={currentAudioId} 
-                            onPlayAudio={onPlayAudio} 
-                            isMe={isMe} 
-                        />
-                     )
-                    }
-                    
-                    {msg.nama !== "ORACLE" && (
-                        <div className="flex items-center justify-end gap-1 mt-1 self-end">
-                            <span className="text-[9px] opacity-50">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            {isMe && <span className={`text-[10px] ${msg.is_read ? 'text-[#34b7f1]' : 'text-white/40'}`}>✓✓</span>}
+
+                <motion.div 
+                    animate={{ x: swipeX }}
+                    transition={{ type: 'spring', damping: 20, stiffness: 200 }}
+                    className={`relative flex flex-col p-2.5 shadow-xl transition-all ${
+                        isMe 
+                        ? 'bg-[#056162] text-white rounded-2xl rounded-tr-none' 
+                        : 'bg-[#262d31] text-white rounded-2xl rounded-tl-none'
+                    } ${parsed.isVO ? 'bg-red-950/40 border border-red-500/30 text-red-400 cursor-pointer' : ''}`}
+                    onClick={() => parsed.isVO && onViewOnce(msg)}
+                >
+                    {!isMe && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider mb-1 block" style={{ color: identity.color }}>
+                            {identity.name}
+                        </span>
+                    )}
+
+                    {parsed.replyData && (
+                        <div className="mb-2 p-2 rounded bg-black/20 border-l-4 border-gold/50 text-[10px] opacity-80 italic truncate max-w-full">
+                            <span className="font-bold text-gold not-italic">{parsed.replyData.name}:</span> {(window as any).MessageParser?.getPreview(parsed.replyData.text)}
                         </div>
                     )}
-                </div>
-            </motion.div>
+                    
+                    <div className="flex flex-col min-w-[60px]">
+                        {parsed.isVO ? (
+                            <div className="flex items-center gap-3 py-1">
+                                <span className="text-xl">👁️</span>
+                                <div className="flex flex-col">
+                                    <span className="text-[9px] font-header tracking-widest uppercase">Secret Glimpse</span>
+                                    <span className="text-[7px] opacity-40 uppercase">Tap to reveal</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <MessageContent 
+                                type={parsed.type} 
+                                content={parsed.content} 
+                                msgId={msg.id} 
+                                currentAudioId={currentAudioId} 
+                                onPlayAudio={onPlayAudio} 
+                                isMe={isMe} 
+                            />
+                        )}
+                        
+                        <div className="flex items-center justify-end gap-1 mt-1 self-end opacity-60">
+                            <span className="text-[8px] uppercase tracking-tighter">
+                                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {isMe && (
+                                <span className={`text-[10px] font-bold leading-none ${msg.is_read ? 'text-[#34b7f1]' : 'text-white/40'}`}>
+                                    {msg.is_read ? '✓✓' : '✓'}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                </motion.div>
+            </div>
         </div>
     );
 };
@@ -325,6 +354,7 @@ function App() {
     const [isUploading, setIsUploading] = useState(false);
     const [connStatus, setConnStatus] = useState('OFFLINE');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [oracleEffect, setOracleEffect] = useState(false);
 
     const [bgmVolume, setBgmVolume] = useState(0.3);
     const [isBgmMuted, setIsBgmMuted] = useState(false);
@@ -435,6 +465,13 @@ function App() {
                     const newMsg = event.payload.new;
                         setMessages(prev => [...prev, newMsg]);
                         
+                        // Oracle Effect
+                        if (newMsg.nama === "ORACLE") {
+                            setOracleEffect(true);
+                            setTimeout(() => setOracleEffect(false), 1000);
+                            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                        }
+
                         // Notification logic
                         if (document.hidden && newMsg.nama.split('|')[0] !== username) {
                             // Play sound
@@ -722,7 +759,11 @@ function App() {
     );
 
     return (
-        <div className="h-[100dvh] w-full bg-void flex flex-col font-sans text-sm text-white/90 overflow-hidden overflow-x-hidden supports-[height:100dvh]:h-[100dvh]">
+        <motion.div 
+            animate={oracleEffect ? { x: [-5, 5, -5, 5, 0], y: [-2, 2, -2, 2, 0] } : {}}
+            transition={{ duration: 0.4 }}
+            className="h-[100dvh] w-full bg-void flex flex-col font-sans text-sm text-white/90 overflow-hidden overflow-x-hidden supports-[height:100dvh]:h-[100dvh]"
+        >
             <header className="flex items-center justify-between p-3 border-b border-white/10 bg-black/40 backdrop-blur-md z-50 shrink-0">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gold/20 border border-gold/40 flex items-center justify-center text-lg font-header text-gold">O</div>
@@ -955,12 +996,12 @@ function App() {
                             window.location.reload();
                         }} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-red-400">🚪 Reset Identitas</button>
                         <div className="px-4 py-2 text-[8px] text-white/20 text-center uppercase tracking-widest border-t border-white/5">
-                            v1.2.0 • Oracle Chamber
+                            v1.3.0 • Oracle Chamber
                         </div>
                     </div>
                 </div>
             )}
-        </div>
+        </motion.div>
     );
 }
 
