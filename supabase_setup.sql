@@ -13,29 +13,22 @@ CREATE TABLE IF NOT EXISTS public."Pesan" (
 );
 
 -- 2. Enable Row Level Security (RLS)
--- This is required by Supabase, but we will create policies to allow all access 
--- for this specific application since it's a shared chamber.
 ALTER TABLE public."Pesan" ENABLE ROW LEVEL SECURITY;
 
--- 3. Create RLS Policies for 'Pesan'
--- Allow anyone to read messages
-CREATE POLICY "Allow public read access" ON public."Pesan"
-    FOR SELECT USING (true);
+-- 3. Create RLS Policies for 'Pesan' (ALLOW ANONYMOUS)
+DROP POLICY IF EXISTS "Allow public read access" ON public."Pesan";
+CREATE POLICY "Allow public read access" ON public."Pesan" FOR SELECT TO anon, authenticated USING (true);
 
--- Allow anyone to insert new messages
-CREATE POLICY "Allow public insert access" ON public."Pesan"
-    FOR INSERT WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow public insert access" ON public."Pesan";
+CREATE POLICY "Allow public insert access" ON public."Pesan" FOR INSERT TO anon, authenticated WITH CHECK (true);
 
--- Allow anyone to update messages (needed for edit and read receipts)
-CREATE POLICY "Allow public update access" ON public."Pesan"
-    FOR UPDATE USING (true);
+DROP POLICY IF EXISTS "Allow public update access" ON public."Pesan";
+CREATE POLICY "Allow public update access" ON public."Pesan" FOR UPDATE TO anon, authenticated USING (true);
 
--- Allow anyone to delete messages (needed for view once)
-CREATE POLICY "Allow public delete access" ON public."Pesan"
-    FOR DELETE USING (true);
+DROP POLICY IF EXISTS "Allow public delete access" ON public."Pesan";
+CREATE POLICY "Allow public delete access" ON public."Pesan" FOR DELETE TO anon, authenticated USING (true);
 
 -- 4. Setup Realtime
--- Enable realtime broadcasts and database changes for the 'Pesan' table
 BEGIN;
   DROP PUBLICATION IF EXISTS supabase_realtime;
   CREATE PUBLICATION supabase_realtime;
@@ -46,41 +39,41 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public."Pesan";
 -- STORAGE SETUP (For Voice Notes and Images)
 -- ==============================================================================
 
--- 1. Create the 'suara' bucket if it doesn't exist
+-- 1. Create the 'voicenote' bucket if it doesn't exist
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('suara', 'suara', true)
+VALUES ('voicenote', 'voicenote', true)
 ON CONFLICT (id) DO NOTHING;
 
--- 2. Create the 'gambar' bucket if it doesn't exist
+-- 2. Create the 'bukti' bucket if it doesn't exist
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('gambar', 'gambar', true)
+VALUES ('bukti', 'bukti', true)
 ON CONFLICT (id) DO NOTHING;
 
--- 3. Create Storage Policies for 'suara' bucket
-CREATE POLICY "Public Access for suara" ON storage.objects
-    FOR SELECT USING (bucket_id = 'suara');
+-- 3. Create Storage Policies for 'voicenote' bucket (ALLOW ANONYMOUS)
+DROP POLICY IF EXISTS "Public Access for voicenote" ON storage.objects;
+CREATE POLICY "Public Access for voicenote" ON storage.objects FOR SELECT TO anon, authenticated USING (bucket_id = 'voicenote');
 
-CREATE POLICY "Public Insert for suara" ON storage.objects
-    FOR INSERT WITH CHECK (bucket_id = 'suara');
+DROP POLICY IF EXISTS "Public Insert for voicenote" ON storage.objects;
+CREATE POLICY "Public Insert for voicenote" ON storage.objects FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'voicenote');
 
-CREATE POLICY "Public Update for suara" ON storage.objects
-    FOR UPDATE USING (bucket_id = 'suara');
+DROP POLICY IF EXISTS "Public Update for voicenote" ON storage.objects;
+CREATE POLICY "Public Update for voicenote" ON storage.objects FOR UPDATE TO anon, authenticated USING (bucket_id = 'voicenote');
 
-CREATE POLICY "Public Delete for suara" ON storage.objects
-    FOR DELETE USING (bucket_id = 'suara');
+DROP POLICY IF EXISTS "Public Delete for voicenote" ON storage.objects;
+CREATE POLICY "Public Delete for voicenote" ON storage.objects FOR DELETE TO anon, authenticated USING (bucket_id = 'voicenote');
 
--- 4. Create Storage Policies for 'gambar' bucket
-CREATE POLICY "Public Access for gambar" ON storage.objects
-    FOR SELECT USING (bucket_id = 'gambar');
+-- 4. Create Storage Policies for 'bukti' bucket (ALLOW ANONYMOUS)
+DROP POLICY IF EXISTS "Public Access for bukti" ON storage.objects;
+CREATE POLICY "Public Access for bukti" ON storage.objects FOR SELECT TO anon, authenticated USING (bucket_id = 'bukti');
 
-CREATE POLICY "Public Insert for gambar" ON storage.objects
-    FOR INSERT WITH CHECK (bucket_id = 'gambar');
+DROP POLICY IF EXISTS "Public Insert for bukti" ON storage.objects;
+CREATE POLICY "Public Insert for bukti" ON storage.objects FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'bukti');
 
-CREATE POLICY "Public Update for gambar" ON storage.objects
-    FOR UPDATE USING (bucket_id = 'gambar');
+DROP POLICY IF EXISTS "Public Update for bukti" ON storage.objects;
+CREATE POLICY "Public Update for bukti" ON storage.objects FOR UPDATE TO anon, authenticated USING (bucket_id = 'bukti');
 
-CREATE POLICY "Public Delete for gambar" ON storage.objects
-    FOR DELETE USING (bucket_id = 'gambar');
+DROP POLICY IF EXISTS "Public Delete for bukti" ON storage.objects;
+CREATE POLICY "Public Delete for bukti" ON storage.objects FOR DELETE TO anon, authenticated USING (bucket_id = 'bukti');
 
 -- ==============================================================================
 -- DONE!
