@@ -662,13 +662,17 @@ function App() {
 
     const handleDrawFate = async (category: string) => {
         if (category === 'chaos') {
-            const pin = prompt("Masukkan PIN Chaos Mode:");
-            if (pin !== '131201') {
-                if (navigator.vibrate) navigator.vibrate(200);
-                alert("Akses Ditolak. PIN Salah.");
-                return;
+            const isUnlocked = safeStorage.get('chaos_unlocked') === 'true';
+            if (!isUnlocked) {
+                const pin = prompt("Masukkan PIN Chaos Mode (18+):");
+                if (pin !== '131201') {
+                    if (navigator.vibrate) navigator.vibrate(200);
+                    alert("Akses Ditolak. PIN Salah.");
+                    return;
+                }
+                safeStorage.set('chaos_unlocked', 'true');
+                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
             }
-            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
         }
 
         if ((window as any).BGMManager) (window as any).BGMManager.onFateCardDraw();
