@@ -19,8 +19,8 @@ Ensure your Vercel build settings are as follows:
 - **Output Directory**: `dist`
 - **Install Command**: `npm install`
 
-### 3. Routing
-The `vercel.json` file is already included to handle Single Page Application (SPA) routing. This prevents 404 errors when refreshing the page.
+### 3. Routing & Deployment Fix
+The `vercel.json` file handles SPA routing. I have also fixed `.vercelignore` which was previously blocking `package.json` from being uploaded to Vercel. Deployment should now work correctly.
 
 ### 4. Supabase Setup
 Make sure you have run the SQL script in `supabase_setup.sql` in your Supabase SQL Editor to create the necessary tables and storage buckets.
