@@ -378,6 +378,13 @@ function App() {
 
     const [unreadCount, setUnreadCount] = useState(0);
     const [updateAvailable, setUpdateAvailable] = useState(false);
+    const [toast, setToast] = useState<{ message: string, type: 'info' | 'error' | 'success' } | null>(null);
+
+    const showToast = useCallback((message: string, type: 'info' | 'error' | 'success' = 'info') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3000);
+    }, []);
+
     const notificationAudioRef = useRef<HTMLAudioElement>(new Audio('https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/notification.mp3')); // Placeholder or use a real URL
 
     // Smart BGM Autoplay Logic
@@ -419,6 +426,12 @@ function App() {
             navigator.serviceWorker.register('/sw.js')
                 .then(reg => {
                     console.log('SW registered:', reg);
+                    
+                    // Check for existing permission
+                    if (Notification.permission === 'default') {
+                        // Don't auto-prompt, but maybe show a hint later
+                    }
+
                     reg.onupdatefound = () => {
                         const installingWorker = reg.installing;
                         if (installingWorker) {
@@ -464,7 +477,8 @@ function App() {
                         }
 
                         // Notification logic
-                        if (document.hidden && newMsg.nama.split('|')[0] !== username) {
+                        const isBackground = document.hidden || !document.hasFocus();
+                        if (isBackground && newMsg.nama.split('|')[0] !== username) {
                             // Play sound
                             if (notificationAudioRef.current) {
                                 notificationAudioRef.current.play().catch(() => {});
@@ -477,19 +491,20 @@ function App() {
                                 return next;
                             });
 
-                            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                                const previewText = (window as any).MessageParser 
-                                    ? (window as any).MessageParser.getPreview(newMsg.teks)
-                                    : (newMsg.teks.startsWith('[') ? 'Mengirim media...' : newMsg.teks);
+                            if (Notification.permission === 'granted') {
+                                navigator.serviceWorker.ready.then(registration => {
+                                    const previewText = (window as any).MessageParser 
+                                        ? (window as any).MessageParser.getPreview(newMsg.teks)
+                                        : (newMsg.teks.startsWith('[') ? 'Mengirim media...' : newMsg.teks);
 
-                                navigator.serviceWorker.controller.postMessage({
-                                    type: 'SHOW_NOTIFICATION',
-                                    payload: {
-                                        title: `Pesan dari ${newMsg.nama.split('|')[0]}`,
-                                        text: previewText,
+                                    registration.showNotification(`Pesan dari ${newMsg.nama.split('|')[0]}`, {
+                                        body: previewText,
                                         icon: newMsg.nama.split('|')[1] || 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png',
-                                        tag: 'oracle-group'
-                                    }
+                                        badge: 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png',
+                                        tag: 'oracle-group',
+                                        renotify: true,
+                                        vibrate: [200, 100, 200]
+                                    });
                                 });
                             }
                         }
@@ -611,12 +626,9 @@ function App() {
             if (isViewOnce) teks = `[VO]${teks}`;
             
             if (editingMsg) {
-                // Keep the original tags if they were there? 
-                // Actually, if we edit, we might want to re-apply the current state of VO/Reply
-                // But usually edit is just for the text.
-                // Let's re-apply the current UI state (isViewOnce, etc) to the edited text.
                 await supabaseClient.from('Pesan').update({ teks }).eq('id', editingMsg.id);
                 setEditingMsg(null);
+                showToast("Pesan diperbarui", "success");
             } else {
                 await supabaseClient.from('Pesan').insert([{ nama, teks }]);
             }
@@ -625,7 +637,7 @@ function App() {
             setIsViewOnce(false);
             setReplyingTo(null);
         } catch (err: any) {
-            alert(`Gagal mengirim: ${err.message}`);
+            showToast(`Gagal mengirim: ${err.message}`, "error");
         } finally {
             setIsUploading(false);
         }
@@ -637,7 +649,7 @@ function App() {
                 await audioManagerRef.current.startRecording();
                 setIsRecording(true);
                 if ((window as any).BGMManager) (window as any).BGMManager.onVoiceNoteStart();
-            } catch (e) { alert("Gagal akses mic"); }
+            } catch (e) { showToast("Gagal akses mic", "error"); }
         } else {
             setIsRecording(false);
             const blob = await audioManagerRef.current.stopRecording();
@@ -653,7 +665,7 @@ function App() {
                     
                     const nama = `${username}|${avatar}|${userColor}`;
                     await supabaseClient.from('Pesan').insert([{ nama, teks: `[VN]${publicUrl}` }]);
-                } catch (e) { alert("Gagal kirim VN"); }
+                } catch (e) { showToast("Gagal kirim VN", "error"); }
                 finally { setIsUploading(false); }
             }
         }
@@ -769,10 +781,10 @@ function App() {
                 if (error) throw error;
                 
                 setMessages([]);
-                alert("Riwayat pesan dan media telah dibersihkan.");
-                window.location.reload();
+                showToast("Riwayat pesan dan media telah dibersihkan.", "success");
+                setTimeout(() => window.location.reload(), 1500);
             } catch (err: any) {
-                alert("Gagal menghapus: " + err.message);
+                showToast("Gagal menghapus: " + err.message, "error");
             }
         }
     };
@@ -817,7 +829,7 @@ function App() {
                 if (pinInput === '179' || pinInput === '010304') {
                     safeStorage.set('oracle_unlocked', 'true');
                     setLayer('MAIN');
-                } else alert('PIN salah.');
+                } else showToast('PIN salah.', "error");
             }} className="px-8 py-2 bg-gold text-black font-bold rounded-lg shadow-lg">Buka</button>
         </div>
     );
@@ -870,6 +882,23 @@ function App() {
                     </div>
                 )}
             </main>
+
+            <AnimatePresence>
+                {toast && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: 50 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 50 }}
+                        className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-full shadow-2xl border backdrop-blur-xl flex items-center gap-3 ${
+                            toast.type === 'error' ? 'bg-red-500/20 border-red-500/50 text-red-200' : 
+                            toast.type === 'success' ? 'bg-green-500/20 border-green-500/50 text-green-200' : 
+                            'bg-gold/20 border-gold/50 text-gold'
+                        }`}
+                    >
+                        <span className="text-sm font-medium tracking-wide">{toast.message}</span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <footer className="p-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-black/60 border-t border-white/10 backdrop-blur-xl z-40 shrink-0">
                 {replyingTo && (
@@ -1000,7 +1029,7 @@ function App() {
                                 const { outcome } = await deferredPrompt.userChoice;
                                 if (outcome === 'accepted') setDeferredPrompt(null);
                             } else {
-                                alert("Browser Anda sudah menginstal aplikasi ini, atau tidak mendukung instalasi otomatis. \n\nCara Manual:\n- Android: Klik titik tiga (⋮) di Chrome -> 'Tambahkan ke Layar Utama'\n- iOS: Klik tombol Share -> 'Tambah ke Layar Utama'");
+                                showToast("Gunakan menu browser untuk install (Add to Home Screen)", "info");
                             }
                         }} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-gold border-b border-white/5 font-bold animate-pulse">
                             ⬇️ Install Aplikasi
@@ -1039,28 +1068,45 @@ function App() {
                         <button onClick={async () => {
                             const permission = await Notification.requestPermission();
                             if (permission === 'granted') {
-                                alert("Notifikasi diaktifkan!");
-                                if (navigator.serviceWorker.controller) {
-                                    navigator.serviceWorker.controller.postMessage({
-                                        type: 'SHOW_NOTIFICATION',
-                                        payload: {
-                                            title: 'Oracle Chamber',
-                                            text: 'Takdir akan selalu bersamamu.',
-                                            tag: 'oracle-system'
-                                        }
+                                showToast("Notifikasi diaktifkan!", "success");
+                                navigator.serviceWorker.ready.then(reg => {
+                                    reg.showNotification('Oracle Chamber', {
+                                        body: 'Takdir akan selalu bersamamu.',
+                                        tag: 'oracle-system',
+                                        icon: 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png'
                                     });
-                                }
+                                });
                             } else {
-                                alert("Izin notifikasi ditolak.");
+                                showToast("Izin ditolak. Jika di iOS, gunakan 'Add to Home Screen'.", "error");
                             }
                         }} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5">🔔 Aktifkan Notifikasi</button>
+                        
+                        <div className="px-4 py-3 border-t border-white/5 bg-white/5">
+                            <div className="text-[10px] uppercase tracking-widest text-gold font-bold mb-2">Maintenance & System</div>
+                            <div className="grid grid-cols-1 gap-1">
+                                <button onClick={() => {
+                                    showToast("Membersihkan cache...", "info");
+                                    if ('serviceWorker' in navigator) {
+                                        caches.keys().then(names => {
+                                            for (let name of names) caches.delete(name);
+                                        });
+                                    }
+                                    setTimeout(() => window.location.reload(), 1000);
+                                }} className="text-left py-1 text-[10px] opacity-60 hover:opacity-100 transition-opacity">🛠️ Clear System Cache</button>
+                                <button onClick={() => {
+                                    const status = connStatus === 'ONLINE' ? "Koneksi Stabil" : "Koneksi Bermasalah";
+                                    showToast(`Status: ${status}`, connStatus === 'ONLINE' ? "success" : "error");
+                                }} className="text-left py-1 text-[10px] opacity-60 hover:opacity-100 transition-opacity">📡 Check Connection</button>
+                            </div>
+                        </div>
+
                         <button onClick={handleDeleteHistory} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-red-400 border-t border-white/5">🗑️ Hapus Riwayat</button>
                         <button onClick={() => {
                             localStorage.clear();
                             window.location.reload();
                         }} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-red-400">🚪 Reset Identitas</button>
                         <div className="px-4 py-2 text-[8px] text-white/20 text-center uppercase tracking-widest border-t border-white/5">
-                            v1.3.0 • Oracle Chamber
+                            v1.4.0 • Maintenance Mode
                         </div>
                     </div>
                 </div>
