@@ -1,58 +1,42 @@
-/**
- * Manager Audio untuk BGM (Background Music)
- * Mengatur playlist, fade in/out, dan interaksi dengan event aplikasi.
- */
+export class BGMManager {
+    private tracks: string[] = [
+        "https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/HINDIA%20FULL%20ALBUM%20_%207%20BEST%20SONG%20OF%20HINDIA%20_%20DANIEL%20BASKARA%20PUTRA(MP3_128K).mp3",
+        "https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/Tarot%20-%20.Feast%20_%20Lirik%20Lagu(MP3_320K).mp3"
+    ];
+    private audio: HTMLAudioElement;
+    private currentTrackIndex: number = 0;
+    private isPlaying: boolean = false;
+    private userVolume: number = 0.3;
+    private isMuted: boolean = false;
+    private fadeInterval: any = null;
+    private lastErrorTime: number = 0;
+    private autoplayFailed: boolean = false;
 
-class BGMManager {
     constructor() {
-        this.tracks = [
-            "https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/HINDIA%20FULL%20ALBUM%20_%207%20BEST%20SONG%20OF%20HINDIA%20_%20DANIEL%20BASKARA%20PUTRA(MP3_128K).mp3",
-            "https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/Tarot%20-%20.Feast%20_%20Lirik%20Lagu(MP3_320K).mp3"
-        ];
         this.audio = new Audio();
-        this.currentTrackIndex = 0;
-        this.isPlaying = false;
-        this.userVolume = 0.3; // Volume set by user
-        this.isMuted = false;  // Mute state
-        this.fadeInterval = null;
-        
-        // Preload
         this.audio.preload = "auto";
-
-        // Auto next track
         this.audio.addEventListener('ended', () => this.nextTrack());
-        
-        // Error handling
-        this.audio.addEventListener('error', (e) => {
-            const err = this.audio.error;
-            console.warn(`BGM Error (Code ${err ? err.code : '?'})`, err);
-            
-            // Prevent infinite loop if all tracks are bad
+        this.audio.addEventListener('error', () => {
             const now = Date.now();
             if (this.lastErrorTime && (now - this.lastErrorTime < 1000)) {
-                console.error("Too many BGM errors, stopping BGM.");
                 this.isPlaying = false;
                 return;
             }
             this.lastErrorTime = now;
-
             this.nextTrack();
         });
     }
 
-    // Set User Volume (0.0 - 1.0)
-    setVolume(vol) {
+    setVolume(vol: number) {
         this.userVolume = Math.max(0, Math.min(1, vol));
         if (!this.isMuted && this.isPlaying) {
-            // Update current volume immediately if not fading
             if (!this.fadeInterval) {
                 this.audio.volume = this.userVolume;
             }
         }
     }
 
-    // Set Mute State
-    mute(muted) {
+    mute(muted: boolean) {
         this.isMuted = muted;
         if (this.isMuted) {
             this.audio.volume = 0;
@@ -63,41 +47,26 @@ class BGMManager {
         }
     }
 
-    // Memulai pemutaran (dengan fade in)
     play() {
         if (this.isPlaying) return;
-        
-        // Set source if not set
         if (!this.audio.src || this.audio.src === window.location.href) {
             this.audio.src = this.tracks[this.currentTrackIndex];
         }
-
-        if (this.isMuted) {
-            this.audio.volume = 0;
-        } else {
-            // Mulai dari volume 0 untuk fade in
-            this.audio.volume = 0; 
-        }
-        
+        this.audio.volume = this.isMuted ? 0 : 0;
         const playPromise = this.audio.play();
-        
         if (playPromise !== undefined) {
             playPromise.then(() => {
                 this.isPlaying = true;
                 this.autoplayFailed = false;
                 if (!this.isMuted) this.fadeIn();
-            }).catch(e => {
-                console.warn("BGM Autoplay prevented. Waiting for interaction...");
+            }).catch(() => {
                 this.autoplayFailed = true;
-                
-                // Add one-time interaction listener to unlock audio
                 const unlock = () => {
                     this.play();
                     document.removeEventListener('click', unlock);
                     document.removeEventListener('keydown', unlock);
                     document.removeEventListener('touchstart', unlock);
                 };
-                
                 document.addEventListener('click', unlock, { once: true });
                 document.addEventListener('keydown', unlock, { once: true });
                 document.addEventListener('touchstart', unlock, { once: true });
@@ -105,10 +74,8 @@ class BGMManager {
         }
     }
 
-    // Pause pemutaran (dengan fade out)
     pause() {
         if (!this.isPlaying) return;
-        
         if (this.isMuted) {
             this.audio.pause();
             this.isPlaying = false;
@@ -120,7 +87,6 @@ class BGMManager {
         }
     }
 
-    // Pindah ke track berikutnya
     nextTrack() {
         this.currentTrackIndex = (this.currentTrackIndex + 1) % this.tracks.length;
         this.audio.src = this.tracks[this.currentTrackIndex];
@@ -129,35 +95,27 @@ class BGMManager {
         }
     }
 
-    // Fade In ke User Volume
     fadeIn() {
         if (this.isMuted) return;
         this.fadeTo(this.userVolume);
     }
 
-    // Fade Out ke 0
-    fadeOut(callback) {
+    fadeOut(callback?: () => void) {
         this.fadeTo(0, callback);
     }
 
-    // Fungsi Fade Generik
-    fadeTo(targetVolume, callback) {
+    private fadeTo(targetVolume: number, callback?: () => void) {
         if (this.fadeInterval) clearInterval(this.fadeInterval);
-        
         const step = 0.02;
         const intervalTime = 50;
-
         this.fadeInterval = setInterval(() => {
             let current = this.audio.volume;
-            
-            // Cek apakah sudah cukup dekat dengan target
             if (Math.abs(current - targetVolume) < step) {
                 this.audio.volume = targetVolume;
                 clearInterval(this.fadeInterval);
                 this.fadeInterval = null;
                 if (callback) callback();
             } else {
-                // Bergerak menuju target
                 if (current < targetVolume) {
                     this.audio.volume = Math.min(1, current + step);
                 } else {
@@ -167,59 +125,41 @@ class BGMManager {
         }, intervalTime);
     }
 
-    // Ducking: Menurunkan volume sementara (misal saat ada suara lain)
     duck() {
         if (this.isMuted) return;
         this.fadeTo(Math.min(0.05, this.userVolume));
     }
 
-    // Unduck: Mengembalikan volume normal
     unduck() {
         if (this.isMuted) return;
         this.fadeTo(this.userVolume);
     }
 
-    // --- Event Handlers untuk Integrasi ---
-
-    // Dipanggil saat kartu takdir ditarik
     onFateCardDraw() {
-        console.log("BGM: Fate Card Drawn - Pausing");
         this.pause();
-        // Kembali normal setelah 5 detik (waktu membaca kartu)
         setTimeout(() => this.play(), 5000);
     }
 
-    // Dipanggil saat mengirim gambar
     onImageSend() {
-        console.log("BGM: Image Sent - Pausing");
         this.pause();
         setTimeout(() => this.play(), 2000);
     }
 
-    // Dipanggil saat mulai merekam VN
     onVoiceNoteStart() {
-        console.log("BGM: VN Recording Start - Pausing");
         this.pause();
     }
 
-    // Dipanggil saat selesai merekam VN
     onVoiceNoteStop() {
-        console.log("BGM: VN Recording Stop - Resuming");
         this.play();
     }
     
-    // Dipanggil saat memutar VN orang lain
     onVoiceNotePlay() {
-        console.log("BGM: VN Play - Pausing");
         this.pause();
     }
     
-    // Dipanggil saat VN selesai diputar
     onVoiceNoteEnd() {
-        console.log("BGM: VN End - Resuming");
         this.play();
     }
 }
 
-// Expose instance ke window agar bisa diakses global
-window.BGMManager = new BGMManager();
+export const bgmManager = new BGMManager();

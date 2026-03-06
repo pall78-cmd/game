@@ -1,23 +1,21 @@
-class AudioManager {
-    constructor() {
-        this.mediaRecorder = null;
-        this.audioChunks = [];
-        this.stream = null;
-    }
+export class AudioManager {
+    private mediaRecorder: MediaRecorder | null = null;
+    private audioChunks: Blob[] = [];
+    private stream: MediaStream | null = null;
+    private mimeType: string = '';
 
-    async startRecording() {
+    async startRecording(): Promise<boolean> {
         if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
             console.warn("Already recording");
-            return;
+            return false;
         }
 
         try {
             this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             
-            // Check supported types and store the selected one
             let mimeType = '';
             const types = [
-                'audio/mp4', // Prioritize MP4 as requested
+                'audio/mp4',
                 'audio/webm;codecs=opus',
                 'audio/webm',
                 'audio/ogg;codecs=opus',
@@ -35,7 +33,7 @@ class AudioManager {
             
             const options = mimeType ? { mimeType } : {};
             this.mediaRecorder = new MediaRecorder(this.stream, options);
-            this.mimeType = mimeType || this.mediaRecorder.mimeType || 'audio/webm'; // Fallback
+            this.mimeType = mimeType || this.mediaRecorder.mimeType || 'audio/webm';
             this.audioChunks = [];
 
             this.mediaRecorder.ondataavailable = (event) => {
@@ -44,7 +42,6 @@ class AudioManager {
                 }
             };
 
-            // Start without timeslice to let the browser manage the container metadata better for short clips
             this.mediaRecorder.start();
             return true;
         } catch (error) {
@@ -53,18 +50,22 @@ class AudioManager {
         }
     }
 
-    stopRecording() {
-        return new Promise((resolve, reject) => {
+    stopRecording(): Promise<{ blob: Blob, ext: string } | null> {
+        return new Promise((resolve) => {
             if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') {
                 resolve(null);
                 return;
             }
 
             this.mediaRecorder.onstop = () => {
-                // Use the stored mimeType for the blob
                 const audioBlob = new Blob(this.audioChunks, { type: this.mimeType });
+                
+                let ext = 'webm';
+                if (this.mimeType.includes('mp4')) ext = 'mp4';
+                else if (this.mimeType.includes('ogg')) ext = 'ogg';
+                
                 this.cleanup();
-                resolve(audioBlob);
+                resolve({ blob: audioBlob, ext });
             };
 
             this.mediaRecorder.stop();
@@ -80,5 +81,3 @@ class AudioManager {
         this.audioChunks = [];
     }
 }
-
-window.AudioManager = AudioManager;

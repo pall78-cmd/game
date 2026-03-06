@@ -1,4 +1,17 @@
-const GAME_DECK = {
+export interface DeckCategory {
+    truth: string[];
+    dare: string[];
+    wildcard: string[];
+    wildcardChance: number;
+}
+
+export interface GameDeck {
+    light: DeckCategory;
+    deep: DeckCategory;
+    chaos: DeckCategory;
+}
+
+export const GAME_DECK: GameDeck = {
     light: {
         truth: [
             "Apa hal kecil yang paling kamu kangenin dari aku?",
@@ -132,5 +145,3 @@ const GAME_DECK = {
         wildcardChance: 0.10
     }
 };
-
-window.GAME_DECK = GAME_DECK;

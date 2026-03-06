@@ -1,19 +1,22 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reply } from 'lucide-react';
 
 import { ConnectionManager } from './utils/ConnectionManager';
+import { supabaseClient } from '../supabase';
+import { ORACLE_CONFIG } from './config';
+import { GAME_DECK } from './constants/deck';
+import { MessageParser } from './utils/messageParser';
+import { AudioManager } from './utils/audioManager';
+import { bgmManager } from './utils/bgmManager';
 
 // --- CONSTANTS & UTILS ---
-const SUPA_URL = import.meta.env.VITE_SUPA_URL || (window as any).ORACLE_CONFIG?.SUPA_URL;
-const SUPA_KEY = import.meta.env.VITE_SUPA_KEY || (window as any).ORACLE_CONFIG?.SUPA_KEY;
+const SUPA_URL = import.meta.env.VITE_SUPA_URL || ORACLE_CONFIG?.SUPA_URL;
+const SUPA_KEY = import.meta.env.VITE_SUPA_KEY || ORACLE_CONFIG?.SUPA_KEY;
 
 if (!SUPA_URL || !SUPA_KEY) {
     console.error("Supabase configuration missing! Check environment variables.");
 }
-
-const supabaseClient = createClient(SUPA_URL, SUPA_KEY);
 
 const safeStorage = {
     get: (key: string) => {
@@ -62,10 +65,10 @@ const AudioPlayer = ({ url, isPlaying, onToggle }: { url: string, isPlaying: boo
     useEffect(() => {
         if (isPlaying) {
             audioRef.current?.play().catch(() => onToggle());
-            if ((window as any).BGMManager) (window as any).BGMManager.onVoiceNotePlay();
+            bgmManager.onVoiceNotePlay();
         } else {
             audioRef.current?.pause();
-            if ((window as any).BGMManager) (window as any).BGMManager.onVoiceNoteEnd();
+            bgmManager.onVoiceNoteEnd();
         }
     }, [isPlaying, onToggle]);
 
@@ -178,8 +181,7 @@ const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, currentAudioId, onPlay
     }, [msg.id, isMe, msg.is_read, onVisible]);
 
     const parsed = useMemo(() => {
-        if (!(window as any).MessageParser) return { type: 'text', content: msg.teks, isVO: false, replyData: null };
-        return (window as any).MessageParser.parse(msg.teks);
+        return MessageParser.parse(msg.teks);
     }, [msg.teks]);
     
     const identity = useMemo(() => {
@@ -287,7 +289,7 @@ const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, currentAudioId, onPlay
 
                     {parsed.replyData && (
                         <div className="mb-2 p-2 rounded bg-black/20 border-l-4 border-gold/50 text-[10px] opacity-80 italic truncate max-w-full">
-                            <span className="font-bold text-gold not-italic">{parsed.replyData.name}:</span> {(window as any).MessageParser?.getPreview(parsed.replyData.text)}
+                            <span className="font-bold text-gold not-italic">{parsed.replyData.name}:</span> {MessageParser.getPreview(parsed.replyData.text)}
                         </div>
                     )}
                     
@@ -390,7 +392,7 @@ function App() {
     // Smart BGM Autoplay Logic
     useEffect(() => {
         const handleInteraction = () => {
-            const bgm = (window as any).BGMManager;
+            const bgm = bgmManager;
             if (bgm && !bgm.isPlaying && !bgm.isMuted) {
                 bgm.play();
             }
@@ -449,7 +451,7 @@ function App() {
 
     // BGM Control Effect
     useEffect(() => {
-        const bgm = (window as any).BGMManager;
+        const bgm = bgmManager;
         if (bgm) {
             bgm.setVolume(bgmVolume);
             bgm.mute(isBgmMuted);
@@ -493,9 +495,7 @@ function App() {
 
                             if (Notification.permission === 'granted') {
                                 navigator.serviceWorker.ready.then(registration => {
-                                    const previewText = (window as any).MessageParser 
-                                        ? (window as any).MessageParser.getPreview(newMsg.teks)
-                                        : (newMsg.teks.startsWith('[') ? 'Mengirim media...' : newMsg.teks);
+                                    const previewText = MessageParser.getPreview(newMsg.teks) || (newMsg.teks.startsWith('[') ? 'Mengirim media...' : newMsg.teks);
 
                                     registration.showNotification(`Pesan dari ${newMsg.nama.split('|')[0]}`, {
                                         body: previewText,
@@ -554,11 +554,9 @@ function App() {
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
         initialize();
-        if ((window as any).AudioManager) audioManagerRef.current = new (window as any).AudioManager();
-        if ((window as any).BGMManager) {
-            (window as any).BGMManager.play();
-            (window as any).BGMManager.setVolume(bgmVolume);
-        }
+        audioManagerRef.current = new AudioManager();
+        bgmManager.play();
+        bgmManager.setVolume(bgmVolume);
 
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -612,14 +610,14 @@ function App() {
             let teks = inputText;
 
             if (selectedFile) {
-                if ((window as any).BGMManager) (window as any).BGMManager.onImageSend();
+                bgmManager.onImageSend();
                 const url = await uploadImage(selectedFile);
                 teks = teks.trim() ? `[IMG]${url}\n${teks}` : `[IMG]${url}`;
                 setSelectedFile(null);
             }
 
             if (replyingTo) {
-                const context = (window as any).MessageParser.createReplyContext(replyingTo);
+                const context = MessageParser.createReplyContext(replyingTo);
                 teks = `[REPLY:${JSON.stringify(context)}]${teks}`;
             }
 
@@ -648,17 +646,18 @@ function App() {
             try {
                 await audioManagerRef.current.startRecording();
                 setIsRecording(true);
-                if ((window as any).BGMManager) (window as any).BGMManager.onVoiceNoteStart();
+                bgmManager.onVoiceNoteStart();
             } catch (e) { showToast("Gagal akses mic", "error"); }
         } else {
             setIsRecording(false);
-            const blob = await audioManagerRef.current.stopRecording();
-            if ((window as any).BGMManager) (window as any).BGMManager.onVoiceNoteStop();
+            const result = await audioManagerRef.current.stopRecording();
+            bgmManager.onVoiceNoteStop();
             
-            if (blob) {
+            if (result && result.blob) {
+                const { blob, ext } = result;
                 setIsUploading(true);
                 try {
-                    const fileName = `vn-${Date.now()}.mp4`;
+                    const fileName = `vn-${Date.now()}.${ext}`;
                     const { error } = await supabaseClient.storage.from('voicenote').upload(`${fileName}`, blob);
                     if (error) throw error;
                     const { data: { publicUrl } } = supabaseClient.storage.from('voicenote').getPublicUrl(`${fileName}`);
@@ -677,7 +676,7 @@ function App() {
     };
 
     const handleStartEdit = (msg: any) => {
-        const parsed = (window as any).MessageParser.parse(msg.teks);
+        const parsed = MessageParser.parse(msg.teks);
         // If it's an image, we only edit the caption part
         let editContent = parsed.content;
         if (parsed.type === 'img') {
@@ -706,9 +705,9 @@ function App() {
             }
         }
 
-        if ((window as any).BGMManager) (window as any).BGMManager.onFateCardDraw();
+        bgmManager.onFateCardDraw();
 
-        const deck = (window as any).GAME_DECK[category];
+        const deck = (GAME_DECK as any)[category];
         const isWildcard = Math.random() < deck.wildcardChance;
         const type = isWildcard ? 'wildcard' : (Math.random() < 0.5 ? 'truth' : 'dare');
         const pool = deck[type];
@@ -724,7 +723,7 @@ function App() {
     };
 
     const handleViewOnce = (msg: any) => {
-        const parsed = (window as any).MessageParser.parse(msg.teks);
+        const parsed = MessageParser.parse(msg.teks);
         setViewingSecret({ ...msg, ...parsed });
         
         // Burn logic
@@ -747,7 +746,7 @@ function App() {
                     const vnFilesToRemove: string[] = [];
                     
                     messagesToDelete.forEach(msg => {
-                        const parsed = (window as any).MessageParser.parse(msg.teks);
+                        const parsed = MessageParser.parse(msg.teks);
                         if (parsed.type === 'img') {
                             const url = parsed.content;
                             const urlParts = url.split('/bukti/');

@@ -6,13 +6,7 @@
 const CACHE_NAME = 'oracle-v1.2';
 const ASSETS = [
     './',
-    './index.html',
-    './config.js',
-    './deck.js',
-    './audioManager.js',
-    './messageParser.js',
-    './manageraudio.js',
-    './connectionManager.js'
+    './index.html'
 ];
 
 // --- Message Parser Logic (Duplicated for SW independence) ---
