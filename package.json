@@ -7,7 +7,6 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "install": "npm install",
     "lint": "echo 'Linter skipped due to unconventional project structure'"
   },
   "dependencies": {
