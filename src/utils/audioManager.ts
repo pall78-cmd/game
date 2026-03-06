@@ -15,11 +15,11 @@ export class AudioManager {
             
             let mimeType = '';
             const types = [
-                'audio/mp4',
                 'audio/webm;codecs=opus',
                 'audio/webm',
                 'audio/ogg;codecs=opus',
-                'audio/ogg'
+                'audio/ogg',
+                'audio/mp4'
             ];
             
             for (const type of types) {
