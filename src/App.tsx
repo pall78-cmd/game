@@ -698,7 +698,7 @@ function App() {
                 const pin = prompt("Masukkan PIN Chaos Mode (18+):");
                 if (pin !== '131201') {
                     if (navigator.vibrate) navigator.vibrate(200);
-                    alert("Akses Ditolak. PIN Salah.");
+                    showToast("Akses Ditolak. PIN Salah.", "error");
                     return;
                 }
                 safeStorage.set('chaos_unlocked', 'true');

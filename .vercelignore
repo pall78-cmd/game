@@ -1,0 +1,30 @@
+*.sql
+.env
+.env.*
+!.env.example
+node_modules
+dist
+.vercel
+README.md
+metadata.json
+tsconfig.json
+tsconfig.node.json
+vite.config.ts
+package.json
+package-lock.json
+src
+public
+# Wait, Vercel needs package.json and src to build.
+# .vercelignore is for what NOT to upload to the build environment or what NOT to serve.
+# Actually, Vercel uploads everything except what's in .vercelignore to the build environment.
+# So I should only ignore things that are NOT needed for building.
+
+*.sql
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.gitignore
+README.md
+metadata.json

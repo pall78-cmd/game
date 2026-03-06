@@ -1,20 +1,33 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Oracle v17.9 - Harmony
 
-# Run and deploy your AI Studio app
+A mystic chat application with Fate Cards, Voice Notes, and View Once messages.
 
-This contains everything you need to run your app locally.
+## Deployment to Vercel
 
-View your app in AI Studio: https://ai.studio/apps/0a5bfcdc-872e-4da9-ab1b-ac5109ba39d0
+If you are facing "Failed to Deploy" on Vercel, follow these steps:
 
-## Run Locally
+### 1. Configure Environment Variables
+Vercel needs to know your Supabase credentials during the build process.
+Go to your project on Vercel: **Settings > Environment Variables** and add:
+- `VITE_SUPA_URL`: `https://rruxlxoeelxjjjmhafkc.supabase.co`
+- `VITE_SUPA_KEY`: `(Your Supabase Anon Key)`
 
-**Prerequisites:**  Node.js
+### 2. Build Settings
+Ensure your Vercel build settings are as follows:
+- **Framework Preset**: Vite
+- **Build Command**: `npm run build`
+- **Output Directory**: `dist`
+- **Install Command**: `npm install`
 
+### 3. Routing
+The `vercel.json` file is already included to handle Single Page Application (SPA) routing. This prevents 404 errors when refreshing the page.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 4. Supabase Setup
+Make sure you have run the SQL script in `supabase_setup.sql` in your Supabase SQL Editor to create the necessary tables and storage buckets.
+
+## Features
+- **Fate Cards**: Invoke destiny with Truth or Dare cards.
+- **Voice Notes**: Send encrypted voice messages.
+- **View Once**: Messages that disappear after being read.
+- **Real-time**: Instant messaging powered by Supabase.
+- **PWA**: Installable on Android and iOS.

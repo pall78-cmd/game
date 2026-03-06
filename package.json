@@ -10,7 +10,6 @@
     "lint": "echo 'Linter skipped due to unconventional project structure'"
   },
   "dependencies": {
-    "@google/genai": "^1.43.0",
     "@supabase/supabase-js": "2.48.1",
     "@tailwindcss/vite": "^4.2.0",
     "@vercel/analytics": "^1.6.1",
