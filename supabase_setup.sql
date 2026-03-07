@@ -39,41 +39,41 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public."Pesan";
 -- STORAGE SETUP (For Voice Notes and Images)
 -- ==============================================================================
 
--- 1. Create the 'voicenote' bucket if it doesn't exist
+-- 1. Create the 'pub.voice note' bucket if it doesn't exist
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('voicenote', 'voicenote', true)
+VALUES ('pub.voice note', 'pub.voice note', true)
 ON CONFLICT (id) DO NOTHING;
 
--- 2. Create the 'bukti' bucket if it doesn't exist
+-- 2. Create the 'pub.gambar' bucket if it doesn't exist
 INSERT INTO storage.buckets (id, name, public)
-VALUES ('bukti', 'bukti', true)
+VALUES ('pub.gambar', 'pub.gambar', true)
 ON CONFLICT (id) DO NOTHING;
 
--- 3. Create Storage Policies for 'voicenote' bucket (ALLOW ANONYMOUS)
-DROP POLICY IF EXISTS "Public Access for voicenote" ON storage.objects;
-CREATE POLICY "Public Access for voicenote" ON storage.objects FOR SELECT TO anon, authenticated USING (bucket_id = 'voicenote');
+-- 3. Create Storage Policies for 'pub.voice note' bucket (ALLOW ANONYMOUS)
+DROP POLICY IF EXISTS "Public Access for pub.voice note" ON storage.objects;
+CREATE POLICY "Public Access for pub.voice note" ON storage.objects FOR SELECT TO anon, authenticated USING (bucket_id = 'pub.voice note');
 
-DROP POLICY IF EXISTS "Public Insert for voicenote" ON storage.objects;
-CREATE POLICY "Public Insert for voicenote" ON storage.objects FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'voicenote');
+DROP POLICY IF EXISTS "Public Insert for pub.voice note" ON storage.objects;
+CREATE POLICY "Public Insert for pub.voice note" ON storage.objects FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'pub.voice note');
 
-DROP POLICY IF EXISTS "Public Update for voicenote" ON storage.objects;
-CREATE POLICY "Public Update for voicenote" ON storage.objects FOR UPDATE TO anon, authenticated USING (bucket_id = 'voicenote');
+DROP POLICY IF EXISTS "Public Update for pub.voice note" ON storage.objects;
+CREATE POLICY "Public Update for pub.voice note" ON storage.objects FOR UPDATE TO anon, authenticated USING (bucket_id = 'pub.voice note');
 
-DROP POLICY IF EXISTS "Public Delete for voicenote" ON storage.objects;
-CREATE POLICY "Public Delete for voicenote" ON storage.objects FOR DELETE TO anon, authenticated USING (bucket_id = 'voicenote');
+DROP POLICY IF EXISTS "Public Delete for pub.voice note" ON storage.objects;
+CREATE POLICY "Public Delete for pub.voice note" ON storage.objects FOR DELETE TO anon, authenticated USING (bucket_id = 'pub.voice note');
 
--- 4. Create Storage Policies for 'bukti' bucket (ALLOW ANONYMOUS)
-DROP POLICY IF EXISTS "Public Access for bukti" ON storage.objects;
-CREATE POLICY "Public Access for bukti" ON storage.objects FOR SELECT TO anon, authenticated USING (bucket_id = 'bukti');
+-- 4. Create Storage Policies for 'pub.gambar' bucket (ALLOW ANONYMOUS)
+DROP POLICY IF EXISTS "Public Access for pub.gambar" ON storage.objects;
+CREATE POLICY "Public Access for pub.gambar" ON storage.objects FOR SELECT TO anon, authenticated USING (bucket_id = 'pub.gambar');
 
-DROP POLICY IF EXISTS "Public Insert for bukti" ON storage.objects;
-CREATE POLICY "Public Insert for bukti" ON storage.objects FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'bukti');
+DROP POLICY IF EXISTS "Public Insert for pub.gambar" ON storage.objects;
+CREATE POLICY "Public Insert for pub.gambar" ON storage.objects FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'pub.gambar');
 
-DROP POLICY IF EXISTS "Public Update for bukti" ON storage.objects;
-CREATE POLICY "Public Update for bukti" ON storage.objects FOR UPDATE TO anon, authenticated USING (bucket_id = 'bukti');
+DROP POLICY IF EXISTS "Public Update for pub.gambar" ON storage.objects;
+CREATE POLICY "Public Update for pub.gambar" ON storage.objects FOR UPDATE TO anon, authenticated USING (bucket_id = 'pub.gambar');
 
-DROP POLICY IF EXISTS "Public Delete for bukti" ON storage.objects;
-CREATE POLICY "Public Delete for bukti" ON storage.objects FOR DELETE TO anon, authenticated USING (bucket_id = 'bukti');
+DROP POLICY IF EXISTS "Public Delete for pub.gambar" ON storage.objects;
+CREATE POLICY "Public Delete for pub.gambar" ON storage.objects FOR DELETE TO anon, authenticated USING (bucket_id = 'pub.gambar');
 
 -- ==============================================================================
 -- DONE!

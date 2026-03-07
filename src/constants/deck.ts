@@ -28,7 +28,12 @@ export const GAME_DECK: GameDeck = {
             "Apa hal yang paling bikin kamu ketawa pas ngobrol sama aku?",
             "Kalo aku jadi makanan, aku bakal jadi makanan apa?",
             "Apa hal paling random yang pernah kamu pikirin tentang aku?",
-            "Apa kebiasaan pagimu yang pengen kamu lakuin bareng aku?"
+            "Apa kebiasaan pagimu yang pengen kamu lakuin bareng aku?",
+            "Apa hal paling konyol yang pernah kamu lakuin demi dapet sinyal bagus pas kita telponan?",
+            "Kalau kamu bisa ngirim satu barang fisik lewat chat sekarang, kamu mau ngirim apa?",
+            "Apa kebiasaan tidurku yang paling kamu hafal walau kita cuma LDR?",
+            "Siapa di antara kita yang paling sering ketiduran pas lagi telponan?",
+            "Apa hal pertama yang bikin kamu naksir aku pas kita awal kenal online?"
         ],
         dare: [
             "Kirim VN nyanyiin reff lagu favorit kita!",
@@ -45,14 +50,34 @@ export const GAME_DECK: GameDeck = {
             "Kirim VN bilang 'Aku sayang kamu' dengan 3 nada berbeda.",
             "Tirukan suara hewan favoritmu lewat VN.",
             "Kirim foto outfit yang lagi kamu pake sekarang.",
-            "Pilih satu emoji dan jadikan itu balasan untuk 5 pesanku berikutnya."
+            "Pilih satu emoji dan jadikan itu balasan untuk 5 pesanku berikutnya.",
+            "Kirim foto pemandangan dari jendela kamarmu sekarang juga.",
+            "VN suara perutmu kalau lagi laper, atau suara kamu niruin perut laper.",
+            "Gambar muka aku di kertas sejelek mungkin, terus kirim fotonya!",
+            "Kirim VN ngomong 'Aku rindu kamu' pakai bahasa daerah atau bahasa asing yang kamu tahu.",
+            "Kirim foto barang di sekitarmu yang paling ngingetin kamu sama aku."
         ],
         wildcard: [
             "Bebas dari satu tantangan hari ini!",
             "Kamu berhak minta aku ngelakuin satu hal manis buat kamu.",
             "Tukar giliran! Aku yang harus jawab pertanyaan Light dari kamu.",
             "Pilih satu foto dari galeriku untuk kujadikan profil picture selama 1 jam.",
-            "Kamu boleh minta aku kirim VN nyanyiin lagu pilihanmu."
+            "Kamu boleh minta aku kirim VN nyanyiin lagu pilihanmu.",
+            "Kamu berhak nentuin topik obrolan kita selama 1 jam ke depan!",
+            "Bebas dari hukuman kalau kamu kalah main game hari ini.",
+            "Kamu boleh minta aku ngirim foto selfie dengan gaya yang kamu tentuin.",
+            "Aku harus nurutin satu permintaan sederhana kamu hari ini.",
+            "Kamu berhak minta aku ceritain satu kejadian memalukan di masa laluku.",
+            "Tukar giliran! Aku yang harus jawab 2 pertanyaan Truth berturut-turut.",
+            "Kamu boleh minta aku VN nyanyiin lagu pengantar tidur buat kamu nanti malam.",
+            "Aku harus pakai filter lucu pilihanmu pas kita video call nanti.",
+            "Kamu berhak minta aku ngirim foto makanan yang lagi aku pengen banget.",
+            "Bebas pilih satu film/series yang harus kita tonton bareng (watch party) minggu ini.",
+            "Kamu boleh nanya satu pertanyaan random yang harus aku jawab dalam 3 detik.",
+            "Aku harus ngirim VN gombalan paling maut yang aku tahu.",
+            "Kamu berhak minta aku ngirim foto OOTD (Outfit of the Day) aku besok.",
+            "Aku harus ceritain satu mimpi aneh yang pernah aku alamin.",
+            "Kamu boleh minta aku ngucapin selamat pagi pakai VN dengan nada paling semangat besok pagi."
         ],
         wildcardChance: 0.15
     },
@@ -72,7 +97,12 @@ export const GAME_DECK: GameDeck = {
             "Kapan kamu ngerasa paling jauh/kesepian dari aku, dan gimana cara ngatasinnya?",
             "Apa sifatku yang paling bikin kamu ngerasa aman?",
             "Apa hal yang paling kamu sesali pernah kamu ucapkan ke aku?",
-            "Gimana caramu meyakinkan diri sendiri pas lagi ragu sama hubungan kita?"
+            "Gimana caramu meyakinkan diri sendiri pas lagi ragu sama hubungan kita?",
+            "Apa hal yang paling bikin kamu berat ngejalanin LDR ini, dan apa yang bikin kamu bertahan?",
+            "Pernahkah kamu nangis sendirian gara-gara kangen banget sama aku? Ceritain momennya.",
+            "Apa satu janji yang pengen banget kamu tepatin buat aku pas kita udah nggak LDR lagi?",
+            "Gimana caramu ngeyakinin orang sekitarmu kalau hubungan LDR kita ini worth it?",
+            "Apa pelajaran terbesar yang kamu dapet dari hubungan jarak jauh kita ini?"
         ],
         dare: [
             "Tulis paragraf panjang tentang kenapa kamu milih aku, dan kirim sekarang.",
@@ -89,14 +119,35 @@ export const GAME_DECK: GameDeck = {
             "Kirim VN minta maaf buat satu kesalahan yang mungkin belum pernah kamu bahas.",
             "Tulis surat cinta singkat dan fotoin tulisan tanganmu.",
             "Ceritain momen pas kamu sadar kamu bener-bener jatuh cinta sama aku.",
-            "Kirim lagu yang liriknya paling pas buat gambarin perasaanmu ke aku sekarang."
+            "Kirim lagu yang liriknya paling pas buat gambarin perasaanmu ke aku sekarang.",
+            "Kirim VN ceritain satu hal yang paling kamu takutin kehilangan dari aku.",
+            "Tulis pesan singkat buat aku baca pas aku lagi ngerasa down atau capek sama LDR ini.",
+            "Kirim foto barang pemberianku (atau screenshot chatku) yang paling berharga buatmu.",
+            "Ceritain satu momen di mana kamu ngerasa bener-bener butuh pelukanku secara fisik.",
+            "VN ceritain rencanamu buat kita di hari pertama kita akhirnya bisa tinggal di kota yang sama."
         ],
         wildcard: [
             "Deep Talk Time: Kamu boleh tanya satu pertanyaan apa aja, dan aku harus jawab jujur 100%.",
             "Kamu berhak minta aku ceritain satu rahasia terdalamku.",
             "Kita berdua harus saling kirim VN apresiasi selama 1 menit tanpa putus.",
             "Kamu boleh minta aku jujur tentang satu hal yang bikin aku ragu.",
-            "Skip satu pertanyaan Deep kalau kamu ngerasa belum siap jawab."
+            "Skip satu pertanyaan Deep kalau kamu ngerasa belum siap jawab.",
+            "Kamu boleh minta aku jujur tentang satu hal yang selama ini aku tutup-tutupin biar kamu nggak kepikiran.",
+            "Kita harus luangin waktu 15 menit buat ngobrolin masa depan kita tanpa gangguan.",
+            "Kamu berhak minta aku nulis surat cinta panjang dan kirim via email/chat.",
+            "Aku harus jujur tentang ketakutan terbesarku soal masa depan kita.",
+            "Kamu boleh minta aku ceritain satu hal yang bikin aku ngerasa bersalah ke kamu.",
+            "Kita berdua harus saling share satu lagu yang liriknya paling ngena buat hubungan kita.",
+            "Kamu berhak minta aku ngirim VN ceritain kenapa aku milih bertahan sama kamu.",
+            "Aku harus jujur tentang satu hal yang bikin aku bangga banget punya kamu.",
+            "Kamu boleh minta aku ceritain satu momen pas aku ngerasa paling rapuh.",
+            "Kita harus saling share satu foto masa kecil dan ceritain kenangannya.",
+            "Kamu berhak minta aku jujur tentang apa yang paling aku butuhin dari kamu saat ini.",
+            "Aku harus ceritain satu hal yang bikin aku ngerasa paling disayang sama keluargamu (atau kamu).",
+            "Kamu boleh minta aku ngirim VN doa khusus buat kamu hari ini.",
+            "Kita berdua harus saling share satu hal yang pengen kita capai bareng tahun ini.",
+            "Kamu berhak minta aku jujur tentang satu hal yang bikin aku ngerasa insecure di hubungan ini.",
+            "Aku harus ceritain satu momen di mana aku ngerasa kamu adalah 'the one'."
         ],
         wildcardChance: 0.10
     },
@@ -116,7 +167,12 @@ export const GAME_DECK: GameDeck = {
             "Apa 'turn on' terbesarmu saat kita lagi LDR-an?",
             "Gimana caramu 'menyelesaikan' diri sendiri pas lagi kangen banget sama aku?",
             "Apa posisi seks yang paling pengen kamu coba pas kita ketemu?",
-            "Apa hal paling berani yang pernah kamu lakuin buat godain aku lewat chat?"
+            "Apa hal paling berani yang pernah kamu lakuin buat godain aku lewat chat?",
+            "Pas lagi video call berdua, pernahkah kamu diam-diam nyentuh dirimu sendiri sambil ngeliatin aku?",
+            "Apa jenis pakaian dalam yang menurutmu paling seksi kalau aku pakai pas kita VC?",
+            "Kalau kita punya waktu 24 jam berdua di hotel tanpa ada yang ganggu, apa rundown kasarnya?",
+            "Apa kata-kata kotor (dirty talk) yang paling pengen kamu denger langsung dari bisikanku?",
+            "Bagian tubuh mana dari aku yang paling sering muncul di fantasi liarmu pas kita lagi jauh?"
         ],
         dare: [
             "Kirim VN desahan pelan atau panggil namaku dengan nada paling menggoda.",
@@ -133,14 +189,36 @@ export const GAME_DECK: GameDeck = {
             "Tunjukkan (lewat foto/video VO) mainan seks atau benda yang sering kamu pakai.",
             "Kirim foto tanganmu seolah-olah lagi nyentuh aku.",
             "Ceritain detail apa yang bakal kamu lakuin ke aku kalau aku lagi terikat di kasur.",
-            "Kirim pesan teks paling nakal yang bikin aku langsung pengen ketemu."
+            "Kirim pesan teks paling nakal yang bikin aku langsung pengen ketemu.",
+            "Kirim VN desahan pelan seolah-olah aku lagi nyium lehermu dari belakang.",
+            "Kirim foto (View Once) siluet tubuhmu di depan cermin dengan pencahayaan minim.",
+            "Deskripsiin lewat chat, step-by-step, apa yang bakal kamu lakuin ke aku pas kita pertama kali masuk kamar berdua.",
+            "Kirim foto (View Once) jejak lipstik/ciuman di tangan atau lehermu buat aku.",
+            "VN ceritain satu mimpi basah paling detail yang pernah kamu alamin tentang kita."
         ],
         wildcard: [
             "Kamu pegang kendali: Suruh aku lakuin satu hal nakal (lewat VN/Foto/Video VO) sekarang juga.",
             "Free Pass: Kamu boleh minta foto View Once apa aja dari aku.",
             "Roleplay Time: Kita berdua harus roleplay nakal selama 10 menit ke depan.",
             "Kamu boleh minta aku kirim VN mendesah sebut namamu.",
-            "Tukar giliran! Aku yang harus ngelakuin dare Chaos pilihanmu."
+            "Tukar giliran! Aku yang harus ngelakuin dare Chaos pilihanmu.",
+            "Kamu boleh minta aku ngirim foto (View Once) bagian tubuhku yang paling kamu suka.",
+            "Kita harus sexting selama 15 menit tanpa boleh ngirim foto, cuma pakai kata-kata yang paling menggoda.",
+            "Kamu berhak minta aku ngirim VN dirty talk dengan skenario pilihanmu.",
+            "Aku harus nurutin satu perintah nakal kamu selama sesi video call berikutnya.",
+            "Kamu boleh minta aku pakai pakaian dalam warna tertentu pas kita ketemu nanti.",
+            "Kita berdua harus saling share satu fantasi liar yang belum pernah kita ceritain.",
+            "Kamu berhak minta aku ngirim foto (View Once) pose menggoda di atas kasur.",
+            "Aku harus ceritain detail apa yang bakal aku lakuin ke kamu kalau kamu lagi mandi.",
+            "Kamu boleh minta aku ngirim VN suara ciuman paling basah yang bisa aku buat.",
+            "Kita harus saling share satu hal kinky yang pengen kita coba bareng.",
+            "Kamu berhak minta aku ngirim foto (View Once) paha atau perutku.",
+            "Aku harus jujur tentang satu hal nakal yang sering aku pikirin pas ngeliat fotomu.",
+            "Kamu boleh minta aku ngirim VN ceritain gimana rasanya kalau aku nyentuh kamu di sana.",
+            "Kita berdua harus saling share satu tempat ekstrem yang pengen kita jadiin tempat 'main'.",
+            "Kamu berhak minta aku ngirim foto (View Once) dengan tatapan paling menggoda.",
+            "Aku harus ceritain detail apa yang bakal aku lakuin ke kamu kalau kita lagi di bioskop sepi.",
+            "Kamu boleh minta aku ngirim VN desahan panjang seolah-olah aku lagi klimaks."
         ],
         wildcardChance: 0.10
     }

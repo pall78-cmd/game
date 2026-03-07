@@ -6,46 +6,54 @@ export class AudioManager {
 
     async startRecording(): Promise<boolean> {
         if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
-            console.warn("Already recording");
             return false;
         }
 
         try {
             this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             
-            let mimeType = '';
-            const types = [
-                'audio/webm;codecs=opus',
-                'audio/webm',
-                'audio/ogg;codecs=opus',
-                'audio/ogg',
-                'audio/mp4'
-            ];
+            let options: MediaRecorderOptions = {};
+            this.mimeType = 'audio/webm';
             
-            for (const type of types) {
-                if (MediaRecorder.isTypeSupported(type)) {
-                    mimeType = type;
-                    break;
+            if (typeof MediaRecorder.isTypeSupported === 'function') {
+                const types = [
+                    'audio/webm;codecs=opus',
+                    'audio/webm',
+                    'audio/ogg;codecs=opus',
+                    'audio/ogg',
+                    'audio/mp4'
+                ];
+                for (const type of types) {
+                    if (MediaRecorder.isTypeSupported(type)) {
+                        this.mimeType = type;
+                        options.mimeType = type;
+                        break;
+                    }
                 }
+            } else {
+                this.mimeType = 'audio/mp4';
             }
             
-            console.log("Using MIME type:", mimeType || "default");
+            try {
+                this.mediaRecorder = new MediaRecorder(this.stream, options);
+            } catch (e) {
+                this.mediaRecorder = new MediaRecorder(this.stream);
+                this.mimeType = this.mediaRecorder.mimeType || 'audio/mp4';
+            }
             
-            const options = mimeType ? { mimeType } : {};
-            this.mediaRecorder = new MediaRecorder(this.stream, options);
-            this.mimeType = mimeType || this.mediaRecorder.mimeType || 'audio/webm';
             this.audioChunks = [];
 
             this.mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
+                if (event.data && event.data.size > 0) {
                     this.audioChunks.push(event.data);
                 }
             };
 
-            this.mediaRecorder.start();
+            this.mediaRecorder.start(250); // timeslice to ensure data is collected
             return true;
         } catch (error) {
             console.error("Error starting recording:", error);
+            this.cleanup();
             throw error;
         }
     }
@@ -63,12 +71,23 @@ export class AudioManager {
                 let ext = 'webm';
                 if (this.mimeType.includes('mp4')) ext = 'mp4';
                 else if (this.mimeType.includes('ogg')) ext = 'ogg';
+                else if (this.mimeType.includes('wav')) ext = 'wav';
                 
                 this.cleanup();
-                resolve({ blob: audioBlob, ext });
+                
+                if (audioBlob.size > 0) {
+                    resolve({ blob: audioBlob, ext });
+                } else {
+                    resolve(null);
+                }
             };
 
-            this.mediaRecorder.stop();
+            try {
+                this.mediaRecorder.stop();
+            } catch (e) {
+                this.cleanup();
+                resolve(null);
+            }
         });
     }
 

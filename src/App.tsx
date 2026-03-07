@@ -33,9 +33,9 @@ const uploadImage = async (file: File) => {
         const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}.${fileExt}`;
         const filePath = `uploads/${fileName}`;
         
-        console.log(`Uploading image to 'bukti' bucket: ${filePath}`);
+        console.log(`Uploading image to 'gambar' bucket: ${filePath}`);
         
-        const { error } = await supabaseClient.storage.from('bukti').upload(filePath, file, {
+        const { error } = await supabaseClient.storage.from('gambar').upload(filePath, file, {
             cacheControl: '3600',
             upsert: false
         });
@@ -43,12 +43,12 @@ const uploadImage = async (file: File) => {
         if (error) {
             console.error("Supabase Storage Error:", error);
             if (error.message === 'Failed to fetch' || error.message.includes('fetch')) {
-                throw new Error("Koneksi gagal (Fetch Failed). Pastikan bucket 'bukti' sudah dibuat dan memiliki policy publik.");
+                throw new Error("Koneksi gagal (Fetch Failed). Pastikan bucket 'gambar' sudah dibuat dan memiliki policy publik.");
             }
             throw new Error(error.message);
         }
         
-        const { data: { publicUrl } } = supabaseClient.storage.from('bukti').getPublicUrl(filePath);
+        const { data: { publicUrl } } = supabaseClient.storage.from('gambar').getPublicUrl(filePath);
         return publicUrl;
     } catch (err: any) {
         console.error("uploadImage Exception:", err);
@@ -353,6 +353,8 @@ function App() {
     const [isRecording, setIsRecording] = useState(false);
     const [viewingSecret, setViewingSecret] = useState<any>(null);
     const [pinInput, setPinInput] = useState('');
+    const [showChaosPinModal, setShowChaosPinModal] = useState(false);
+    const [chaosPinInput, setChaosPinInput] = useState('');
     const [isUploading, setIsUploading] = useState(false);
     const [connStatus, setConnStatus] = useState('OFFLINE');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -641,32 +643,60 @@ function App() {
         }
     };
 
-    const handleVoiceNote = async () => {
-        if (!isRecording) {
-            try {
-                await audioManagerRef.current.startRecording();
+    const isRecordingRef = useRef(false);
+    const isStartingRef = useRef(false);
+
+    const startRecording = async (e?: React.SyntheticEvent) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        if (isRecordingRef.current || isStartingRef.current) return;
+        
+        isStartingRef.current = true;
+        try {
+            const started = await audioManagerRef.current.startRecording();
+            if (started) {
+                isRecordingRef.current = true;
                 setIsRecording(true);
                 bgmManager.onVoiceNoteStart();
-            } catch (e) { showToast("Gagal akses mic", "error"); }
-        } else {
-            setIsRecording(false);
-            const result = await audioManagerRef.current.stopRecording();
-            bgmManager.onVoiceNoteStop();
-            
-            if (result && result.blob) {
-                const { blob, ext } = result;
-                setIsUploading(true);
-                try {
-                    const fileName = `vn-${Date.now()}.${ext}`;
-                    const { error } = await supabaseClient.storage.from('voicenote').upload(`${fileName}`, blob);
-                    if (error) throw error;
-                    const { data: { publicUrl } } = supabaseClient.storage.from('voicenote').getPublicUrl(`${fileName}`);
-                    
-                    const nama = `${username}|${avatar}|${userColor}`;
-                    await supabaseClient.from('Pesan').insert([{ nama, teks: `[VN]${publicUrl}` }]);
-                } catch (e) { showToast("Gagal kirim VN", "error"); }
-                finally { setIsUploading(false); }
             }
+        } catch (e: any) {
+            showToast("Gagal akses mic", "error");
+        } finally {
+            isStartingRef.current = false;
+        }
+    };
+
+    const stopRecording = async (e?: React.SyntheticEvent) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        if (!isRecordingRef.current) return;
+
+        isRecordingRef.current = false;
+        setIsRecording(false);
+        
+        const result = await audioManagerRef.current.stopRecording();
+        bgmManager.onVoiceNoteStop();
+        
+        if (result && result.blob) {
+            const { blob, ext } = result;
+            setIsUploading(true);
+            try {
+                const fileName = `vn-${Date.now()}.${ext}`;
+                const { error } = await supabaseClient.storage.from('voice note').upload(`${fileName}`, blob);
+                if (error) throw error;
+                const { data: { publicUrl } } = supabaseClient.storage.from('voice note').getPublicUrl(`${fileName}`);
+                
+                const nama = `${username}|${avatar}|${userColor}`;
+                await supabaseClient.from('Pesan').insert([{ nama, teks: `[VN]${publicUrl}` }]);
+            } catch (e: any) { 
+                console.error("Upload VN Error:", e);
+                showToast(`Gagal kirim VN: ${e.message || 'Unknown error'}`, "error"); 
+            }
+            finally { setIsUploading(false); }
         }
     };
 
@@ -694,14 +724,8 @@ function App() {
         if (category === 'chaos') {
             const isUnlocked = safeStorage.get('chaos_unlocked') === 'true';
             if (!isUnlocked) {
-                const pin = prompt("Masukkan PIN Chaos Mode (18+):");
-                if (pin !== '131201') {
-                    if (navigator.vibrate) navigator.vibrate(200);
-                    showToast("Akses Ditolak. PIN Salah.", "error");
-                    return;
-                }
-                safeStorage.set('chaos_unlocked', 'true');
-                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                setShowChaosPinModal(true);
+                return;
             }
         }
 
@@ -720,6 +744,20 @@ function App() {
 
         await supabaseClient.from('Pesan').insert([{ nama: 'ORACLE', teks: payload }]);
         setFateMode(false);
+    };
+
+    const handleChaosPinSubmit = () => {
+        if (chaosPinInput === '131225') {
+            safeStorage.set('chaos_unlocked', 'true');
+            setShowChaosPinModal(false);
+            setChaosPinInput('');
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+            handleDrawFate('chaos'); // Automatically draw after unlock
+        } else {
+            if (navigator.vibrate) navigator.vibrate(200);
+            showToast("Akses Ditolak. PIN Salah.", "error");
+            setChaosPinInput('');
+        }
     };
 
     const handleViewOnce = (msg: any) => {
@@ -749,14 +787,16 @@ function App() {
                         const parsed = MessageParser.parse(msg.teks);
                         if (parsed.type === 'img') {
                             const url = parsed.content;
-                            const urlParts = url.split('/bukti/');
+                            const urlParts = url.split('/gambar/');
                             if (urlParts.length > 1) {
                                 const filePath = urlParts[1].split('?')[0];
                                 buktiFilesToRemove.push(filePath);
                             }
                         } else if (parsed.type === 'vn') {
                             const url = parsed.content;
-                            const urlParts = url.split('/voicenote/');
+                            const urlParts = url.includes('/voice%20note/') 
+                                ? url.split('/voice%20note/') 
+                                : url.split('/voice note/');
                             if (urlParts.length > 1) {
                                 const filePath = urlParts[1].split('?')[0];
                                 vnFilesToRemove.push(filePath);
@@ -766,11 +806,11 @@ function App() {
 
                     // 2. Hapus file dari storage bucket masing-masing
                     if (buktiFilesToRemove.length > 0) {
-                        const { error: storageError } = await supabaseClient.storage.from('bukti').remove(buktiFilesToRemove);
+                        const { error: storageError } = await supabaseClient.storage.from('gambar').remove(buktiFilesToRemove);
                         if (storageError) console.error("Gagal menghapus file gambar:", storageError);
                     }
                     if (vnFilesToRemove.length > 0) {
-                        const { error: storageError } = await supabaseClient.storage.from('voicenote').remove(vnFilesToRemove);
+                        const { error: storageError } = await supabaseClient.storage.from('voice note').remove(vnFilesToRemove);
                         if (storageError) console.error("Gagal menghapus file voicenote:", storageError);
                     }
                 }
@@ -948,8 +988,13 @@ function App() {
                         </label>
                     </div>
                     <button 
-                        onClick={(inputText.trim() || selectedFile) ? handleSend : handleVoiceNote} 
-                        className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-gold text-black'}`}
+                        onMouseDown={!(inputText.trim() || selectedFile) ? startRecording : undefined}
+                        onMouseUp={!(inputText.trim() || selectedFile) ? stopRecording : undefined}
+                        onMouseLeave={!(inputText.trim() || selectedFile) ? stopRecording : undefined}
+                        onTouchStart={!(inputText.trim() || selectedFile) ? startRecording : undefined}
+                        onTouchEnd={!(inputText.trim() || selectedFile) ? stopRecording : undefined}
+                        onClick={(inputText.trim() || selectedFile) ? handleSend : undefined}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all select-none ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-gold text-black'}`}
                     >
                         {(inputText.trim() || selectedFile) ? '➤' : (isRecording ? '⏹' : '🎤')}
                     </button>
@@ -978,6 +1023,27 @@ function App() {
                                     <div className="absolute inset-0 bg-gold/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 </button>
                             ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showChaosPinModal && (
+                <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[200] flex flex-col items-center justify-center p-6 animate-fade-in">
+                    <div className="w-full max-w-xs space-y-6 text-center">
+                        <h2 className="font-header text-red-500 text-xl tracking-[8px] animate-pulse">RESTRICTED AREA</h2>
+                        <p className="text-xs text-white/50 uppercase tracking-widest">Masukkan kode akses untuk membuka Chaos Mode</p>
+                        <input 
+                            type="password" 
+                            value={chaosPinInput} 
+                            onChange={e => setChaosPinInput(e.target.value)} 
+                            className="w-full bg-white/10 text-center p-3 rounded-lg tracking-[8px] text-gold outline-none focus:ring-1 ring-red-500/50"
+                            placeholder="••••••"
+                            onKeyDown={e => e.key === 'Enter' && handleChaosPinSubmit()}
+                        />
+                        <div className="flex gap-3">
+                            <button onClick={() => { setShowChaosPinModal(false); setChaosPinInput(''); }} className="flex-1 p-3 rounded-lg border border-white/10 text-white/50 hover:bg-white/5 transition-all text-xs uppercase tracking-widest">Batal</button>
+                            <button onClick={handleChaosPinSubmit} className="flex-1 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-400 font-bold hover:bg-red-500/30 transition-all text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(239,68,68,0.2)]">Buka</button>
                         </div>
                     </div>
                 </div>
