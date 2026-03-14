@@ -1,3 +1,5 @@
+import { CryptoUtils } from './crypto';
+
 export interface ReplyData {
     id: string;
     name: string;
@@ -19,6 +21,11 @@ export const MessageParser = {
         if (!rawText) return { isVO: false, replyData: null, type: 'text', content: '', originalText: '', vnDuration: null, isEdited: false };
 
         let text = rawText;
+        try {
+            const key = localStorage.getItem('enc_key') || '';
+            text = CryptoUtils.decrypt(text, key);
+        } catch (e) {}
+
         let isVO = false;
         let isEdited = false;
         let replyData: ReplyData | null = null;
@@ -83,9 +90,14 @@ export const MessageParser = {
         return { isVO, replyData, type, content, originalText: rawText, vnDuration, isEdited };
     },
 
-    getPreview: (text: string): string => {
-        if (!text) return "";
-        let currentText = text;
+    getPreview: (rawText: string): string => {
+        if (!rawText) return "";
+        let currentText = rawText;
+        try {
+            const key = localStorage.getItem('enc_key') || '';
+            currentText = CryptoUtils.decrypt(currentText, key);
+        } catch (e) {}
+
         while (true) {
             let changed = false;
             if (currentText.startsWith("[VO]")) {
@@ -120,8 +132,15 @@ export const MessageParser = {
         return currentText.length > 50 ? currentText.substring(0, 50) + "..." : currentText;
     },
 
-    parseVoiceNote: (text: string) => {
-        if (!text || !text.startsWith("[VN]")) return null;
+    parseVoiceNote: (rawText: string) => {
+        if (!rawText) return null;
+        let text = rawText;
+        try {
+            const key = localStorage.getItem('enc_key') || '';
+            text = CryptoUtils.decrypt(text, key);
+        } catch (e) {}
+
+        if (!text.startsWith("[VN]")) return null;
         const rawContent = text.substring(4).trim();
         let url = rawContent;
         let duration: number | null = null;
@@ -137,6 +156,11 @@ export const MessageParser = {
     createReplyContext: (messageObj: any): ReplyData => {
         const name = messageObj.nama.split('|')[0];
         let text = messageObj.teks;
+        try {
+            const key = localStorage.getItem('enc_key') || '';
+            text = CryptoUtils.decrypt(text, key);
+        } catch (e) {}
+
         let currentText = text;
         while (true) {
             let changed = false;

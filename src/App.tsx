@@ -10,6 +10,7 @@ import { MessageParser } from './utils/messageParser';
 import { AudioManager } from './utils/audioManager';
 import { bgmManager, AVAILABLE_BGMS } from './utils/bgmManager';
 import { StorageManager } from './utils/StorageManager';
+import { CryptoUtils } from './utils/crypto';
 
 // --- CONSTANTS & UTILS ---
 const SUPA_URL = import.meta.env.VITE_SUPA_URL || ORACLE_CONFIG?.SUPA_URL;
@@ -133,7 +134,7 @@ const MessageContent = ({ type, content, isPlayingAudio, msgId, onPlayAudio, isM
     return <p className={`font-sans ${isSecret ? 'text-xl text-center leading-relaxed' : 'text-[15px]'} leading-tight break-words whitespace-pre-wrap`}>{content}</p>;
 };
 
-const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, onPlayAudio, onVisible }: any) => {
+const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, onPlayAudio, onVisible, encryptionKey }: any) => {
     const bubbleRef = useRef<HTMLDivElement>(null);
     const [swipeX, setSwipeX] = useState(0);
     const touchStartRef = useRef(0);
@@ -154,7 +155,7 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
 
     const parsed = useMemo(() => {
         return MessageParser.parse(msg.teks);
-    }, [msg.teks]);
+    }, [msg.teks, encryptionKey]);
     
     const identity = useMemo(() => {
         const parts = msg.nama.split('|');
@@ -345,6 +346,7 @@ function App() {
     const [replyingTo, setReplyingTo] = useState<any>(null);
     const [editingMsg, setEditingMsg] = useState<any>(null);
     const [showMenu, setShowMenu] = useState(false);
+    const [encryptionKey, setEncryptionKey] = useState(() => safeStorage.get('enc_key') || '');
     const [isRecording, setIsRecording] = useState(false);
     const [viewingSecret, setViewingSecret] = useState<any>(null);
     const [pinInput, setPinInput] = useState('');
@@ -655,11 +657,15 @@ function App() {
                 if (!teks.endsWith("[EDITED]")) {
                     teks = `${teks} [EDITED]`;
                 }
-                await supabaseClient.from('Pesan').update({ teks }).eq('id', editingMsg.id);
+                const encKey = safeStorage.get('enc_key') || '';
+                const finalTeks = CryptoUtils.encrypt(teks, encKey);
+                await supabaseClient.from('Pesan').update({ teks: finalTeks }).eq('id', editingMsg.id);
                 setEditingMsg(null);
                 showToast("Pesan diperbarui", "success");
             } else {
-                await supabaseClient.from('Pesan').insert([{ nama, teks }]);
+                const encKey = safeStorage.get('enc_key') || '';
+                const finalTeks = CryptoUtils.encrypt(teks, encKey);
+                await supabaseClient.from('Pesan').insert([{ nama, teks: finalTeks }]);
             }
 
             setInputText('');
@@ -720,7 +726,9 @@ function App() {
             try {
                 const publicUrl = await storageManagerRef.current.uploadVoiceNote(blob, ext);
                 const nama = `${username}|${avatar}|${userColor}`;
-                await supabaseClient.from('Pesan').insert([{ nama, teks: `[VN]${publicUrl}` }]);
+                const encKey = safeStorage.get('enc_key') || '';
+                const finalTeks = CryptoUtils.encrypt(`[VN]${publicUrl}`, encKey);
+                await supabaseClient.from('Pesan').insert([{ nama, teks: finalTeks }]);
             } catch (e: any) { 
                 console.error("Upload VN Error:", e);
                 showToast(`Gagal kirim VN: ${e.message || 'Unknown error'}`, "error"); 
@@ -747,6 +755,10 @@ function App() {
 
     const handleStartEdit = useCallback((msg: any) => {
         const parsed = MessageParser.parse(msg.teks);
+        if (parsed.content.startsWith('🔒')) {
+            showToast("Tidak dapat mengedit pesan yang gagal didekripsi.", "error");
+            return;
+        }
         // If it's an image, we only edit the caption part
         let editContent = parsed.content;
         if (parsed.type === 'img') {
@@ -790,7 +802,10 @@ function App() {
             invoker: username
         });
 
-        await supabaseClient.from('Pesan').insert([{ nama: 'ORACLE', teks: payload }]);
+        const encKey = safeStorage.get('enc_key') || '';
+        const finalTeks = CryptoUtils.encrypt(payload, encKey);
+
+        await supabaseClient.from('Pesan').insert([{ nama: 'ORACLE', teks: finalTeks }]);
         setFateMode(false);
     };
 
@@ -1019,6 +1034,7 @@ function App() {
                         isPlayingAudio={currentAudioId === msg.id} 
                         onPlayAudio={setCurrentAudioId}
                         onVisible={handleMessageVisible}
+                        encryptionKey={encryptionKey}
                     />
                 ))}
                 {filteredMessages.length === 0 && (
@@ -1252,6 +1268,20 @@ function App() {
                                     className="w-full accent-gold h-1 bg-white/10 rounded-full appearance-none"
                                 />
                             </div>
+                        </div>
+                        <div className="px-4 py-3 border-b border-white/5">
+                            <div className="text-[10px] uppercase tracking-widest opacity-50 mb-2">Keamanan Ruangan</div>
+                            <input 
+                                type="password" 
+                                placeholder="Kunci Enkripsi (Opsional)" 
+                                value={encryptionKey}
+                                onChange={e => {
+                                    setEncryptionKey(e.target.value);
+                                    safeStorage.set('enc_key', e.target.value);
+                                }}
+                                className="w-full p-2 rounded text-xs bg-white/5 border border-white/10 outline-none focus:border-gold transition-colors text-white"
+                            />
+                            <div className="text-[8px] opacity-50 mt-1">Gunakan kunci yang sama dengan teman untuk membaca pesan rahasia.</div>
                         </div>
                         <div className="px-4 py-3 border-b border-white/5">
                             <div className="text-[10px] uppercase tracking-widest opacity-50 mb-2">Filter Chat</div>
