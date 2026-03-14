@@ -482,8 +482,15 @@ function App() {
                     const newMsg = event.payload.new;
                         setMessages(prev => [...prev, newMsg]);
                         
+                        // Decrypt nama for notifications and effects
+                        let decNama = newMsg.nama;
+                        try {
+                            const encKey = safeStorage.get('enc_key') || '';
+                            decNama = CryptoUtils.decrypt(newMsg.nama, encKey);
+                        } catch (e) {}
+
                         // Oracle Effect
-                        if (newMsg.nama === "ORACLE") {
+                        if (decNama === "ORACLE") {
                             setOracleEffect(true);
                             setTimeout(() => setOracleEffect(false), 1000);
                             if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
@@ -491,7 +498,7 @@ function App() {
 
                         // Notification logic
                         const isBackground = document.hidden || !document.hasFocus();
-                        if (isBackground && newMsg.nama.split('|')[0] !== username) {
+                        if (isBackground && decNama.split('|')[0] !== username && !decNama.startsWith('🔒')) {
                             // Play sound
                             if (notificationAudioRef.current) {
                                 notificationAudioRef.current.play().catch(() => {});
@@ -508,9 +515,9 @@ function App() {
                                 navigator.serviceWorker.ready.then(registration => {
                                     const previewText = MessageParser.getPreview(newMsg.teks) || (newMsg.teks.startsWith('[') ? 'Mengirim media...' : newMsg.teks);
 
-                                    registration.showNotification(`Pesan dari ${newMsg.nama.split('|')[0]}`, {
+                                    registration.showNotification(`Pesan dari ${decNama.split('|')[0]}`, {
                                         body: previewText,
-                                        icon: newMsg.nama.split('|')[1] || 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png',
+                                        icon: decNama.split('|')[1] || 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png',
                                         badge: 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png',
                                         tag: 'oracle-group',
                                         renotify: true,
@@ -522,8 +529,13 @@ function App() {
                     } else if (event.type === 'UPDATE') {
                         setMessages(prev => prev.map(m => m.id === event.payload.new.id ? event.payload.new : m));
                     } else if (event.type === 'TYPING') {
-                        const typer = event.payload.payload.user;
-                        if (typer && typer !== username) {
+                        let typer = event.payload.payload.user;
+                        try {
+                            const encKey = safeStorage.get('enc_key') || '';
+                            typer = CryptoUtils.decrypt(typer, encKey);
+                        } catch (e) {}
+
+                        if (typer && typer !== username && !typer.startsWith('🔒')) {
                             setTypingUsers(prev => {
                                 const next = new Set(prev);
                                 next.add(typer);
@@ -576,16 +588,26 @@ function App() {
         };
     }, [layer, username]);
 
+    const decryptedMessages = useMemo(() => {
+        return messages.map(m => {
+            let decNama = m.nama;
+            try {
+                decNama = CryptoUtils.decrypt(m.nama, encryptionKey);
+            } catch (e) {}
+            return { ...m, nama: decNama };
+        });
+    }, [messages, encryptionKey]);
+
     const filteredMessages = useMemo(() => {
-        if (filterType === 'unread') return messages.filter(m => !m.is_read && m.nama.split('|')[0] !== username);
-        if (filterType === 'sender' && filterSender) return messages.filter(m => m.nama.split('|')[0] === filterSender);
-        return messages;
-    }, [messages, filterType, filterSender, username]);
+        if (filterType === 'unread') return decryptedMessages.filter(m => !m.is_read && m.nama.split('|')[0] !== username);
+        if (filterType === 'sender' && filterSender) return decryptedMessages.filter(m => m.nama.split('|')[0] === filterSender);
+        return decryptedMessages;
+    }, [decryptedMessages, filterType, filterSender, username]);
 
     const uniqueSenders = useMemo(() => {
-        const senders = new Set(messages.map(m => m.nama.split('|')[0]));
-        return Array.from(senders).filter(s => s !== username && s !== 'ORACLE');
-    }, [messages, username]);
+        const senders = new Set(decryptedMessages.map(m => m.nama.split('|')[0]));
+        return Array.from(senders).filter(s => s !== username && s !== 'ORACLE' && !s.startsWith('🔒'));
+    }, [decryptedMessages, username]);
 
     const handleMessageVisible = useCallback((id: number) => {
         supabaseClient.from('Pesan').update({ is_read: true }).eq('id', id).then(({ error }) => {
@@ -601,10 +623,12 @@ function App() {
         if (typingTimeoutRef.current) return;
         
         if (connManagerRef.current && connManagerRef.current.channel) {
+            const encKey = safeStorage.get('enc_key') || '';
+            const encUser = CryptoUtils.encrypt(username, encKey);
             connManagerRef.current.channel.send({
                 type: 'broadcast',
                 event: 'typing',
-                payload: { user: username }
+                payload: { user: encUser }
             });
             
             typingTimeoutRef.current = setTimeout(() => {
@@ -665,7 +689,8 @@ function App() {
             } else {
                 const encKey = safeStorage.get('enc_key') || '';
                 const finalTeks = CryptoUtils.encrypt(teks, encKey);
-                await supabaseClient.from('Pesan').insert([{ nama, teks: finalTeks }]);
+                const finalNama = CryptoUtils.encrypt(nama, encKey);
+                await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
             }
 
             setInputText('');
@@ -728,7 +753,8 @@ function App() {
                 const nama = `${username}|${avatar}|${userColor}`;
                 const encKey = safeStorage.get('enc_key') || '';
                 const finalTeks = CryptoUtils.encrypt(`[VN]${publicUrl}`, encKey);
-                await supabaseClient.from('Pesan').insert([{ nama, teks: finalTeks }]);
+                const finalNama = CryptoUtils.encrypt(nama, encKey);
+                await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
             } catch (e: any) { 
                 console.error("Upload VN Error:", e);
                 showToast(`Gagal kirim VN: ${e.message || 'Unknown error'}`, "error"); 
@@ -804,8 +830,9 @@ function App() {
 
         const encKey = safeStorage.get('enc_key') || '';
         const finalTeks = CryptoUtils.encrypt(payload, encKey);
+        const finalNama = CryptoUtils.encrypt('ORACLE', encKey);
 
-        await supabaseClient.from('Pesan').insert([{ nama: 'ORACLE', teks: finalTeks }]);
+        await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
         setFateMode(false);
     };
 
@@ -1027,7 +1054,7 @@ function App() {
                     <Bubble 
                         key={msg.id} 
                         msg={msg} 
-                        isMe={msg.nama.startsWith(username)} 
+                        isMe={msg.nama.split('|')[0] === username} 
                         onReply={setReplyingTo} 
                         onEdit={handleStartEdit}
                         onViewOnce={handleViewOnce}
