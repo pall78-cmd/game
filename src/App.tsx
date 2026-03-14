@@ -378,6 +378,7 @@ function App() {
     const typingTimeoutRef = useRef<any>(null);
     const storageManagerRef = useRef<StorageManager | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     const [unreadCount, setUnreadCount] = useState(0);
     const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -662,6 +663,9 @@ function App() {
             }
 
             setInputText('');
+            if (textareaRef.current) {
+                textareaRef.current.style.height = '48px';
+            }
             setIsViewOnce(false);
             setReplyingTo(null);
         } catch (err: any) {
@@ -754,6 +758,14 @@ function App() {
         setEditingMsg(msg);
         setIsViewOnce(parsed.isVO);
         setReplyingTo(null); // Cancel reply if editing
+        
+        // Adjust textarea height
+        setTimeout(() => {
+            if (textareaRef.current) {
+                textareaRef.current.style.height = '48px';
+                textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+            }
+        }, 0);
     }, []);
 
     const handleDrawFate = async (category: string) => {
@@ -1059,7 +1071,11 @@ function App() {
                         <div className="text-xs italic truncate opacity-70">
                             Editing message...
                         </div>
-                        <button onClick={() => { setEditingMsg(null); setInputText(''); }} className="text-lg opacity-50">×</button>
+                        <button onClick={() => { 
+                            setEditingMsg(null); 
+                            setInputText(''); 
+                            if (textareaRef.current) textareaRef.current.style.height = '48px';
+                        }} className="text-lg opacity-50">×</button>
                     </div>
                 )}
                 {selectedFile && (
@@ -1079,16 +1095,22 @@ function App() {
                     <button onClick={() => setFateMode(!fateMode)} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${fateMode ? 'bg-gold text-black' : 'bg-white/10'}`}>
                         <span className="font-header text-xl">?</span>
                     </button>
-                    <div className="flex-1 relative">
-                        <input 
-                            type="text" 
+                    <div className="flex-1 relative flex items-end">
+                        <textarea 
+                            ref={textareaRef}
                             value={inputText} 
-                            onChange={e => { setInputText(e.target.value); handleTyping(); }}
+                            onChange={e => { 
+                                setInputText(e.target.value); 
+                                handleTyping(); 
+                                e.target.style.height = '48px';
+                                e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                            }}
                             placeholder="Kirim pesan..." 
-                            className="w-full h-12 bg-white/5 rounded-full px-5 pr-12 outline-none focus:ring-1 ring-gold/30 transition-all"
-                            onKeyDown={e => e.key === 'Enter' && handleSend()}
+                            className="w-full min-h-[48px] max-h-[120px] bg-white/5 rounded-[24px] px-5 py-3 pr-12 outline-none focus:ring-1 ring-gold/30 transition-all resize-none overflow-y-auto"
+                            rows={1}
+                            style={{ height: '48px' }}
                         />
-                        <label className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer opacity-40 hover:opacity-100">
+                        <label className="absolute right-4 bottom-3 cursor-pointer opacity-40 hover:opacity-100">
                             <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept="image/*" />
                             📎
                         </label>
