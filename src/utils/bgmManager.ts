@@ -1,8 +1,10 @@
+export const AVAILABLE_BGMS = [
+    { id: 'hindia', name: 'Hindia - Full Album', url: 'https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/HINDIA%20FULL%20ALBUM%20_%207%20BEST%20SONG%20OF%20HINDIA%20_%20DANIEL%20BASKARA%20PUTRA(MP3_128K).mp3' },
+    { id: 'westlife', name: 'Westlife - Greatest Hits', url: 'https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/Best%20Hits%20of%20WESTLIFE%20_%20The%20Greatest%20Hits%20of%20Westlife(MP3_128K).mp3' }
+];
+
 export class BGMManager {
-    private tracks: string[] = [
-        "https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/HINDIA%20FULL%20ALBUM%20_%207%20BEST%20SONG%20OF%20HINDIA%20_%20DANIEL%20BASKARA%20PUTRA(MP3_128K).mp3",
-        "https://rruxlxoeelxjjjmhafkc.supabase.co/storage/v1/object/public/suara/Tarot%20-%20.Feast%20_%20Lirik%20Lagu(MP3_320K).mp3"
-    ];
+    private tracks: string[] = AVAILABLE_BGMS.map(b => b.url);
     private audio: HTMLAudioElement;
     private currentTrackIndex: number = 0;
     private isPlaying: boolean = false;
@@ -15,7 +17,7 @@ export class BGMManager {
     constructor() {
         this.audio = new Audio();
         this.audio.preload = "auto";
-        this.audio.addEventListener('ended', () => this.nextTrack());
+        this.audio.loop = true; // Loop the selected track
         this.audio.addEventListener('error', () => {
             const now = Date.now();
             if (this.lastErrorTime && (now - this.lastErrorTime < 1000)) {
@@ -23,8 +25,41 @@ export class BGMManager {
                 return;
             }
             this.lastErrorTime = now;
-            this.nextTrack();
+            // Retry playing
+            if (this.isPlaying) {
+                this.audio.play().catch(() => {});
+            }
         });
+        
+        // Load saved track
+        try {
+            const savedTrack = localStorage.getItem('oracle_bgm_track');
+            if (savedTrack !== null) {
+                const idx = parseInt(savedTrack);
+                if (!isNaN(idx) && idx >= 0 && idx < this.tracks.length) {
+                    this.currentTrackIndex = idx;
+                }
+            }
+        } catch (e) {}
+    }
+
+    setTrack(index: number) {
+        if (index >= 0 && index < this.tracks.length) {
+            this.currentTrackIndex = index;
+            try {
+                localStorage.setItem('oracle_bgm_track', index.toString());
+            } catch (e) {}
+            
+            const wasPlaying = this.isPlaying;
+            this.audio.src = this.tracks[this.currentTrackIndex];
+            if (wasPlaying) {
+                this.audio.play().catch(e => console.error("Track switch play failed:", e));
+            }
+        }
+    }
+
+    getTrackIndex() {
+        return this.currentTrackIndex;
     }
 
     setVolume(vol: number) {

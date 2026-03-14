@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reply } from 'lucide-react';
 
@@ -8,7 +8,8 @@ import { ORACLE_CONFIG } from './config';
 import { GAME_DECK } from './constants/deck';
 import { MessageParser } from './utils/messageParser';
 import { AudioManager } from './utils/audioManager';
-import { bgmManager } from './utils/bgmManager';
+import { bgmManager, AVAILABLE_BGMS } from './utils/bgmManager';
+import { StorageManager } from './utils/StorageManager';
 
 // --- CONSTANTS & UTILS ---
 const SUPA_URL = import.meta.env.VITE_SUPA_URL || ORACLE_CONFIG?.SUPA_URL;
@@ -24,35 +25,6 @@ const safeStorage = {
     },
     set: (key: string, value: string) => {
         try { localStorage.setItem(key, value); } catch { }
-    }
-};
-
-const uploadImage = async (file: File) => {
-    try {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.floor(Math.random() * 1000)}.${fileExt}`;
-        const filePath = `uploads/${fileName}`;
-        
-        console.log(`Uploading image to 'gambar' bucket: ${filePath}`);
-        
-        const { error } = await supabaseClient.storage.from('gambar').upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false
-        });
-        
-        if (error) {
-            console.error("Supabase Storage Error:", error);
-            if (error.message === 'Failed to fetch' || error.message.includes('fetch')) {
-                throw new Error("Koneksi gagal (Fetch Failed). Pastikan bucket 'gambar' sudah dibuat dan memiliki policy publik.");
-            }
-            throw new Error(error.message);
-        }
-        
-        const { data: { publicUrl } } = supabaseClient.storage.from('gambar').getPublicUrl(filePath);
-        return publicUrl;
-    } catch (err: any) {
-        console.error("uploadImage Exception:", err);
-        throw err;
     }
 };
 
@@ -139,11 +111,11 @@ const FateCardDisplay = ({ raw }: { raw: string }) => {
     } catch { return <div className="p-3 text-red-500 border border-red-500/20 rounded-lg text-xs italic">Takdir yang Terdistorsi</div>; }
 };
 
-const MessageContent = ({ type, content, currentAudioId, msgId, onPlayAudio, isMe, isSecret = false }: any) => {
+const MessageContent = ({ type, content, isPlayingAudio, msgId, onPlayAudio, isMe, isSecret = false }: any) => {
     // Robust detection: if type is vn OR content starts with [VN] (fallback for parser delay)
     if (type === "vn" || (typeof content === 'string' && content.startsWith("[VN]"))) {
         const url = type === "vn" ? content : content.substring(4).trim();
-        return <AudioPlayer url={url} isPlaying={currentAudioId === msgId} onToggle={() => onPlayAudio(currentAudioId === msgId ? null : msgId)} />;
+        return <AudioPlayer url={url} isPlaying={isPlayingAudio} onToggle={() => onPlayAudio(isPlayingAudio ? null : msgId)} />;
     }
 
     if (type === "img" || (typeof content === 'string' && content.startsWith("[IMG]"))) {
@@ -161,7 +133,7 @@ const MessageContent = ({ type, content, currentAudioId, msgId, onPlayAudio, isM
     return <p className={`font-sans ${isSecret ? 'text-xl text-center leading-relaxed' : 'text-[15px]'} leading-tight break-words whitespace-pre-wrap`}>{content}</p>;
 };
 
-const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, currentAudioId, onPlayAudio, onVisible }: any) => {
+const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, onPlayAudio, onVisible }: any) => {
     const bubbleRef = useRef<HTMLDivElement>(null);
     const [swipeX, setSwipeX] = useState(0);
     const touchStartRef = useRef(0);
@@ -239,6 +211,7 @@ const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, currentAudioId, onPlay
 
     return (
         <div 
+            id={`msg-${msg.id}`}
             ref={bubbleRef}
             className={`flex w-full mb-3 animate-fade-in relative px-3 ${isMe ? 'justify-end' : 'justify-start'}`}
             onTouchStart={handleTouchStart}
@@ -266,8 +239,12 @@ const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, currentAudioId, onPlay
 
             <div className={`flex max-w-[85%] ${isMe ? 'flex-row-reverse' : 'flex-row'} items-end gap-2`}>
                 {!isMe && (
-                    <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-sm shrink-0 mb-1 avatar-animate shadow-lg">
-                        {identity.avatar}
+                    <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-sm shrink-0 mb-1 avatar-animate shadow-lg overflow-hidden">
+                        {identity.avatar.startsWith('http') || identity.avatar.startsWith('data:image') ? (
+                            <img src={identity.avatar} alt="avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        ) : (
+                            identity.avatar
+                        )}
                     </div>
                 )}
 
@@ -288,7 +265,20 @@ const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, currentAudioId, onPlay
                     )}
 
                     {parsed.replyData && (
-                        <div className="mb-2 p-2 rounded bg-black/20 border-l-4 border-gold/50 text-[10px] opacity-80 italic truncate max-w-full">
+                        <div 
+                            className="mb-2 p-2 rounded bg-black/20 border-l-4 border-gold/50 text-[10px] opacity-80 italic truncate max-w-full cursor-pointer hover:bg-black/40 transition-colors"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                const el = document.getElementById(`msg-${parsed.replyData?.id}`);
+                                if (el) {
+                                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    el.classList.add('bg-white/20', 'rounded-lg', 'transition-all', 'duration-500');
+                                    setTimeout(() => {
+                                        el.classList.remove('bg-white/20', 'rounded-lg');
+                                    }, 1500);
+                                }
+                            }}
+                        >
                             <span className="font-bold text-gold not-italic">{parsed.replyData.name}:</span> {MessageParser.getPreview(parsed.replyData.text)}
                         </div>
                     )}
@@ -307,13 +297,18 @@ const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, currentAudioId, onPlay
                                 type={parsed.type} 
                                 content={parsed.content} 
                                 msgId={msg.id} 
-                                currentAudioId={currentAudioId} 
+                                isPlayingAudio={isPlayingAudio} 
                                 onPlayAudio={onPlayAudio} 
                                 isMe={isMe} 
                             />
                         )}
                         
                         <div className="flex items-center justify-end gap-1 mt-1 self-end opacity-60">
+                            {parsed.isEdited && (
+                                <span className="text-[8px] italic mr-1">
+                                    (diedit)
+                                </span>
+                            )}
                             <span className="text-[8px] uppercase tracking-tighter">
                                 {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
@@ -328,7 +323,7 @@ const Bubble = ({ msg, isMe, onReply, onEdit, onViewOnce, currentAudioId, onPlay
             </div>
         </div>
     );
-};
+});
 
 // --- MAIN APP ---
 
@@ -356,12 +351,14 @@ function App() {
     const [showChaosPinModal, setShowChaosPinModal] = useState(false);
     const [chaosPinInput, setChaosPinInput] = useState('');
     const [isUploading, setIsUploading] = useState(false);
+    const isUploadingRef = useRef(false);
     const [connStatus, setConnStatus] = useState('OFFLINE');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [oracleEffect, setOracleEffect] = useState(false);
 
     const [bgmVolume, setBgmVolume] = useState(0.3);
     const [isBgmMuted, setIsBgmMuted] = useState(false);
+    const [bgmTrack, setBgmTrack] = useState(0);
 
     const [isIOS, setIsIOS] = useState(false);
 
@@ -379,6 +376,8 @@ function App() {
     const audioManagerRef = useRef<any>(null);
     const connManagerRef = useRef<ConnectionManager | null>(null);
     const typingTimeoutRef = useRef<any>(null);
+    const storageManagerRef = useRef<StorageManager | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [unreadCount, setUnreadCount] = useState(0);
     const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -457,8 +456,15 @@ function App() {
         if (bgm) {
             bgm.setVolume(bgmVolume);
             bgm.mute(isBgmMuted);
+            if (bgmTrack !== bgm.getTrackIndex()) {
+                bgm.setTrack(bgmTrack);
+            }
         }
-    }, [bgmVolume, isBgmMuted]);
+    }, [bgmVolume, isBgmMuted, bgmTrack]);
+
+    useEffect(() => {
+        setBgmTrack(bgmManager.getTrackIndex());
+    }, []);
 
     useEffect(() => {
         if (layer !== 'MAIN') return;
@@ -557,6 +563,7 @@ function App() {
 
         initialize();
         audioManagerRef.current = new AudioManager();
+        storageManagerRef.current = new StorageManager(supabaseClient);
         bgmManager.play();
         bgmManager.setVolume(bgmVolume);
 
@@ -604,18 +611,36 @@ function App() {
     };
 
     const handleSend = async () => {
+        if (isUploadingRef.current) return;
         if (!inputText.trim() && !selectedFile) return;
         
+        isUploadingRef.current = true;
         setIsUploading(true);
         try {
             const nama = `${username}|${avatar}|${userColor}`;
             let teks = inputText;
 
-            if (selectedFile) {
+            if (selectedFile && storageManagerRef.current) {
                 bgmManager.onImageSend();
-                const url = await uploadImage(selectedFile);
+                const url = await storageManagerRef.current.uploadImage(selectedFile);
                 teks = teks.trim() ? `[IMG]${url}\n${teks}` : `[IMG]${url}`;
-                setSelectedFile(null);
+                clearSelectedFile();
+                
+                if (editingMsg) {
+                    const parsed = MessageParser.parse(editingMsg.teks);
+                    if (parsed.replyData) {
+                        teks = `[REPLY:${JSON.stringify(parsed.replyData)}]${teks}`;
+                    }
+                }
+            } else if (editingMsg) {
+                const parsed = MessageParser.parse(editingMsg.teks);
+                if (parsed.type === 'img') {
+                    const url = parsed.content.split('\n')[0];
+                    teks = teks.trim() ? `[IMG]${url}\n${teks}` : `[IMG]${url}`;
+                }
+                if (parsed.replyData) {
+                    teks = `[REPLY:${JSON.stringify(parsed.replyData)}]${teks}`;
+                }
             }
 
             if (replyingTo) {
@@ -626,6 +651,9 @@ function App() {
             if (isViewOnce) teks = `[VO]${teks}`;
             
             if (editingMsg) {
+                if (!teks.endsWith("[EDITED]")) {
+                    teks = `${teks} [EDITED]`;
+                }
                 await supabaseClient.from('Pesan').update({ teks }).eq('id', editingMsg.id);
                 setEditingMsg(null);
                 showToast("Pesan diperbarui", "success");
@@ -639,6 +667,7 @@ function App() {
         } catch (err: any) {
             showToast(`Gagal mengirim: ${err.message}`, "error");
         } finally {
+            isUploadingRef.current = false;
             setIsUploading(false);
         }
     };
@@ -681,15 +710,11 @@ function App() {
         const result = await audioManagerRef.current.stopRecording();
         bgmManager.onVoiceNoteStop();
         
-        if (result && result.blob) {
+        if (result && result.blob && storageManagerRef.current) {
             const { blob, ext } = result;
             setIsUploading(true);
             try {
-                const fileName = `vn-${Date.now()}.${ext}`;
-                const { error } = await supabaseClient.storage.from('voice note').upload(`${fileName}`, blob);
-                if (error) throw error;
-                const { data: { publicUrl } } = supabaseClient.storage.from('voice note').getPublicUrl(`${fileName}`);
-                
+                const publicUrl = await storageManagerRef.current.uploadVoiceNote(blob, ext);
                 const nama = `${username}|${avatar}|${userColor}`;
                 await supabaseClient.from('Pesan').insert([{ nama, teks: `[VN]${publicUrl}` }]);
             } catch (e: any) { 
@@ -700,12 +725,23 @@ function App() {
         }
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) setSelectedFile(file);
+    const clearSelectedFile = () => {
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     };
 
-    const handleStartEdit = (msg: any) => {
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setSelectedFile(file);
+        } else {
+            clearSelectedFile();
+        }
+    };
+
+    const handleStartEdit = useCallback((msg: any) => {
         const parsed = MessageParser.parse(msg.teks);
         // If it's an image, we only edit the caption part
         let editContent = parsed.content;
@@ -718,7 +754,7 @@ function App() {
         setEditingMsg(msg);
         setIsViewOnce(parsed.isVO);
         setReplyingTo(null); // Cancel reply if editing
-    };
+    }, []);
 
     const handleDrawFate = async (category: string) => {
         if (category === 'chaos') {
@@ -760,7 +796,7 @@ function App() {
         }
     };
 
-    const handleViewOnce = (msg: any) => {
+    const handleViewOnce = useCallback((msg: any) => {
         const parsed = MessageParser.parse(msg.teks);
         setViewingSecret({ ...msg, ...parsed });
         
@@ -771,7 +807,7 @@ function App() {
                 setViewingSecret(null);
             });
         }, 10000); // 10 seconds to view
-    };
+    }, []);
 
     const handleDeleteHistory = async () => {
         if (confirm("⚠️ PERINGATAN: Ini akan menghapus SEMUA pesan di database secara permanen beserta file media (Gambar & VN). Lanjutkan?")) {
@@ -840,23 +876,81 @@ function App() {
     );
 
     if (layer === 'NAME') return (
-        <div className="fixed inset-0 bg-black flex flex-col items-center justify-center text-center p-4 animate-fade-in">
-            <h1 className="font-header text-2xl text-gold tracking-[8px] mb-4">IDENTITAS</h1>
-            <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Nama..." className="bg-white/10 text-center p-2 rounded-lg mb-4 w-64" />
+        <div className="fixed inset-0 bg-[#111b21] flex flex-col items-center justify-center text-center p-6 animate-fade-in">
+            <h1 className="font-header text-3xl text-gold tracking-[10px] mb-8 drop-shadow-lg">IDENTITAS</h1>
             
-            <div className="flex flex-col gap-2 mb-6 items-center">
-                <div className="flex gap-2">
-                    <input type="text" value={avatar} onChange={e => setAvatar(e.target.value)} placeholder="Avatar..." className="bg-white/10 text-center p-2 rounded-lg w-20" />
-                    <input type="color" value={userColor} onChange={e => setUserColor(e.target.value)} className="w-20 h-10 rounded-lg" />
+            <div className="relative w-32 h-32 mb-8 rounded-full bg-[#2a2f32] border-2 border-gold/50 flex items-center justify-center overflow-hidden group shadow-2xl">
+                {(avatar.startsWith('http') || avatar.startsWith('data:image')) ? (
+                    <img src={avatar} alt="avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                    <span className="text-6xl">{avatar || '👤'}</span>
+                )}
+                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-sm text-white font-bold mb-1">Ubah Foto</span>
+                    <span className="text-[10px] text-white/70">Tap untuk upload</span>
                 </div>
-                <div className="flex gap-2 text-xl">
+                <input 
+                    type="file" 
+                    accept="image/*" 
+                    className="absolute inset-0 opacity-0 cursor-pointer z-10" 
+                    onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file && storageManagerRef.current) {
+                            setIsUploading(true);
+                            try {
+                                const url = await storageManagerRef.current.uploadImage(file);
+                                setAvatar(url);
+                            } catch (err: any) {
+                                showToast("Gagal upload avatar", "error");
+                            } finally {
+                                setIsUploading(false);
+                            }
+                        }
+                    }} 
+                />
+            </div>
+
+            <div className="w-full max-w-xs flex flex-col gap-4 mb-8">
+                <div className="relative">
+                    <input 
+                        type="text" 
+                        value={username} 
+                        onChange={e => setUsername(e.target.value)} 
+                        placeholder="Nama Panggilan" 
+                        className="w-full bg-[#2a2f32] text-white text-center p-4 rounded-xl border border-white/10 focus:border-gold/50 outline-none transition-all shadow-inner placeholder:text-white/30 font-medium" 
+                    />
+                </div>
+                
+                <div className="flex gap-4 items-center justify-center bg-[#2a2f32] p-4 rounded-xl border border-white/10 shadow-md">
+                    <span className="text-xs text-white/50 uppercase tracking-widest font-bold">Warna Tema</span>
+                    <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-white/20 shadow-lg cursor-pointer">
+                        <input type="color" value={userColor} onChange={e => setUserColor(e.target.value)} className="absolute -inset-4 w-20 h-20 cursor-pointer" />
+                    </div>
+                </div>
+
+                <div className="flex gap-2 text-2xl justify-center flex-wrap bg-[#2a2f32] p-4 rounded-xl border border-white/10 shadow-md">
                     {['🔮', '👻', '💀', '👽', '🦊', '🦉', '🦋', '🕸️'].map(emoji => (
-                        <button key={emoji} onClick={() => setAvatar(emoji)} className="hover:scale-125 transition-transform">{emoji}</button>
+                        <button key={emoji} onClick={() => setAvatar(emoji)} className="hover:scale-125 transition-transform p-1">{emoji}</button>
                     ))}
                 </div>
             </div>
 
-            <button onClick={() => { safeStorage.set('oracle_user', username); safeStorage.set('oracle_avatar', avatar); safeStorage.set('oracle_color', userColor); setLayer('SECURITY'); }} className="px-8 py-2 bg-gold text-black font-bold rounded-lg shadow-lg">Lanjutkan</button>
+            <button 
+                onClick={() => { 
+                    if (!username.trim()) {
+                        showToast("Nama tidak boleh kosong", "error");
+                        return;
+                    }
+                    safeStorage.set('oracle_user', username); 
+                    safeStorage.set('oracle_avatar', avatar); 
+                    safeStorage.set('oracle_color', userColor); 
+                    setLayer('SECURITY'); 
+                }} 
+                disabled={isUploading || !username.trim()}
+                className={`w-full max-w-xs px-10 py-4 bg-gradient-to-r from-gold/80 to-gold text-black font-bold rounded-full shadow-[0_0_20px_rgba(212,175,55,0.3)] hover:shadow-[0_0_30px_rgba(212,175,55,0.5)] transition-all tracking-widest uppercase ${isUploading || !username.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+                {isUploading ? 'Menyimpan...' : 'Lanjutkan'}
+            </button>
         </div>
     );
 
@@ -910,7 +1004,7 @@ function App() {
                         onReply={setReplyingTo} 
                         onEdit={handleStartEdit}
                         onViewOnce={handleViewOnce}
-                        currentAudioId={currentAudioId} 
+                        isPlayingAudio={currentAudioId === msg.id} 
                         onPlayAudio={setCurrentAudioId}
                         onVisible={handleMessageVisible}
                     />
@@ -941,11 +1035,23 @@ function App() {
 
             <footer className="p-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-black/60 border-t border-white/10 backdrop-blur-xl z-40 shrink-0">
                 {replyingTo && (
-                    <div className="bg-white/5 p-2 rounded-t-xl flex justify-between items-center mb-2 border-l-4 border-gold">
+                    <div 
+                        className="bg-white/5 p-2 rounded-t-xl flex justify-between items-center mb-2 border-l-4 border-gold cursor-pointer hover:bg-white/10 transition-colors"
+                        onClick={() => {
+                            const el = document.getElementById(`msg-${replyingTo.id}`);
+                            if (el) {
+                                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                el.classList.add('bg-white/20', 'rounded-lg', 'transition-all', 'duration-500');
+                                setTimeout(() => {
+                                    el.classList.remove('bg-white/20', 'rounded-lg');
+                                }, 1500);
+                            }
+                        }}
+                    >
                         <div className="text-xs italic truncate opacity-70">
                             Replying to <span className="font-bold text-gold">{replyingTo.nama.split('|')[0]}</span>
                         </div>
-                        <button onClick={() => setReplyingTo(null)} className="text-lg opacity-50">×</button>
+                        <button onClick={(e) => { e.stopPropagation(); setReplyingTo(null); }} className="text-lg opacity-50 hover:opacity-100">×</button>
                     </div>
                 )}
                 {editingMsg && (
@@ -961,7 +1067,7 @@ function App() {
                         <div className="text-xs italic truncate opacity-70">
                             📎 {selectedFile.name}
                         </div>
-                        <button onClick={() => setSelectedFile(null)} className="text-lg opacity-50">×</button>
+                        <button onClick={clearSelectedFile} className="text-lg opacity-50">×</button>
                     </div>
                 )}
                 {typingUsers.size > 0 && (
@@ -983,7 +1089,7 @@ function App() {
                             onKeyDown={e => e.key === 'Enter' && handleSend()}
                         />
                         <label className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer opacity-40 hover:opacity-100">
-                            <input type="file" className="hidden" onChange={handleFileChange} accept="image/*" />
+                            <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept="image/*" />
                             📎
                         </label>
                     </div>
@@ -1058,7 +1164,7 @@ function App() {
                                 type={viewingSecret.type} 
                                 content={viewingSecret.content} 
                                 msgId="secret" 
-                                currentAudioId={currentAudioId} 
+                                isPlayingAudio={currentAudioId === "secret"} 
                                 onPlayAudio={setCurrentAudioId} 
                                 isSecret={true}
                             />
@@ -1101,6 +1207,15 @@ function App() {
                         </button>
                         <div className="px-4 py-3 border-b border-white/5">
                             <div className="text-[10px] uppercase tracking-widest opacity-50 mb-2">Background Music</div>
+                            <select 
+                                value={bgmTrack} 
+                                onChange={e => setBgmTrack(parseInt(e.target.value))}
+                                className="w-full p-2 mb-3 rounded text-xs bg-white/5 border border-white/10 outline-none text-white"
+                            >
+                                {AVAILABLE_BGMS.map((track, idx) => (
+                                    <option key={track.id} value={idx} className="bg-black text-white">{track.name}</option>
+                                ))}
+                            </select>
                             <div className="flex items-center gap-3">
                                 <button onClick={() => setIsBgmMuted(!isBgmMuted)} className="text-xl">
                                     {isBgmMuted ? '🔇' : '🔊'}

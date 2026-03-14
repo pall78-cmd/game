@@ -11,15 +11,22 @@ export interface ParsedMessage {
     content: string;
     originalText: string;
     vnDuration: number | null;
+    isEdited: boolean;
 }
 
 export const MessageParser = {
     parse: (rawText: string): ParsedMessage => {
-        if (!rawText) return { isVO: false, replyData: null, type: 'text', content: '', originalText: '', vnDuration: null };
+        if (!rawText) return { isVO: false, replyData: null, type: 'text', content: '', originalText: '', vnDuration: null, isEdited: false };
 
         let text = rawText;
         let isVO = false;
+        let isEdited = false;
         let replyData: ReplyData | null = null;
+
+        if (text.endsWith("[EDITED]")) {
+            isEdited = true;
+            text = text.substring(0, text.length - 8).trim();
+        }
 
         if (text.startsWith("[VO]")) {
             isVO = true;
@@ -73,7 +80,7 @@ export const MessageParser = {
             type = "game";
         }
 
-        return { isVO, replyData, type, content, originalText: rawText, vnDuration };
+        return { isVO, replyData, type, content, originalText: rawText, vnDuration, isEdited };
     },
 
     getPreview: (text: string): string => {
