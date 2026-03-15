@@ -29,8 +29,10 @@ export const MessageParser = {
         let isVO = false;
         let isEdited = false;
         let replyData: ReplyData | null = null;
+        let replyChain: ReplyData[] = [];
 
-        if (text.endsWith("[EDITED]")) {
+        // Handle multiple [EDITED] tags just in case
+        while (text.endsWith("[EDITED]")) {
             isEdited = true;
             text = text.substring(0, text.length - 8).trim();
         }
@@ -40,14 +42,21 @@ export const MessageParser = {
             text = text.substring(4);
         }
 
-        const replyMatch = text.match(/^\[REPLY:(.+?)\](.*)$/s);
-        if (replyMatch) {
-            try {
-                const jsonStr = replyMatch[1];
-                replyData = JSON.parse(jsonStr);
-                text = replyMatch[2]; 
-            } catch (e) {
-                console.warn("Failed to parse reply JSON:", e);
+        while (true) {
+            const replyMatch = text.match(/^\[REPLY:(.+?)\](.*)$/s);
+            if (replyMatch) {
+                try {
+                    const jsonStr = replyMatch[1];
+                    const parsedReply = JSON.parse(jsonStr);
+                    replyChain.push(parsedReply);
+                    replyData = parsedReply; // The last one is the actual direct reply if multiple exist
+                    text = replyMatch[2]; 
+                } catch (e) {
+                    console.warn("Failed to parse reply JSON:", e);
+                    break;
+                }
+            } else {
+                break;
             }
         }
 
@@ -97,6 +106,10 @@ export const MessageParser = {
             const key = localStorage.getItem('enc_key') || '';
             currentText = CryptoUtils.decrypt(currentText, key);
         } catch (e) {}
+
+        while (currentText.endsWith("[EDITED]")) {
+            currentText = currentText.substring(0, currentText.length - 8).trim();
+        }
 
         while (true) {
             let changed = false;
@@ -162,6 +175,10 @@ export const MessageParser = {
         } catch (e) {}
 
         let currentText = text;
+        while (currentText.endsWith("[EDITED]")) {
+            currentText = currentText.substring(0, currentText.length - 8).trim();
+        }
+
         while (true) {
             let changed = false;
             if (currentText.startsWith("[VO]")) {

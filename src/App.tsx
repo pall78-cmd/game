@@ -118,7 +118,23 @@ const FateCardDisplay = ({ raw }: { raw: string }) => {
     } catch { return <div className="p-3 text-red-500 border border-red-500/20 rounded-lg text-xs italic">Takdir yang Terdistorsi</div>; }
 };
 
-const MessageContent = ({ type, content, isPlayingAudio, msgId, onPlayAudio, isMe, isSecret = false }: any) => {
+const formatText = (text: string) => {
+    if (!text) return '';
+    let formatted = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    
+    formatted = formatted.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
+    formatted = formatted.replace(/_(.*?)_/g, '<em>$1</em>');
+    formatted = formatted.replace(/~(.*?)~/g, '<del>$1</del>');
+    formatted = formatted.replace(/`(.*?)`/g, '<code class="bg-black/30 rounded px-1 py-0.5 font-mono text-[0.9em]">$1</code>');
+    return formatted;
+};
+
+const MessageContent = ({ type, content, isPlayingAudio, msgId, onPlayAudio, isMe, isSecret = false, onImageClick }: any) => {
     // Robust detection: if type is vn OR content starts with [VN] (fallback for parser delay)
     if (type === "vn" || (typeof content === 'string' && content.startsWith("[VN]"))) {
         const url = type === "vn" ? content : content.substring(4).trim();
@@ -132,15 +148,26 @@ const MessageContent = ({ type, content, isPlayingAudio, msgId, onPlayAudio, isM
         const caption = parts.slice(1).join("\n");
         return (
             <div className="flex flex-col gap-2">
-                <img src={url} className={`rounded-lg ${isSecret ? 'max-h-96' : 'max-h-64'} w-full object-contain`} referrerPolicy="no-referrer" />
-                {caption && <p className={`font-sans ${isSecret ? 'text-lg text-center' : 'text-[15px]'} leading-tight break-words whitespace-pre-wrap`}>{caption}</p>}
+                <img 
+                    src={url} 
+                    className={`rounded-lg ${isSecret ? 'max-h-96' : 'max-h-64'} w-full object-contain cursor-pointer hover:opacity-90 transition-opacity`} 
+                    referrerPolicy="no-referrer" 
+                    onClick={() => onImageClick && onImageClick(url)}
+                />
+                {caption && <p 
+                    className={`font-sans ${isSecret ? 'text-lg text-center' : 'text-[15px]'} leading-tight break-words whitespace-pre-wrap`}
+                    dangerouslySetInnerHTML={{ __html: formatText(caption) }}
+                />}
             </div>
         );
     }
-    return <p className={`font-sans ${isSecret ? 'text-xl text-center leading-relaxed' : 'text-[15px]'} leading-tight break-words whitespace-pre-wrap`}>{content}</p>;
+    return <p 
+        className={`font-sans ${isSecret ? 'text-xl text-center leading-relaxed' : 'text-[15px]'} leading-tight break-words whitespace-pre-wrap`}
+        dangerouslySetInnerHTML={{ __html: formatText(content) }}
+    />;
 };
 
-const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, onPlayAudio, onVisible, encryptionKey }: any) => {
+const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, onPlayAudio, onVisible, encryptionKey, onImageClick }: any) => {
     const bubbleRef = useRef<HTMLDivElement>(null);
     const [swipeX, setSwipeX] = useState(0);
     const touchStartRef = useRef(0);
@@ -260,8 +287,8 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
                     transition={{ type: 'spring', damping: 20, stiffness: 200 }}
                     className={`relative flex flex-col p-2.5 shadow-xl transition-all ${
                         isMe 
-                        ? 'bg-[#056162] text-white rounded-2xl rounded-tr-none' 
-                        : 'bg-[#262d31] text-white rounded-2xl rounded-tl-none'
+                        ? 'bg-gradient-to-br from-[#005c4b] to-[#004d3e] border border-white/5 text-white rounded-2xl rounded-tr-none' 
+                        : 'bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/5 text-white rounded-2xl rounded-tl-none'
                     } ${parsed.isVO ? 'bg-red-950/40 border border-red-500/30 text-red-400 cursor-pointer' : ''}`}
                     onClick={() => parsed.isVO && onViewOnce(msg)}
                 >
@@ -307,6 +334,7 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
                                 isPlayingAudio={isPlayingAudio} 
                                 onPlayAudio={onPlayAudio} 
                                 isMe={isMe} 
+                                onImageClick={onImageClick}
                             />
                         )}
                         
@@ -367,6 +395,8 @@ function App() {
     const [connStatus, setConnStatus] = useState('OFFLINE');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [oracleEffect, setOracleEffect] = useState(false);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [showScrollButton, setShowScrollButton] = useState(false);
 
     const [bgmVolume, setBgmVolume] = useState(0.3);
     const [isBgmMuted, setIsBgmMuted] = useState(false);
@@ -686,8 +716,26 @@ function App() {
         }, 1000);
     }, []);
 
+    const handleScroll = useCallback(() => {
+        if (!feedRef.current) return;
+        const { scrollTop, scrollHeight, clientHeight } = feedRef.current;
+        // Show button if we are more than 150px away from the bottom
+        setShowScrollButton(scrollHeight - scrollTop - clientHeight > 150);
+    }, []);
+
+    const scrollToBottom = useCallback(() => {
+        if (feedRef.current) {
+            feedRef.current.scrollTo({
+                top: feedRef.current.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+    }, []);
+
     useEffect(() => {
-        if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
+        if (feedRef.current && !showScrollButton) {
+            feedRef.current.scrollTop = feedRef.current.scrollHeight;
+        }
     }, [filteredMessages]);
 
     const handleTyping = () => {
@@ -726,7 +774,7 @@ function App() {
                 
                 if (editingMsg) {
                     const parsed = MessageParser.parse(editingMsg.teks);
-                    if (parsed.replyData) {
+                    if (parsed.replyData && !replyingTo) {
                         teks = `[REPLY:${JSON.stringify(parsed.replyData)}]${teks}`;
                     }
                 }
@@ -736,7 +784,7 @@ function App() {
                     const url = parsed.content.split('\n')[0];
                     teks = teks.trim() ? `[IMG]${url}\n${teks}` : `[IMG]${url}`;
                 }
-                if (parsed.replyData) {
+                if (parsed.replyData && !replyingTo) {
                     teks = `[REPLY:${JSON.stringify(parsed.replyData)}]${teks}`;
                 }
             }
@@ -1095,7 +1143,7 @@ function App() {
             transition={{ duration: 0.4 }}
             className="h-[100dvh] w-full bg-void flex flex-col font-sans text-sm text-white/90 overflow-hidden overflow-x-hidden supports-[height:100dvh]:h-[100dvh]"
         >
-            <header className="flex items-center justify-between p-3 border-b border-white/10 bg-black/40 backdrop-blur-md z-50 shrink-0">
+            <header className="flex items-center justify-between p-3 border-b border-white/10 bg-black/40 backdrop-blur-xl shadow-[0_4px_30px_rgba(0,0,0,0.1)] z-50 shrink-0">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gold/20 border border-gold/40 flex items-center justify-center text-lg font-header text-gold">O</div>
                     <div>
@@ -1109,7 +1157,7 @@ function App() {
                 <button onClick={() => setShowMenu(!showMenu)} className="text-2xl opacity-60">⋮</button>
             </header>
 
-            <main ref={feedRef as any} className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
+            <main ref={feedRef as any} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
                 {filterType !== 'all' && (
                     <div className="sticky top-0 z-30 bg-black/80 backdrop-blur p-2 mb-4 rounded-lg border border-gold/20 flex justify-between items-center animate-fade-in">
                         <span className="text-xs text-gold uppercase tracking-widest">
@@ -1130,6 +1178,7 @@ function App() {
                         onPlayAudio={setCurrentAudioId}
                         onVisible={handleMessageVisible}
                         encryptionKey={encryptionKey}
+                        onImageClick={setSelectedImage}
                     />
                 ))}
                 {filteredMessages.length === 0 && (
@@ -1156,7 +1205,7 @@ function App() {
                 )}
             </AnimatePresence>
 
-            <footer className="p-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-black/60 border-t border-white/10 backdrop-blur-xl z-40 shrink-0">
+            <footer className="p-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-black/60 border-t border-white/10 backdrop-blur-2xl shadow-[0_-4px_30px_rgba(0,0,0,0.1)] z-40 shrink-0">
                 {replyingTo && (
                     <div 
                         className="bg-white/5 p-2 rounded-t-xl flex justify-between items-center mb-2 border-l-4 border-gold cursor-pointer hover:bg-white/10 transition-colors"
@@ -1198,8 +1247,13 @@ function App() {
                     </div>
                 )}
                 {typingUsers.size > 0 && (
-                    <div className="px-4 py-1 text-[10px] text-gold/70 italic animate-pulse">
-                        {Array.from(typingUsers).join(', ')} is typing...
+                    <div className="px-4 py-1 text-[10px] text-gold/70 italic flex items-center gap-1">
+                        {Array.from(typingUsers).join(', ')} is typing
+                        <span className="flex gap-0.5 ml-1">
+                            <motion.span animate={{ y: [0, -3, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0 }} className="w-1 h-1 bg-gold/70 rounded-full" />
+                            <motion.span animate={{ y: [0, -3, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.2 }} className="w-1 h-1 bg-gold/70 rounded-full" />
+                            <motion.span animate={{ y: [0, -3, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.4 }} className="w-1 h-1 bg-gold/70 rounded-full" />
+                        </span>
                     </div>
                 )}
                 <div className="flex items-center gap-2">
@@ -1329,9 +1383,42 @@ function App() {
                 </div>
             )}
 
+            <AnimatePresence>
+                {showScrollButton && (
+                    <motion.button 
+                        initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.8, y: 20 }}
+                        onClick={scrollToBottom}
+                        className="fixed bottom-24 right-4 w-10 h-10 bg-zinc-800/90 backdrop-blur-md border border-white/10 rounded-full flex items-center justify-center shadow-2xl z-[100] hover:bg-zinc-700 transition-colors"
+                    >
+                        <span className="text-white text-lg">↓</span>
+                        {unreadCount > 0 && (
+                            <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] font-bold flex items-center justify-center">
+                                {unreadCount}
+                            </span>
+                        )}
+                    </motion.button>
+                )}
+            </AnimatePresence>
+
+            {selectedImage && (
+                <div className="fixed inset-0 z-[400] bg-black/95 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in" onClick={() => setSelectedImage(null)}>
+                    <button className="absolute top-6 right-6 w-10 h-10 bg-white/10 rounded-full flex items-center justify-center text-white hover:bg-white/20 transition-colors z-[401]" onClick={() => setSelectedImage(null)}>
+                        ✕
+                    </button>
+                    <img 
+                        src={selectedImage} 
+                        className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl" 
+                        onClick={e => e.stopPropagation()}
+                        referrerPolicy="no-referrer"
+                    />
+                </div>
+            )}
+
             {showMenu && (
                 <div className="fixed inset-0 z-[150]" onClick={() => setShowMenu(false)}>
-                    <div className="absolute top-16 right-4 w-64 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl py-2 animate-fade-in" onClick={e => e.stopPropagation()}>
+                    <div className="absolute top-16 right-4 w-64 max-h-[calc(100vh-5rem)] overflow-y-auto custom-scrollbar bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl py-2 animate-fade-in" onClick={e => e.stopPropagation()}>
                         {updateAvailable && (
                             <button onClick={() => window.location.reload()} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-green-400 border-b border-white/5 font-bold animate-pulse">
                                 🔄 Update Tersedia (Klik)
