@@ -43,7 +43,13 @@ const AudioPlayer = ({ url, isPlaying, onToggle }: { url: string, isPlaying: boo
             audioRef.current?.pause();
             bgmManager.onVoiceNoteEnd();
         }
-    }, [isPlaying, onToggle]);
+
+        return () => {
+            if (isPlaying) {
+                bgmManager.onVoiceNoteEnd();
+            }
+        };
+    }, [isPlaying]); // Removed onToggle from dependencies to prevent re-running on every render
 
     return (
         <div className="flex items-center gap-3 min-w-[200px] py-2 px-3 bg-black/20 rounded-xl">
@@ -202,7 +208,7 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
 
     if (msg.nama === "ORACLE") {
         return (
-            <div ref={bubbleRef} className="flex flex-col items-center w-full my-6 px-4 animate-fade-in">
+            <div ref={bubbleRef} className="flex flex-col items-center w-full my-6 px-4 animate-slide-up">
                 <div className="w-full max-w-sm">
                     <FateCardDisplay raw={parsed.content} />
                 </div>
@@ -214,7 +220,7 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
         <div 
             id={`msg-${msg.id}`}
             ref={bubbleRef}
-            className={`flex w-full mb-3 animate-fade-in relative px-3 ${isMe ? 'justify-end' : 'justify-start'}`}
+            className={`flex w-full mb-3 animate-slide-up relative px-3 ${isMe ? 'justify-end' : 'justify-start'}`}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -351,7 +357,11 @@ function App() {
     const [viewingSecret, setViewingSecret] = useState<any>(null);
     const [pinInput, setPinInput] = useState('');
     const [showChaosPinModal, setShowChaosPinModal] = useState(false);
+    const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [chaosPinInput, setChaosPinInput] = useState('');
+    const [isChaosUnlocked, setIsChaosUnlocked] = useState(() => {
+        try { return sessionStorage.getItem('chaos_unlocked') === 'true'; } catch { return false; }
+    });
     const [isUploading, setIsUploading] = useState(false);
     const isUploadingRef = useRef(false);
     const [connStatus, setConnStatus] = useState('OFFLINE');
@@ -385,6 +395,19 @@ function App() {
     const [unreadCount, setUnreadCount] = useState(0);
     const [updateAvailable, setUpdateAvailable] = useState(false);
     const [toast, setToast] = useState<{ message: string, type: 'info' | 'error' | 'success' } | null>(null);
+
+    const [notifSettings, setNotifSettings] = useState<{ mode: 'all' | 'mention' | 'mute', cooldown: number }>(() => {
+        const saved = safeStorage.get('notif_settings');
+        return saved ? JSON.parse(saved) : { mode: 'all', cooldown: 2 };
+    });
+    const notifSettingsRef = useRef(notifSettings);
+    const pendingNotifsRef = useRef<{ [sender: string]: number }>({});
+    const notifTimeoutRef = useRef<any>(null);
+
+    useEffect(() => {
+        notifSettingsRef.current = notifSettings;
+        safeStorage.set('notif_settings', JSON.stringify(notifSettings));
+    }, [notifSettings]);
 
     const showToast = useCallback((message: string, type: 'info' | 'error' | 'success' = 'info') => {
         setToast({ message, type });
@@ -499,6 +522,17 @@ function App() {
                         // Notification logic
                         const isBackground = document.hidden || !document.hasFocus();
                         if (isBackground && decNama.split('|')[0] !== username && !decNama.startsWith('🔒')) {
+                            const settings = notifSettingsRef.current;
+                            if (settings.mode === 'mute') return;
+
+                            let decTeks = newMsg.teks;
+                            try {
+                                const encKey = safeStorage.get('enc_key') || '';
+                                decTeks = CryptoUtils.decrypt(newMsg.teks, encKey);
+                            } catch (e) {}
+
+                            if (settings.mode === 'mention' && !decTeks.includes(`@${username}`)) return;
+
                             // Play sound
                             if (notificationAudioRef.current) {
                                 notificationAudioRef.current.play().catch(() => {});
@@ -512,18 +546,42 @@ function App() {
                             });
 
                             if (Notification.permission === 'granted') {
-                                navigator.serviceWorker.ready.then(registration => {
-                                    const previewText = MessageParser.getPreview(newMsg.teks) || (newMsg.teks.startsWith('[') ? 'Mengirim media...' : newMsg.teks);
+                                const senderName = decNama.split('|')[0];
+                                pendingNotifsRef.current[senderName] = (pendingNotifsRef.current[senderName] || 0) + 1;
 
-                                    registration.showNotification(`Pesan dari ${decNama.split('|')[0]}`, {
-                                        body: previewText,
-                                        icon: decNama.split('|')[1] || 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png',
-                                        badge: 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png',
-                                        tag: 'oracle-group',
-                                        renotify: true,
-                                        vibrate: [200, 100, 200]
+                                if (notifTimeoutRef.current) clearTimeout(notifTimeoutRef.current);
+
+                                notifTimeoutRef.current = setTimeout(() => {
+                                    navigator.serviceWorker.ready.then(registration => {
+                                        const senders = Object.keys(pendingNotifsRef.current);
+                                        if (senders.length === 0) return;
+
+                                        let title = '';
+                                        let body = '';
+                                        const previewText = MessageParser.getPreview(newMsg.teks) || (decTeks.startsWith('[') ? 'Mengirim media...' : decTeks);
+
+                                        if (senders.length === 1) {
+                                            const count = pendingNotifsRef.current[senders[0]];
+                                            title = count > 1 ? `${count} pesan baru dari ${senders[0]}` : `Pesan dari ${senders[0]}`;
+                                            body = count > 1 ? `Anda memiliki ${count} pesan yang belum dibaca dari ${senders[0]}.` : previewText;
+                                        } else {
+                                            const total = Object.values(pendingNotifsRef.current).reduce((a, b) => a + b, 0);
+                                            title = `${total} pesan baru di Oracle Chamber`;
+                                            body = `Pesan dari: ${senders.join(', ')}`;
+                                        }
+
+                                        registration.showNotification(title, {
+                                            body,
+                                            icon: decNama.split('|')[1] || 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png',
+                                            badge: 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png',
+                                            tag: 'oracle-group',
+                                            renotify: true,
+                                            vibrate: [200, 100, 200]
+                                        });
+
+                                        pendingNotifsRef.current = {};
                                     });
-                                });
+                                }, settings.cooldown * 1000);
                             }
                         }
                     } else if (event.type === 'UPDATE') {
@@ -609,10 +667,23 @@ function App() {
         return Array.from(senders).filter(s => s !== username && s !== 'ORACLE' && !s.startsWith('🔒'));
     }, [decryptedMessages, username]);
 
+    const pendingReadUpdates = useRef<Set<number>>(new Set());
+    const readUpdateTimer = useRef<any>(null);
+
     const handleMessageVisible = useCallback((id: number) => {
-        supabaseClient.from('Pesan').update({ is_read: true }).eq('id', id).then(({ error }) => {
-            if (error) console.error("Failed to update read status:", error);
-        });
+        pendingReadUpdates.current.add(id);
+        
+        if (readUpdateTimer.current) clearTimeout(readUpdateTimer.current);
+        
+        readUpdateTimer.current = setTimeout(() => {
+            const idsToUpdate = Array.from(pendingReadUpdates.current);
+            if (idsToUpdate.length > 0) {
+                supabaseClient.from('Pesan').update({ is_read: true }).in('id', idsToUpdate).then(({ error }) => {
+                    if (error) console.error("Failed to update read status:", error);
+                });
+                pendingReadUpdates.current.clear();
+            }
+        }, 1000);
     }, []);
 
     useEffect(() => {
@@ -806,13 +877,10 @@ function App() {
         }, 0);
     }, []);
 
-    const handleDrawFate = async (category: string) => {
-        if (category === 'chaos') {
-            const isUnlocked = safeStorage.get('chaos_unlocked') === 'true';
-            if (!isUnlocked) {
-                setShowChaosPinModal(true);
-                return;
-            }
+    const handleDrawFate = async (category: string, skipPin = false) => {
+        if (category === 'chaos' && !skipPin && !isChaosUnlocked) {
+            setShowChaosPinModal(true);
+            return;
         }
 
         bgmManager.onFateCardDraw();
@@ -838,11 +906,12 @@ function App() {
 
     const handleChaosPinSubmit = () => {
         if (chaosPinInput === '131225') {
-            safeStorage.set('chaos_unlocked', 'true');
+            try { sessionStorage.setItem('chaos_unlocked', 'true'); } catch {}
+            setIsChaosUnlocked(true);
             setShowChaosPinModal(false);
             setChaosPinInput('');
             if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-            handleDrawFate('chaos'); // Automatically draw after unlock
+            handleDrawFate('chaos', true); // Automatically draw after unlock
         } else {
             if (navigator.vibrate) navigator.vibrate(200);
             showToast("Akses Ditolak. PIN Salah.", "error");
@@ -864,57 +933,56 @@ function App() {
     }, []);
 
     const handleDeleteHistory = async () => {
-        if (confirm("⚠️ PERINGATAN: Ini akan menghapus SEMUA pesan di database secara permanen beserta file media (Gambar & VN). Lanjutkan?")) {
-            try {
-                // 1. Ambil semua pesan untuk mencari file media
-                const { data: messagesToDelete } = await supabaseClient.from('Pesan').select('teks');
+        setShowDeleteConfirmModal(false);
+        try {
+            // 1. Ambil semua pesan untuk mencari file media
+            const { data: messagesToDelete } = await supabaseClient.from('Pesan').select('teks');
+            
+            if (messagesToDelete && messagesToDelete.length > 0) {
+                const buktiFilesToRemove: string[] = [];
+                const vnFilesToRemove: string[] = [];
                 
-                if (messagesToDelete && messagesToDelete.length > 0) {
-                    const buktiFilesToRemove: string[] = [];
-                    const vnFilesToRemove: string[] = [];
-                    
-                    messagesToDelete.forEach(msg => {
-                        const parsed = MessageParser.parse(msg.teks);
-                        if (parsed.type === 'img') {
-                            const url = parsed.content;
-                            const urlParts = url.split('/gambar/');
-                            if (urlParts.length > 1) {
-                                const filePath = urlParts[1].split('?')[0];
-                                buktiFilesToRemove.push(filePath);
-                            }
-                        } else if (parsed.type === 'vn') {
-                            const url = parsed.content;
-                            const urlParts = url.includes('/voice%20note/') 
-                                ? url.split('/voice%20note/') 
-                                : url.split('/voice note/');
-                            if (urlParts.length > 1) {
-                                const filePath = urlParts[1].split('?')[0];
-                                vnFilesToRemove.push(filePath);
-                            }
+                messagesToDelete.forEach(msg => {
+                    const parsed = MessageParser.parse(msg.teks);
+                    if (parsed.type === 'img') {
+                        const url = parsed.content;
+                        const urlParts = url.split('/gambar/');
+                        if (urlParts.length > 1) {
+                            const filePath = urlParts[1].split('?')[0];
+                            buktiFilesToRemove.push(filePath);
                         }
-                    });
+                    } else if (parsed.type === 'vn') {
+                        const url = parsed.content;
+                        const urlParts = url.includes('/voice%20note/') 
+                            ? url.split('/voice%20note/') 
+                            : url.split('/voice note/');
+                        if (urlParts.length > 1) {
+                            const filePath = urlParts[1].split('?')[0];
+                            vnFilesToRemove.push(filePath);
+                        }
+                    }
+                });
 
-                    // 2. Hapus file dari storage bucket masing-masing
-                    if (buktiFilesToRemove.length > 0) {
-                        const { error: storageError } = await supabaseClient.storage.from('gambar').remove(buktiFilesToRemove);
-                        if (storageError) console.error("Gagal menghapus file gambar:", storageError);
-                    }
-                    if (vnFilesToRemove.length > 0) {
-                        const { error: storageError } = await supabaseClient.storage.from('voice note').remove(vnFilesToRemove);
-                        if (storageError) console.error("Gagal menghapus file voicenote:", storageError);
-                    }
+                // 2. Hapus file dari storage bucket masing-masing
+                if (buktiFilesToRemove.length > 0) {
+                    const { error: storageError } = await supabaseClient.storage.from('gambar').remove(buktiFilesToRemove);
+                    if (storageError) console.error("Gagal menghapus file gambar:", storageError);
                 }
-
-                // 3. Hapus semua pesan dari database
-                const { error } = await supabaseClient.from('Pesan').delete().neq('id', 0);
-                if (error) throw error;
-                
-                setMessages([]);
-                showToast("Riwayat pesan dan media telah dibersihkan.", "success");
-                setTimeout(() => window.location.reload(), 1500);
-            } catch (err: any) {
-                showToast("Gagal menghapus: " + err.message, "error");
+                if (vnFilesToRemove.length > 0) {
+                    const { error: storageError } = await supabaseClient.storage.from('voice note').remove(vnFilesToRemove);
+                    if (storageError) console.error("Gagal menghapus file voicenote:", storageError);
+                }
             }
+
+            // 3. Hapus semua pesan dari database
+            const { error } = await supabaseClient.from('Pesan').delete().neq('id', 0);
+            if (error) throw error;
+            
+            setMessages([]);
+            showToast("Riwayat pesan dan media telah dibersihkan.", "success");
+            setTimeout(() => window.location.reload(), 1500);
+        } catch (err: any) {
+            showToast("Gagal menghapus: " + err.message, "error");
         }
     };
 
@@ -1199,6 +1267,22 @@ function App() {
                 </div>
             )}
 
+            {showDeleteConfirmModal && (
+                <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[200] flex flex-col items-center justify-center p-6 animate-fade-in" onClick={() => setShowDeleteConfirmModal(false)}>
+                    <div className="w-full max-w-xs space-y-4 bg-zinc-900 border border-red-500/50 rounded-2xl p-6 text-center" onClick={e => e.stopPropagation()}>
+                        <div className="text-4xl mb-2">⚠️</div>
+                        <h2 className="font-header text-red-500 text-xl tracking-[4px]">PERINGATAN</h2>
+                        <p className="text-xs text-white/70 leading-relaxed">
+                            Ini akan menghapus SEMUA pesan di database secara permanen beserta file media (Gambar & VN). Tindakan ini tidak dapat dibatalkan. Lanjutkan?
+                        </p>
+                        <div className="flex gap-3 pt-4">
+                            <button onClick={() => setShowDeleteConfirmModal(false)} className="flex-1 py-2 rounded-lg bg-white/10 text-white text-xs font-bold tracking-widest uppercase hover:bg-white/20 transition-colors">Batal</button>
+                            <button onClick={handleDeleteHistory} className="flex-1 py-2 rounded-lg bg-red-500/20 text-red-500 border border-red-500/50 text-xs font-bold tracking-widest uppercase hover:bg-red-500/40 transition-colors">Hapus</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {showChaosPinModal && (
                 <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[200] flex flex-col items-center justify-center p-6 animate-fade-in">
                     <div className="w-full max-w-xs space-y-6 text-center">
@@ -1324,21 +1408,46 @@ function App() {
                                 </select>
                             </div>
                         </div>
-                        <button onClick={async () => {
-                            const permission = await Notification.requestPermission();
-                            if (permission === 'granted') {
-                                showToast("Notifikasi diaktifkan!", "success");
-                                navigator.serviceWorker.ready.then(reg => {
-                                    reg.showNotification('Oracle Chamber', {
-                                        body: 'Takdir akan selalu bersamamu.',
-                                        tag: 'oracle-system',
-                                        icon: 'https://cdn-icons-png.flaticon.com/512/1684/1684426.png'
-                                    });
-                                });
-                            } else {
-                                showToast("Izin ditolak. Jika di iOS, gunakan 'Add to Home Screen'.", "error");
-                            }
-                        }} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5">🔔 Aktifkan Notifikasi</button>
+                        <div className="px-4 py-3 border-t border-white/5 bg-white/5">
+                            <div className="text-[10px] uppercase tracking-widest text-gold font-bold mb-2">Notifikasi & Privasi</div>
+                            <div className="space-y-2">
+                                <button onClick={async () => {
+                                    const permission = await Notification.requestPermission();
+                                    if (permission === 'granted') {
+                                        showToast("Izin Notifikasi Diberikan!", "success");
+                                    } else {
+                                        showToast("Izin ditolak. Jika di iOS, gunakan 'Add to Home Screen'.", "error");
+                                    }
+                                }} className="w-full text-left py-1 text-xs opacity-80 hover:opacity-100 transition-opacity">🔔 Minta Izin Notifikasi</button>
+                                
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] opacity-60">Mode Notifikasi</label>
+                                    <select 
+                                        className="bg-black/50 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-gold/50"
+                                        value={notifSettings.mode}
+                                        onChange={(e) => setNotifSettings(prev => ({ ...prev, mode: e.target.value as any }))}
+                                    >
+                                        <option value="all">Semua Pesan</option>
+                                        <option value="mention">Hanya Mention (@nama)</option>
+                                        <option value="mute">Senyap (Mute)</option>
+                                    </select>
+                                </div>
+
+                                <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] opacity-60">Anti-Spam (Grup Notifikasi)</label>
+                                    <select 
+                                        className="bg-black/50 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-gold/50"
+                                        value={notifSettings.cooldown}
+                                        onChange={(e) => setNotifSettings(prev => ({ ...prev, cooldown: parseInt(e.target.value) }))}
+                                    >
+                                        <option value="2">Cepat (2 Detik)</option>
+                                        <option value="10">Sedang (10 Detik)</option>
+                                        <option value="30">Lambat (30 Detik)</option>
+                                        <option value="60">Sangat Lambat (1 Menit)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
                         
                         <div className="px-4 py-3 border-t border-white/5 bg-white/5">
                             <div className="text-[10px] uppercase tracking-widest text-gold font-bold mb-2">Maintenance & System</div>
@@ -1359,9 +1468,10 @@ function App() {
                             </div>
                         </div>
 
-                        <button onClick={handleDeleteHistory} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-red-400 border-t border-white/5">🗑️ Hapus Riwayat</button>
+                        <button onClick={() => setShowDeleteConfirmModal(true)} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-red-400 border-t border-white/5">🗑️ Hapus Riwayat</button>
                         <button onClick={() => {
                             localStorage.clear();
+                            sessionStorage.clear();
                             window.location.reload();
                         }} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-red-400">🚪 Reset Identitas</button>
                         <div className="px-4 py-2 text-[8px] text-white/20 text-center uppercase tracking-widest border-t border-white/5">
