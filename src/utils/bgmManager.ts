@@ -13,6 +13,7 @@ export class BGMManager {
     private fadeInterval: any = null;
     private lastErrorTime: number = 0;
     private autoplayFailed: boolean = false;
+    private activeInteractions: Set<string> = new Set();
 
     constructor() {
         this.audio = new Audio();
@@ -83,6 +84,7 @@ export class BGMManager {
     }
 
     play() {
+        if (this.activeInteractions.size > 0) return;
         if (this.isPlaying) return;
         if (!this.audio.src || this.audio.src === window.location.href) {
             this.audio.src = this.tracks[this.currentTrackIndex];
@@ -170,30 +172,52 @@ export class BGMManager {
         this.fadeTo(this.userVolume);
     }
 
-    onFateCardDraw() {
+    addInteraction(id: string) {
+        this.activeInteractions.add(id);
         this.pause();
-        setTimeout(() => this.play(), 5000);
+    }
+
+    removeInteraction(id: string) {
+        this.activeInteractions.delete(id);
+        if (this.activeInteractions.size === 0) {
+            this.play();
+        }
+    }
+
+    onFateCardDraw() {
+        const id = 'fate_' + Date.now();
+        this.addInteraction(id);
+        setTimeout(() => this.removeInteraction(id), 5000);
     }
 
     onImageSend() {
-        this.pause();
-        setTimeout(() => this.play(), 2000);
+        const id = 'img_send_' + Date.now();
+        this.addInteraction(id);
+        setTimeout(() => this.removeInteraction(id), 2000);
+    }
+
+    onImageOpen() {
+        this.addInteraction('img_open');
+    }
+
+    onImageClose() {
+        this.removeInteraction('img_open');
     }
 
     onVoiceNoteStart() {
-        this.pause();
+        this.addInteraction('vn_record');
     }
 
     onVoiceNoteStop() {
-        this.play();
+        this.removeInteraction('vn_record');
     }
     
     onVoiceNotePlay() {
-        this.pause();
+        this.addInteraction('vn_play');
     }
     
     onVoiceNoteEnd() {
-        this.play();
+        this.removeInteraction('vn_play');
     }
 }
 

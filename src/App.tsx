@@ -171,9 +171,15 @@ const MessageContent = ({ type, content, isPlayingAudio, msgId, onPlayAudio, isM
             <div className="flex flex-col gap-2">
                 <img 
                     src={url} 
-                    className={`rounded-lg ${isSecret ? 'max-h-96' : 'max-h-64'} w-full object-contain cursor-pointer hover:opacity-90 transition-opacity`} 
+                    className={`rounded-lg ${isSecret ? 'max-h-96 pointer-events-none select-none' : 'max-h-64'} w-full object-contain cursor-pointer hover:opacity-90 transition-opacity`} 
                     referrerPolicy="no-referrer" 
-                    onClick={() => onImageClick && onImageClick(url)}
+                    onClick={() => !isSecret && onImageClick && onImageClick(url)}
+                    onLoad={() => {
+                        const evt = new CustomEvent('imageLoaded');
+                        window.dispatchEvent(evt);
+                    }}
+                    onContextMenu={(e) => isSecret && e.preventDefault()}
+                    draggable={!isSecret}
                 />
                 {caption && <p 
                     className={`font-sans ${isSecret ? 'text-lg text-center' : 'text-[15px]'} leading-tight break-words whitespace-pre-wrap`}
@@ -408,7 +414,7 @@ function App() {
     const [showChaosPinModal, setShowChaosPinModal] = useState(false);
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [showPatchNotes, setShowPatchNotes] = useState(() => {
-        try { return safeStorage.get('patch_v17_10_seen') !== 'true'; } catch { return false; }
+        try { return safeStorage.get('patch_v17_11_seen') !== 'true'; } catch { return false; }
     });
     const [chaosPinInput, setChaosPinInput] = useState('');
     const [isChaosUnlocked, setIsChaosUnlocked] = useState(() => {
@@ -422,6 +428,14 @@ function App() {
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [showScrollButton, setShowScrollButton] = useState(false);
     const showScrollButtonRef = useRef(false);
+
+    useEffect(() => {
+        if (selectedImage) {
+            bgmManager.onImageOpen();
+        } else {
+            bgmManager.onImageClose();
+        }
+    }, [selectedImage]);
 
     useEffect(() => {
         showScrollButtonRef.current = showScrollButton;
@@ -747,6 +761,13 @@ function App() {
         }, 1000);
     }, []);
 
+    useEffect(() => {
+        if (textareaRef.current) {
+            textareaRef.current.style.height = '48px';
+            textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
+        }
+    }, [inputText]);
+
     const handleScroll = useCallback(() => {
         if (!feedRef.current) return;
         const { scrollTop, scrollHeight, clientHeight } = feedRef.current;
@@ -769,6 +790,16 @@ function App() {
             setUnreadCount(0);
         }
     }, []);
+
+    useEffect(() => {
+        const handleImageLoad = () => {
+            if (!showScrollButtonRef.current) {
+                scrollToBottom();
+            }
+        };
+        window.addEventListener('imageLoaded', handleImageLoad);
+        return () => window.removeEventListener('imageLoaded', handleImageLoad);
+    }, [scrollToBottom]);
 
     const forceScrollRef = useRef(false);
 
@@ -1355,11 +1386,9 @@ function App() {
                             onChange={e => { 
                                 setInputText(e.target.value); 
                                 handleTyping(); 
-                                e.target.style.height = '48px';
-                                e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
                             }}
                             placeholder="Kirim pesan..." 
-                            className="w-full min-h-[48px] max-h-[120px] bg-white/5 rounded-[24px] px-5 py-3 pr-12 outline-none focus:ring-1 ring-gold/30 transition-all resize-none overflow-y-auto"
+                            className="w-full min-h-[48px] max-h-[120px] bg-white/5 rounded-[24px] px-5 py-3 pr-12 outline-none focus:ring-1 ring-gold/30 transition-all resize-none overflow-y-auto custom-scrollbar"
                             rows={1}
                             style={{ height: '48px' }}
                         />
@@ -1428,43 +1457,43 @@ function App() {
             {showPatchNotes && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[200] flex flex-col items-center justify-center p-6 animate-fade-in" onClick={() => {
                     setShowPatchNotes(false);
-                    safeStorage.set('patch_v17_10_seen', 'true');
+                    safeStorage.set('patch_v17_11_seen', 'true');
                 }}>
                     <div className="w-full max-w-md space-y-4 bg-zinc-900 border border-gold/30 rounded-2xl p-6 relative overflow-hidden" onClick={e => e.stopPropagation()}>
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gold/20 via-gold to-gold/20"></div>
                         <div className="flex justify-between items-start">
                             <div>
                                 <h2 className="font-header text-gold text-2xl tracking-widest">ORACLE UPDATE</h2>
-                                <p className="text-[10px] text-white/50 uppercase tracking-widest mt-1">Version 17.10 - The Awakening</p>
+                                <p className="text-[10px] text-white/50 uppercase tracking-widest mt-1">Version 17.11 - The Refinement</p>
                             </div>
                             <button onClick={() => {
                                 setShowPatchNotes(false);
-                                safeStorage.set('patch_v17_10_seen', 'true');
+                                safeStorage.set('patch_v17_11_seen', 'true');
                             }} className="text-white/50 hover:text-white text-xl">×</button>
                         </div>
                         
                         <div className="space-y-4 mt-6 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
                             <div className="space-y-1">
-                                <h3 className="text-sm font-bold text-white flex items-center gap-2">📅 Date Separators</h3>
-                                <p className="text-xs text-white/70 leading-relaxed">Pesan sekarang dikelompokkan berdasarkan tanggal (Hari Ini, Kemarin, dll) untuk navigasi yang lebih mudah.</p>
+                                <h3 className="text-sm font-bold text-white flex items-center gap-2">🎤 Studio-Grade Voice Notes</h3>
+                                <p className="text-xs text-white/70 leading-relaxed">Kualitas rekaman suara ditingkatkan ke 128kbps (High-Fidelity) dengan peredam bising otomatis. Suara tidak lagi "mendem" atau terkompresi berlebihan.</p>
                             </div>
                             <div className="space-y-1">
-                                <h3 className="text-sm font-bold text-white flex items-center gap-2">🔗 Smart Link Recognition</h3>
-                                <p className="text-xs text-white/70 leading-relaxed">Tautan (URL) yang dikirim dalam pesan sekarang dapat diklik secara langsung.</p>
+                                <h3 className="text-sm font-bold text-white flex items-center gap-2">💬 Smart Reply Layout</h3>
+                                <p className="text-xs text-white/70 leading-relaxed">Teks balasan (reply) yang panjang sekarang dibungkus rapi ke bawah dan tidak lagi merusak dimensi layar.</p>
                             </div>
                             <div className="space-y-1">
-                                <h3 className="text-sm font-bold text-white flex items-center gap-2">🎵 Voice Note Visualizer</h3>
-                                <p className="text-xs text-white/70 leading-relaxed">Animasi equalizer baru yang elegan saat memutar Voice Note.</p>
+                                <h3 className="text-sm font-bold text-white flex items-center gap-2">📜 Auto-Scroll & Image Fixes</h3>
+                                <p className="text-xs text-white/70 leading-relaxed">Layar akan otomatis turun saat Anda mengirim pesan atau saat gambar selesai dimuat. Gambar "Sekali Lihat" sekarang dilindungi dari klik kanan.</p>
                             </div>
                             <div className="space-y-1">
-                                <h3 className="text-sm font-bold text-white flex items-center gap-2">✨ UI/UX Enhancements</h3>
-                                <p className="text-xs text-white/70 leading-relaxed">Peningkatan desain glassmorphism, gradasi bubble chat, dan animasi indikator mengetik.</p>
+                                <h3 className="text-sm font-bold text-white flex items-center gap-2">🔔 Unread Count Accuracy</h3>
+                                <p className="text-xs text-white/70 leading-relaxed">Notifikasi angka merah sekarang jauh lebih akurat saat Anda sedang scroll ke atas membaca pesan lama.</p>
                             </div>
                         </div>
 
                         <button onClick={() => {
                             setShowPatchNotes(false);
-                            safeStorage.set('patch_v17_10_seen', 'true');
+                            safeStorage.set('patch_v17_11_seen', 'true');
                         }} className="w-full py-3 mt-4 rounded-xl bg-gold text-black text-xs font-bold tracking-widest uppercase hover:bg-yellow-500 transition-colors shadow-[0_0_15px_rgba(212,175,55,0.3)]">
                             Lanjutkan
                         </button>
