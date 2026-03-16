@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Reply } from 'lucide-react';
+import { Reply, Check, CheckCheck } from 'lucide-react';
 
 import { ConnectionManager } from './utils/ConnectionManager';
 import { supabaseClient } from '../supabase';
@@ -33,6 +33,8 @@ const safeStorage = {
 
 const AudioPlayer = ({ url, isPlaying, onToggle }: { url: string, isPlaying: boolean, onToggle: () => void }) => {
     const [progress, setProgress] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [currentTime, setCurrentTime] = useState(0);
     const audioRef = useRef<HTMLAudioElement>(null);
 
     useEffect(() => {
@@ -50,6 +52,13 @@ const AudioPlayer = ({ url, isPlaying, onToggle }: { url: string, isPlaying: boo
             }
         };
     }, [isPlaying]); // Removed onToggle from dependencies to prevent re-running on every render
+
+    const formatTime = (time: number) => {
+        if (isNaN(time) || !isFinite(time)) return "0:00";
+        const minutes = Math.floor(time / 60);
+        const seconds = Math.floor(time % 60);
+        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    };
 
     return (
         <div className="flex items-center gap-3 min-w-[200px] py-2 px-3 bg-black/20 rounded-xl">
@@ -74,15 +83,30 @@ const AudioPlayer = ({ url, isPlaying, onToggle }: { url: string, isPlaying: boo
                         />
                     ))}
                 </div>
-                <div className="h-1 bg-white/10 rounded-full overflow-hidden w-full">
-                    <div className="h-full bg-gold transition-all duration-100" style={{ width: `${progress}%` }}></div>
+                <div className="flex items-center justify-between gap-2">
+                    <div className="h-1 bg-white/10 rounded-full overflow-hidden w-full">
+                        <div className="h-full bg-gold transition-all duration-100" style={{ width: `${progress}%` }}></div>
+                    </div>
+                    <span className="text-[9px] text-white/60 font-mono tracking-tighter shrink-0">
+                        {formatTime(currentTime)} / {formatTime(duration)}
+                    </span>
                 </div>
             </div>
             <audio 
                 ref={audioRef} 
                 src={url} 
-                onTimeUpdate={() => setProgress(audioRef.current ? (audioRef.current.currentTime / audioRef.current.duration) * 100 : 0)} 
-                onEnded={onToggle} 
+                onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
+                onTimeUpdate={() => {
+                    if (audioRef.current) {
+                        setCurrentTime(audioRef.current.currentTime);
+                        setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
+                    }
+                }} 
+                onEnded={() => {
+                    onToggle();
+                    setCurrentTime(0);
+                    setProgress(0);
+                }} 
                 className="hidden" 
             />
         </div>
@@ -375,8 +399,28 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
                                 {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </span>
                             {isMe && (
-                                <span className={`text-[10px] font-bold leading-none ${msg.is_read ? 'text-[#34b7f1]' : 'text-white/40'}`}>
-                                    {msg.is_read ? '✓✓' : '✓'}
+                                <span className={`flex items-center ml-1 ${msg.is_read ? 'text-[#34b7f1]' : 'text-white/40'}`}>
+                                    <AnimatePresence mode="wait">
+                                        {msg.is_read ? (
+                                            <motion.div
+                                                key="read"
+                                                initial={{ scale: 0.5, opacity: 0 }}
+                                                animate={{ scale: 1, opacity: 1 }}
+                                                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                                            >
+                                                <CheckCheck size={14} strokeWidth={2.5} />
+                                            </motion.div>
+                                        ) : (
+                                            <motion.div
+                                                key="unread"
+                                                initial={{ scale: 0.5, opacity: 0 }}
+                                                animate={{ scale: 1, opacity: 1 }}
+                                                exit={{ scale: 0.5, opacity: 0 }}
+                                            >
+                                                <Check size={14} strokeWidth={2.5} />
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
                                 </span>
                             )}
                         </div>
@@ -1580,88 +1624,92 @@ function App() {
                 </div>
             )}
 
-            {showMenu && (
-                <div className="fixed inset-0 z-[150]" onClick={() => setShowMenu(false)}>
-                    <div className="absolute top-16 right-4 w-64 max-h-[calc(100vh-5rem)] overflow-y-auto custom-scrollbar bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl py-2 animate-fade-in" onClick={e => e.stopPropagation()}>
+            <AnimatePresence>
+                {showMenu && (
+                    <motion.div 
+                        initial={{ opacity: 0, y: "100%" }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: "100%" }}
+                        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                        className="fixed inset-0 z-[500] bg-zinc-950/95 backdrop-blur-xl flex flex-col"
+                    >
+                        <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black/50 sticky top-0 z-10">
+                            <h2 className="font-header text-xl text-gold tracking-[5px]">PENGATURAN</h2>
+                            <button onClick={() => setShowMenu(false)} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white transition-colors">✕</button>
+                        </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:max-w-3xl lg:mx-auto lg:w-full space-y-8 custom-scrollbar pb-24">
+                        
                         {updateAvailable && (
-                            <button onClick={() => window.location.reload()} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-green-400 border-b border-white/5 font-bold animate-pulse">
-                                🔄 Update Tersedia (Klik)
+                            <button onClick={() => window.location.reload()} className="w-full text-center px-4 py-4 rounded-xl bg-green-500/20 border border-green-500/50 text-green-400 font-bold animate-pulse shadow-[0_0_15px_rgba(34,197,94,0.2)]">
+                                🔄 UPDATE TERSEDIA - KLIK UNTUK MEMPERBARUI
                             </button>
                         )}
-                        {isIOS && (
-                            <div className="px-4 py-3 text-xs uppercase tracking-widest text-gold border-b border-white/5">
-                                📱 Install: Tap Share → Add to Home Screen
+
+                        {/* AUDIO & NOTIFIKASI */}
+                        <section className="space-y-4">
+                            <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+                                <span className="text-gold text-lg">🎵</span>
+                                <h3 className="text-sm font-bold text-white uppercase tracking-widest">Audio & Notifikasi</h3>
                             </div>
-                        )}
-                        {/* Always show install button for debugging, but handle the case where deferredPrompt is null */}
-                        <button onClick={async () => {
-                            if (deferredPrompt) {
-                                deferredPrompt.prompt();
-                                const { outcome } = await deferredPrompt.userChoice;
-                                if (outcome === 'accepted') setDeferredPrompt(null);
-                            } else {
-                                showToast("Gunakan menu browser untuk install (Add to Home Screen)", "info");
-                            }
-                        }} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-gold border-b border-white/5 font-bold animate-pulse">
-                            ⬇️ Install Aplikasi
-                        </button>
-                        <div className="px-4 py-3 border-b border-white/5">
-                            <div className="text-[10px] uppercase tracking-widest opacity-50 mb-2">Background Music</div>
-                            <select 
-                                value={bgmTrack} 
-                                onChange={e => setBgmTrack(parseInt(e.target.value))}
-                                className="w-full p-2 mb-3 rounded text-xs bg-white/5 border border-white/10 outline-none text-white"
-                            >
-                                {AVAILABLE_BGMS.map((track, idx) => (
-                                    <option key={track.id} value={idx} className="bg-black text-white">{track.name}</option>
-                                ))}
-                            </select>
-                            <div className="flex items-center gap-3">
-                                <button onClick={() => setIsBgmMuted(!isBgmMuted)} className="text-xl">
-                                    {isBgmMuted ? '🔇' : '🔊'}
-                                </button>
-                                <input 
-                                    type="range" 
-                                    min="0" 
-                                    max="1" 
-                                    step="0.1" 
-                                    value={bgmVolume} 
-                                    onChange={e => setBgmVolume(parseFloat(e.target.value))} 
-                                    className="w-full accent-gold h-1 bg-white/10 rounded-full appearance-none"
-                                />
-                            </div>
-                        </div>
-                        <div className="px-4 py-3 border-b border-white/5">
-                            <div className="text-[10px] uppercase tracking-widest opacity-50 mb-2">Keamanan Ruangan</div>
-                            <input 
-                                type="password" 
-                                placeholder="Kunci Enkripsi (Opsional)" 
-                                value={encryptionKey}
-                                onChange={e => {
-                                    setEncryptionKey(e.target.value);
-                                    safeStorage.set('enc_key', e.target.value);
-                                }}
-                                className="w-full p-2 rounded text-xs bg-white/5 border border-white/10 outline-none focus:border-gold transition-colors text-white"
-                            />
-                            <div className="text-[8px] opacity-50 mt-1">Gunakan kunci yang sama dengan teman untuk membaca pesan rahasia.</div>
-                        </div>
-                        <div className="px-4 py-3 border-b border-white/5">
-                            <div className="text-[10px] uppercase tracking-widest opacity-50 mb-2">Filter Chat</div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <button onClick={() => setFilterType('unread')} className={`p-2 rounded text-xs border ${filterType === 'unread' ? 'bg-gold text-black border-gold' : 'bg-white/5 border-white/10'}`}>Belum Dibaca</button>
-                                <select 
-                                    onChange={e => { setFilterType('sender'); setFilterSender(e.target.value); }} 
-                                    className="p-2 rounded text-xs bg-white/5 border border-white/10 outline-none"
-                                    value={filterSender}
-                                >
-                                    <option value="">Pilih Pengirim</option>
-                                    {uniqueSenders.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                            </div>
-                        </div>
-                        <div className="px-4 py-3 border-t border-white/5 bg-white/5">
-                            <div className="text-[10px] uppercase tracking-widest text-gold font-bold mb-2">Notifikasi & Privasi</div>
-                            <div className="space-y-2">
+                            
+                            <div className="bg-white/5 rounded-xl p-4 space-y-4 border border-white/5">
+                                <div>
+                                    <label className="block text-xs text-white/60 uppercase tracking-widest mb-2">Background Music</label>
+                                    <select 
+                                        value={bgmTrack} 
+                                        onChange={e => setBgmTrack(parseInt(e.target.value))}
+                                        className="w-full p-3 rounded-lg text-sm bg-black/50 border border-white/10 outline-none text-white focus:border-gold/50 transition-colors"
+                                    >
+                                        {AVAILABLE_BGMS.map((track, idx) => (
+                                            <option key={track.id} value={idx}>{track.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                
+                                <div className="flex items-center gap-4 bg-black/30 p-3 rounded-lg">
+                                    <button onClick={() => setIsBgmMuted(!isBgmMuted)} className="text-2xl w-10 flex justify-center hover:scale-110 transition-transform">
+                                        {isBgmMuted ? '🔇' : '🔊'}
+                                    </button>
+                                    <input 
+                                        type="range" 
+                                        min="0" 
+                                        max="1" 
+                                        step="0.1" 
+                                        value={bgmVolume} 
+                                        onChange={e => setBgmVolume(parseFloat(e.target.value))} 
+                                        className="w-full accent-gold h-2 bg-white/10 rounded-full appearance-none cursor-pointer"
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                                    <div>
+                                        <label className="block text-xs text-white/60 uppercase tracking-widest mb-2">Mode Notifikasi</label>
+                                        <select 
+                                            className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-gold/50 transition-colors"
+                                            value={notifSettings.mode}
+                                            onChange={(e) => setNotifSettings(prev => ({ ...prev, mode: e.target.value as any }))}
+                                        >
+                                            <option value="all">Semua Pesan</option>
+                                            <option value="mention">Hanya Mention (@nama)</option>
+                                            <option value="mute">Senyap (Mute)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-white/60 uppercase tracking-widest mb-2">Anti-Spam (Cooldown)</label>
+                                        <select 
+                                            className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-gold/50 transition-colors"
+                                            value={notifSettings.cooldown}
+                                            onChange={(e) => setNotifSettings(prev => ({ ...prev, cooldown: parseInt(e.target.value) }))}
+                                        >
+                                            <option value="2">Cepat (2 Detik)</option>
+                                            <option value="10">Sedang (10 Detik)</option>
+                                            <option value="30">Lambat (30 Detik)</option>
+                                            <option value="60">Sangat Lambat (1 Menit)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
                                 <button onClick={async () => {
                                     const permission = await Notification.requestPermission();
                                     if (permission === 'granted') {
@@ -1669,40 +1717,101 @@ function App() {
                                     } else {
                                         showToast("Izin ditolak. Jika di iOS, gunakan 'Add to Home Screen'.", "error");
                                     }
-                                }} className="w-full text-left py-1 text-xs opacity-80 hover:opacity-100 transition-opacity">🔔 Minta Izin Notifikasi</button>
-                                
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] opacity-60">Mode Notifikasi</label>
-                                    <select 
-                                        className="bg-black/50 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-gold/50"
-                                        value={notifSettings.mode}
-                                        onChange={(e) => setNotifSettings(prev => ({ ...prev, mode: e.target.value as any }))}
-                                    >
-                                        <option value="all">Semua Pesan</option>
-                                        <option value="mention">Hanya Mention (@nama)</option>
-                                        <option value="mute">Senyap (Mute)</option>
-                                    </select>
-                                </div>
+                                }} className="w-full py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-sm transition-colors flex items-center justify-center gap-2">
+                                    🔔 Minta Izin Notifikasi Browser
+                                </button>
+                            </div>
+                        </section>
 
-                                <div className="flex flex-col gap-1">
-                                    <label className="text-[10px] opacity-60">Anti-Spam (Grup Notifikasi)</label>
-                                    <select 
-                                        className="bg-black/50 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-gold/50"
-                                        value={notifSettings.cooldown}
-                                        onChange={(e) => setNotifSettings(prev => ({ ...prev, cooldown: parseInt(e.target.value) }))}
+                        {/* PRIVASI & KEAMANAN */}
+                        <section className="space-y-4">
+                            <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+                                <span className="text-gold text-lg">🔒</span>
+                                <h3 className="text-sm font-bold text-white uppercase tracking-widest">Privasi & Keamanan</h3>
+                            </div>
+                            
+                            <div className="bg-white/5 rounded-xl p-4 space-y-4 border border-white/5">
+                                <div>
+                                    <label className="block text-xs text-white/60 uppercase tracking-widest mb-2">Kunci Enkripsi (E2EE)</label>
+                                    <input 
+                                        type="password" 
+                                        placeholder="Masukkan kunci rahasia..." 
+                                        value={encryptionKey}
+                                        onChange={e => {
+                                            setEncryptionKey(e.target.value);
+                                            safeStorage.set('enc_key', e.target.value);
+                                        }}
+                                        className="w-full p-3 rounded-lg text-sm bg-black/50 border border-white/10 outline-none focus:border-gold/50 transition-colors text-white tracking-widest"
+                                    />
+                                    <p className="text-xs text-white/40 mt-2 leading-relaxed">
+                                        Pesan yang dikirim saat kunci ini terisi akan dienkripsi. Hanya pengguna dengan kunci yang sama yang dapat membaca isi pesan, melihat gambar, atau memutar Voice Note.
+                                    </p>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* FILTER & TAMPILAN */}
+                        <section className="space-y-4">
+                            <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+                                <span className="text-gold text-lg">👁️</span>
+                                <h3 className="text-sm font-bold text-white uppercase tracking-widest">Filter Chat</h3>
+                            </div>
+                            
+                            <div className="bg-white/5 rounded-xl p-4 border border-white/5">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <button 
+                                        onClick={() => setFilterType(filterType === 'unread' ? 'all' : 'unread')} 
+                                        className={`p-3 rounded-lg text-sm transition-colors border ${filterType === 'unread' ? 'bg-gold text-black border-gold font-bold shadow-[0_0_10px_rgba(212,175,55,0.3)]' : 'bg-black/50 border-white/10 text-white/80 hover:bg-white/10'}`}
                                     >
-                                        <option value="2">Cepat (2 Detik)</option>
-                                        <option value="10">Sedang (10 Detik)</option>
-                                        <option value="30">Lambat (30 Detik)</option>
-                                        <option value="60">Sangat Lambat (1 Menit)</option>
+                                        {filterType === 'unread' ? '✓ Menampilkan Belum Dibaca' : 'Tampilkan Belum Dibaca'}
+                                    </button>
+                                    <select 
+                                        onChange={e => { 
+                                            if (e.target.value) {
+                                                setFilterType('sender'); 
+                                                setFilterSender(e.target.value); 
+                                            } else {
+                                                setFilterType('all');
+                                                setFilterSender('');
+                                            }
+                                        }} 
+                                        className="p-3 rounded-lg text-sm bg-black/50 border border-white/10 outline-none focus:border-gold/50 transition-colors"
+                                        value={filterType === 'sender' ? filterSender : ''}
+                                    >
+                                        <option value="">Semua Pengirim</option>
+                                        {uniqueSenders.map(s => <option key={s} value={s}>Dari: {s}</option>)}
                                     </select>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <div className="px-4 py-3 border-t border-white/5 bg-white/5">
-                            <div className="text-[10px] uppercase tracking-widest text-gold font-bold mb-2">Maintenance & System</div>
-                            <div className="grid grid-cols-1 gap-1">
+                        </section>
+
+                        {/* SISTEM & MAINTENANCE */}
+                        <section className="space-y-4">
+                            <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+                                <span className="text-gold text-lg">⚙️</span>
+                                <h3 className="text-sm font-bold text-white uppercase tracking-widest">Sistem & Maintenance</h3>
+                            </div>
+                            
+                            <div className="bg-white/5 rounded-xl p-4 space-y-3 border border-white/5">
+                                {isIOS && (
+                                    <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-sm text-blue-300 flex items-center gap-3">
+                                        <span className="text-xl">📱</span>
+                                        <span>Untuk pengalaman terbaik di iOS, tap ikon Share lalu pilih <strong>Add to Home Screen</strong>.</span>
+                                    </div>
+                                )}
+                                
+                                <button onClick={async () => {
+                                    if (deferredPrompt) {
+                                        deferredPrompt.prompt();
+                                        const { outcome } = await deferredPrompt.userChoice;
+                                        if (outcome === 'accepted') setDeferredPrompt(null);
+                                    } else {
+                                        showToast("Gunakan menu browser untuk install (Add to Home Screen)", "info");
+                                    }
+                                }} className="w-full text-left p-3 rounded-lg bg-black/50 hover:bg-white/10 border border-white/10 text-sm transition-colors flex items-center gap-3">
+                                    <span className="text-lg">⬇️</span> Install Aplikasi (PWA)
+                                </button>
+                                
                                 <button onClick={() => {
                                     showToast("Membersihkan cache...", "info");
                                     if ('serviceWorker' in navigator) {
@@ -1711,26 +1820,54 @@ function App() {
                                         });
                                     }
                                     setTimeout(() => window.location.reload(), 1000);
-                                }} className="text-left py-1 text-[10px] opacity-60 hover:opacity-100 transition-opacity">🛠️ Clear System Cache</button>
+                                }} className="w-full text-left p-3 rounded-lg bg-black/50 hover:bg-white/10 border border-white/10 text-sm transition-colors flex items-center gap-3">
+                                    <span className="text-lg">🧹</span> Bersihkan System Cache
+                                </button>
+                                
                                 <button onClick={() => {
                                     const status = connStatus === 'ONLINE' ? "Koneksi Stabil" : "Koneksi Bermasalah";
                                     showToast(`Status: ${status}`, connStatus === 'ONLINE' ? "success" : "error");
-                                }} className="text-left py-1 text-[10px] opacity-60 hover:opacity-100 transition-opacity">📡 Check Connection</button>
+                                }} className="w-full text-left p-3 rounded-lg bg-black/50 hover:bg-white/10 border border-white/10 text-sm transition-colors flex items-center gap-3">
+                                    <span className="text-lg">📡</span> Cek Status Koneksi
+                                </button>
                             </div>
-                        </div>
+                        </section>
 
-                        <button onClick={() => setShowDeleteConfirmModal(true)} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-red-400 border-t border-white/5">🗑️ Hapus Riwayat</button>
-                        <button onClick={() => {
-                            localStorage.clear();
-                            sessionStorage.clear();
-                            window.location.reload();
-                        }} className="w-full text-left px-4 py-3 text-xs uppercase tracking-widest hover:bg-white/5 text-red-400">🚪 Reset Identitas</button>
-                        <div className="px-4 py-2 text-[8px] text-white/20 text-center uppercase tracking-widest border-t border-white/5">
-                            v1.4.0 • Maintenance Mode
+                        {/* DANGER ZONE */}
+                        <section className="space-y-4 pt-4">
+                            <div className="flex items-center gap-2 border-b border-red-500/30 pb-2">
+                                <span className="text-red-500 text-lg">⚠️</span>
+                                <h3 className="text-sm font-bold text-red-500 uppercase tracking-widest">Zona Berbahaya</h3>
+                            </div>
+                            
+                            <div className="bg-red-500/5 rounded-xl p-4 space-y-3 border border-red-500/20">
+                                <button onClick={() => {
+                                    setShowMenu(false);
+                                    setShowDeleteConfirmModal(true);
+                                }} className="w-full p-3 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-bold transition-colors flex items-center justify-center gap-2">
+                                    🗑️ Hapus Seluruh Riwayat Pesan (Chaos Mode)
+                                </button>
+                                
+                                <button onClick={() => {
+                                    if (window.confirm("Apakah Anda yakin ingin mereset identitas? Anda akan diminta memasukkan nama dan avatar baru.")) {
+                                        localStorage.clear();
+                                        sessionStorage.clear();
+                                        window.location.reload();
+                                    }
+                                }} className="w-full p-3 rounded-lg bg-black/50 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white text-sm transition-colors flex items-center justify-center gap-2">
+                                    🚪 Keluar & Reset Identitas
+                                </button>
+                            </div>
+                        </section>
+
+                        <div className="pt-8 pb-4 text-center">
+                            <p className="text-[10px] text-white/20 uppercase tracking-[5px] font-mystic">Oracle App v17.11</p>
+                            <p className="text-[9px] text-white/10 mt-1">The Refinement Update</p>
                         </div>
                     </div>
-                </div>
-            )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </motion.div>
     );
 }
