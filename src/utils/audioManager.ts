@@ -10,16 +10,29 @@ export class AudioManager {
         }
 
         try {
-            this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // Request high quality audio constraints
+            this.stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    sampleRate: 48000, // High quality sample rate
+                    channelCount: 2    // Stereo if possible
+                } 
+            });
             
-            let options: MediaRecorderOptions = {};
+            let options: MediaRecorderOptions = {
+                audioBitsPerSecond: 128000 // 128kbps for better quality
+            };
             this.mimeType = 'audio/webm';
             
             if (typeof MediaRecorder.isTypeSupported === 'function') {
+                // Prioritize formats with better quality/compression ratios
                 const types = [
                     'audio/webm;codecs=opus',
-                    'audio/webm',
                     'audio/ogg;codecs=opus',
+                    'audio/mp4;codecs=mp4a.40.2', // AAC is generally higher quality than basic webm
+                    'audio/webm',
                     'audio/ogg',
                     'audio/mp4'
                 ];
@@ -37,7 +50,12 @@ export class AudioManager {
             try {
                 this.mediaRecorder = new MediaRecorder(this.stream, options);
             } catch (e) {
-                this.mediaRecorder = new MediaRecorder(this.stream);
+                // Fallback without bitrate options if it fails
+                try {
+                    this.mediaRecorder = new MediaRecorder(this.stream, { mimeType: this.mimeType });
+                } catch (e2) {
+                    this.mediaRecorder = new MediaRecorder(this.stream);
+                }
                 this.mimeType = this.mediaRecorder.mimeType || 'audio/mp4';
             }
             

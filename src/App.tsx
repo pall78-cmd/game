@@ -53,11 +53,28 @@ const AudioPlayer = ({ url, isPlaying, onToggle }: { url: string, isPlaying: boo
 
     return (
         <div className="flex items-center gap-3 min-w-[200px] py-2 px-3 bg-black/20 rounded-xl">
-            <button onClick={onToggle} className="w-10 h-10 rounded-full bg-gold/20 border border-gold/40 text-gold flex items-center justify-center active:scale-90 transition-transform shadow-lg">
+            <button onClick={onToggle} className="w-10 h-10 rounded-full bg-gold/20 border border-gold/40 text-gold flex items-center justify-center active:scale-90 transition-transform shadow-lg shrink-0">
                 {isPlaying ? <span className="text-[10px] font-bold">||</span> : <span className="ml-0.5 text-sm">▶</span>}
             </button>
-            <div className="flex-1 space-y-1">
-                <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+            <div className="flex-1 flex flex-col justify-center gap-1.5 min-w-[120px]">
+                <div className="flex items-end gap-[2px] h-4 w-full">
+                    {Array.from({ length: 24 }).map((_, i) => (
+                        <motion.div 
+                            key={i}
+                            className="w-1 bg-gold/60 rounded-full"
+                            animate={isPlaying ? { 
+                                height: ['20%', `${Math.random() * 60 + 40}%`, '20%'] 
+                            } : { height: '20%' }}
+                            transition={{ 
+                                repeat: Infinity, 
+                                duration: 0.5 + Math.random() * 0.5, 
+                                delay: Math.random() * 0.5 
+                            }}
+                            style={{ height: '20%' }}
+                        />
+                    ))}
+                </div>
+                <div className="h-1 bg-white/10 rounded-full overflow-hidden w-full">
                     <div className="h-full bg-gold transition-all duration-100" style={{ width: `${progress}%` }}></div>
                 </div>
             </div>
@@ -127,6 +144,10 @@ const formatText = (text: string) => {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
     
+    // URL Parsing
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    formatted = formatted.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:text-blue-300 underline underline-offset-2">$1</a>');
+
     formatted = formatted.replace(/\*(.*?)\*/g, '<strong>$1</strong>');
     formatted = formatted.replace(/_(.*?)_/g, '<em>$1</em>');
     formatted = formatted.replace(/~(.*?)~/g, '<del>$1</del>');
@@ -300,7 +321,7 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
 
                     {parsed.replyData && (
                         <div 
-                            className="mb-2 p-2 rounded bg-black/20 border-l-4 border-gold/50 text-[10px] opacity-80 italic truncate max-w-full cursor-pointer hover:bg-black/40 transition-colors"
+                            className="mb-2 p-2 rounded bg-black/20 border-l-4 border-gold/50 text-[10px] opacity-80 italic break-words whitespace-pre-wrap line-clamp-3 overflow-hidden cursor-pointer hover:bg-black/40 transition-colors"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 const el = document.getElementById(`msg-${parsed.replyData?.id}`);
@@ -386,6 +407,9 @@ function App() {
     const [pinInput, setPinInput] = useState('');
     const [showChaosPinModal, setShowChaosPinModal] = useState(false);
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+    const [showPatchNotes, setShowPatchNotes] = useState(() => {
+        try { return safeStorage.get('patch_v17_10_seen') !== 'true'; } catch { return false; }
+    });
     const [chaosPinInput, setChaosPinInput] = useState('');
     const [isChaosUnlocked, setIsChaosUnlocked] = useState(() => {
         try { return sessionStorage.getItem('chaos_unlocked') === 'true'; } catch { return false; }
@@ -397,6 +421,11 @@ function App() {
     const [oracleEffect, setOracleEffect] = useState(false);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [showScrollButton, setShowScrollButton] = useState(false);
+    const showScrollButtonRef = useRef(false);
+
+    useEffect(() => {
+        showScrollButtonRef.current = showScrollButton;
+    }, [showScrollButton]);
 
     const [bgmVolume, setBgmVolume] = useState(0.3);
     const [isBgmMuted, setIsBgmMuted] = useState(false);
@@ -551,7 +580,9 @@ function App() {
 
                         // Notification logic
                         const isBackground = document.hidden || !document.hasFocus();
-                        if (isBackground && decNama.split('|')[0] !== username && !decNama.startsWith('🔒')) {
+                        const isScrolledUp = showScrollButtonRef.current;
+                        
+                        if ((isBackground || isScrolledUp) && decNama.split('|')[0] !== username && !decNama.startsWith('🔒')) {
                             const settings = notifSettingsRef.current;
                             if (settings.mode === 'mute') return;
 
@@ -575,7 +606,7 @@ function App() {
                                 return next;
                             });
 
-                            if (Notification.permission === 'granted') {
+                            if (isBackground && Notification.permission === 'granted') {
                                 const senderName = decNama.split('|')[0];
                                 pendingNotifsRef.current[senderName] = (pendingNotifsRef.current[senderName] || 0) + 1;
 
@@ -720,7 +751,12 @@ function App() {
         if (!feedRef.current) return;
         const { scrollTop, scrollHeight, clientHeight } = feedRef.current;
         // Show button if we are more than 150px away from the bottom
-        setShowScrollButton(scrollHeight - scrollTop - clientHeight > 150);
+        const isScrolledUp = scrollHeight - scrollTop - clientHeight > 150;
+        setShowScrollButton(isScrolledUp);
+        
+        if (!isScrolledUp) {
+            setUnreadCount(0);
+        }
     }, []);
 
     const scrollToBottom = useCallback(() => {
@@ -729,14 +765,22 @@ function App() {
                 top: feedRef.current.scrollHeight,
                 behavior: 'smooth'
             });
+            setShowScrollButton(false);
+            setUnreadCount(0);
         }
     }, []);
 
+    const forceScrollRef = useRef(false);
+
     useEffect(() => {
-        if (feedRef.current && !showScrollButton) {
-            feedRef.current.scrollTop = feedRef.current.scrollHeight;
+        if (feedRef.current) {
+            if (!showScrollButton || forceScrollRef.current) {
+                feedRef.current.scrollTop = feedRef.current.scrollHeight;
+                forceScrollRef.current = false;
+                setShowScrollButton(false);
+            }
         }
-    }, [filteredMessages]);
+    }, [filteredMessages, showScrollButton]);
 
     const handleTyping = () => {
         if (typingTimeoutRef.current) return;
@@ -809,6 +853,7 @@ function App() {
                 const encKey = safeStorage.get('enc_key') || '';
                 const finalTeks = CryptoUtils.encrypt(teks, encKey);
                 const finalNama = CryptoUtils.encrypt(nama, encKey);
+                forceScrollRef.current = true;
                 await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
             }
 
@@ -871,9 +916,20 @@ function App() {
                 const publicUrl = await storageManagerRef.current.uploadVoiceNote(blob, ext);
                 const nama = `${username}|${avatar}|${userColor}`;
                 const encKey = safeStorage.get('enc_key') || '';
-                const finalTeks = CryptoUtils.encrypt(`[VN]${publicUrl}`, encKey);
+                
+                let teks = `[VN]${publicUrl}`;
+                if (replyingTo) {
+                    const context = MessageParser.createReplyContext(replyingTo);
+                    teks = `[REPLY:${JSON.stringify(context)}]${teks}`;
+                }
+                if (isViewOnce) teks = `[VO]${teks}`;
+
+                const finalTeks = CryptoUtils.encrypt(teks, encKey);
                 const finalNama = CryptoUtils.encrypt(nama, encKey);
+                forceScrollRef.current = true;
                 await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
+                setReplyingTo(null);
+                setIsViewOnce(false);
             } catch (e: any) { 
                 console.error("Upload VN Error:", e);
                 showToast(`Gagal kirim VN: ${e.message || 'Unknown error'}`, "error"); 
@@ -1166,21 +1222,53 @@ function App() {
                         <button onClick={() => { setFilterType('all'); setFilterSender(''); }} className="text-xs text-white/50 hover:text-white">CLEAR</button>
                     </div>
                 )}
-                {filteredMessages.map(msg => (
-                    <Bubble 
-                        key={msg.id} 
-                        msg={msg} 
-                        isMe={msg.nama.split('|')[0] === username} 
-                        onReply={setReplyingTo} 
-                        onEdit={handleStartEdit}
-                        onViewOnce={handleViewOnce}
-                        isPlayingAudio={currentAudioId === msg.id} 
-                        onPlayAudio={setCurrentAudioId}
-                        onVisible={handleMessageVisible}
-                        encryptionKey={encryptionKey}
-                        onImageClick={setSelectedImage}
-                    />
-                ))}
+                {filteredMessages.map((msg, index) => {
+                    const msgDate = new Date(msg.created_at);
+                    const today = new Date();
+                    const yesterday = new Date(today);
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    
+                    let dateLabel = msgDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                    if (msgDate.toDateString() === today.toDateString()) {
+                        dateLabel = "Hari Ini";
+                    } else if (msgDate.toDateString() === yesterday.toDateString()) {
+                        dateLabel = "Kemarin";
+                    }
+
+                    let showDate = false;
+                    if (index === 0) {
+                        showDate = true;
+                    } else {
+                        const prevMsgDate = new Date(filteredMessages[index - 1].created_at);
+                        if (msgDate.toDateString() !== prevMsgDate.toDateString()) {
+                            showDate = true;
+                        }
+                    }
+
+                    return (
+                        <div key={msg.id} className="space-y-2">
+                            {showDate && (
+                                <div className="flex justify-center my-4">
+                                    <div className="bg-black/40 backdrop-blur-md border border-white/10 text-white/60 text-[10px] uppercase tracking-widest px-3 py-1 rounded-full">
+                                        {dateLabel}
+                                    </div>
+                                </div>
+                            )}
+                            <Bubble 
+                                msg={msg} 
+                                isMe={msg.nama.split('|')[0] === username} 
+                                onReply={setReplyingTo} 
+                                onEdit={handleStartEdit}
+                                onViewOnce={handleViewOnce}
+                                isPlayingAudio={currentAudioId === msg.id} 
+                                onPlayAudio={setCurrentAudioId}
+                                onVisible={handleMessageVisible}
+                                encryptionKey={encryptionKey}
+                                onImageClick={setSelectedImage}
+                            />
+                        </div>
+                    );
+                })}
                 {filteredMessages.length === 0 && (
                     <div className="text-center py-10 opacity-30 italic font-mystic">
                         Tidak ada pesan yang ditemukan dalam takdir ini...
@@ -1220,10 +1308,10 @@ function App() {
                             }
                         }}
                     >
-                        <div className="text-xs italic truncate opacity-70">
-                            Replying to <span className="font-bold text-gold">{replyingTo.nama.split('|')[0]}</span>
+                        <div className="text-xs italic break-words whitespace-pre-wrap line-clamp-2 overflow-hidden opacity-70">
+                            Replying to <span className="font-bold text-gold">{replyingTo.nama.split('|')[0]}</span>: {MessageParser.getPreview(replyingTo.teks)}
                         </div>
-                        <button onClick={(e) => { e.stopPropagation(); setReplyingTo(null); }} className="text-lg opacity-50 hover:opacity-100">×</button>
+                        <button onClick={(e) => { e.stopPropagation(); setReplyingTo(null); }} className="text-lg opacity-50 hover:opacity-100 ml-2 shrink-0">×</button>
                     </div>
                 )}
                 {editingMsg && (
@@ -1333,6 +1421,53 @@ function App() {
                             <button onClick={() => setShowDeleteConfirmModal(false)} className="flex-1 py-2 rounded-lg bg-white/10 text-white text-xs font-bold tracking-widest uppercase hover:bg-white/20 transition-colors">Batal</button>
                             <button onClick={handleDeleteHistory} className="flex-1 py-2 rounded-lg bg-red-500/20 text-red-500 border border-red-500/50 text-xs font-bold tracking-widest uppercase hover:bg-red-500/40 transition-colors">Hapus</button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {showPatchNotes && (
+                <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[200] flex flex-col items-center justify-center p-6 animate-fade-in" onClick={() => {
+                    setShowPatchNotes(false);
+                    safeStorage.set('patch_v17_10_seen', 'true');
+                }}>
+                    <div className="w-full max-w-md space-y-4 bg-zinc-900 border border-gold/30 rounded-2xl p-6 relative overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gold/20 via-gold to-gold/20"></div>
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <h2 className="font-header text-gold text-2xl tracking-widest">ORACLE UPDATE</h2>
+                                <p className="text-[10px] text-white/50 uppercase tracking-widest mt-1">Version 17.10 - The Awakening</p>
+                            </div>
+                            <button onClick={() => {
+                                setShowPatchNotes(false);
+                                safeStorage.set('patch_v17_10_seen', 'true');
+                            }} className="text-white/50 hover:text-white text-xl">×</button>
+                        </div>
+                        
+                        <div className="space-y-4 mt-6 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+                            <div className="space-y-1">
+                                <h3 className="text-sm font-bold text-white flex items-center gap-2">📅 Date Separators</h3>
+                                <p className="text-xs text-white/70 leading-relaxed">Pesan sekarang dikelompokkan berdasarkan tanggal (Hari Ini, Kemarin, dll) untuk navigasi yang lebih mudah.</p>
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="text-sm font-bold text-white flex items-center gap-2">🔗 Smart Link Recognition</h3>
+                                <p className="text-xs text-white/70 leading-relaxed">Tautan (URL) yang dikirim dalam pesan sekarang dapat diklik secara langsung.</p>
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="text-sm font-bold text-white flex items-center gap-2">🎵 Voice Note Visualizer</h3>
+                                <p className="text-xs text-white/70 leading-relaxed">Animasi equalizer baru yang elegan saat memutar Voice Note.</p>
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="text-sm font-bold text-white flex items-center gap-2">✨ UI/UX Enhancements</h3>
+                                <p className="text-xs text-white/70 leading-relaxed">Peningkatan desain glassmorphism, gradasi bubble chat, dan animasi indikator mengetik.</p>
+                            </div>
+                        </div>
+
+                        <button onClick={() => {
+                            setShowPatchNotes(false);
+                            safeStorage.set('patch_v17_10_seen', 'true');
+                        }} className="w-full py-3 mt-4 rounded-xl bg-gold text-black text-xs font-bold tracking-widest uppercase hover:bg-yellow-500 transition-colors shadow-[0_0_15px_rgba(212,175,55,0.3)]">
+                            Lanjutkan
+                        </button>
                     </div>
                 </div>
             )}
