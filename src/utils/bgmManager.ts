@@ -7,9 +7,9 @@ export class BGMManager {
     private tracks: string[] = AVAILABLE_BGMS.map(b => b.url);
     private audio: HTMLAudioElement;
     private currentTrackIndex: number = 0;
-    private isPlaying: boolean = false;
+    public isPlaying: boolean = false;
     private userVolume: number = 0.3;
-    private isMuted: boolean = false;
+    public isMuted: boolean = false;
     private fadeInterval: any = null;
     private lastErrorTime: number = 0;
     private autoplayFailed: boolean = false;

@@ -65,7 +65,10 @@ const AudioPlayer = ({ url, isPlaying, onToggle }: { url: string, isPlaying: boo
             <button onClick={onToggle} className="w-10 h-10 rounded-full bg-gold/20 border border-gold/40 text-gold flex items-center justify-center active:scale-90 transition-transform shadow-lg shrink-0">
                 {isPlaying ? <span className="text-[10px] font-bold">||</span> : <span className="ml-0.5 text-sm">▶</span>}
             </button>
-            <div className="flex-1 flex flex-col justify-center gap-1.5 min-w-[120px]">
+            <span className="text-xs text-white/80 font-mono tracking-tighter shrink-0 w-16 text-center">
+                {formatTime(currentTime)}
+            </span>
+            <div className="flex-1 flex flex-col justify-center gap-1.5 min-w-[100px]">
                 <div className="flex items-end gap-[2px] h-4 w-full">
                     {Array.from({ length: 24 }).map((_, i) => (
                         <motion.div 
@@ -87,11 +90,11 @@ const AudioPlayer = ({ url, isPlaying, onToggle }: { url: string, isPlaying: boo
                     <div className="h-1 bg-white/10 rounded-full overflow-hidden w-full">
                         <div className="h-full bg-gold transition-all duration-100" style={{ width: `${progress}%` }}></div>
                     </div>
-                    <span className="text-[9px] text-white/60 font-mono tracking-tighter shrink-0">
-                        {formatTime(currentTime)} / {formatTime(duration)}
-                    </span>
                 </div>
             </div>
+            <span className="text-[10px] text-white/50 font-mono tracking-tighter shrink-0">
+                {formatTime(duration)}
+            </span>
             <audio 
                 ref={audioRef} 
                 src={url} 
@@ -336,11 +339,11 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
                 <motion.div 
                     animate={{ x: swipeX }}
                     transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-                    className={`relative flex flex-col p-2.5 shadow-xl transition-all ${
+                    className={`relative flex flex-col p-3 shadow-2xl transition-all ${
                         isMe 
-                        ? 'bg-gradient-to-br from-[#005c4b] to-[#004d3e] border border-white/5 text-white rounded-2xl rounded-tr-none' 
-                        : 'bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/5 text-white rounded-2xl rounded-tl-none'
-                    } ${parsed.isVO ? 'bg-red-950/40 border border-red-500/30 text-red-400 cursor-pointer' : ''}`}
+                        ? 'bg-gradient-to-br from-emerald-900/90 to-emerald-800/90 backdrop-blur-md border border-emerald-500/20 text-white rounded-2xl rounded-tr-sm' 
+                        : 'bg-gradient-to-br from-zinc-800/90 to-zinc-900/90 backdrop-blur-md border border-white/10 text-white rounded-2xl rounded-tl-sm'
+                    } ${parsed.isVO ? 'bg-red-950/60 border border-red-500/40 text-red-400 cursor-pointer' : ''}`}
                     onClick={() => parsed.isVO && onViewOnce(msg)}
                 >
                     {!isMe && (
@@ -447,7 +450,7 @@ function App() {
     const [inputText, setInputText] = useState('');
     const [isViewOnce, setIsViewOnce] = useState(false);
     const [fateMode, setFateMode] = useState(false);
-    const [currentAudioId, setCurrentAudioId] = useState<number | null>(null);
+    const [currentAudioId, setCurrentAudioId] = useState<string | number | null>(null);
     const [replyingTo, setReplyingTo] = useState<any>(null);
     const [editingMsg, setEditingMsg] = useState<any>(null);
     const [showMenu, setShowMenu] = useState(false);
@@ -696,7 +699,7 @@ function App() {
                                             tag: 'oracle-group',
                                             renotify: true,
                                             vibrate: [200, 100, 200]
-                                        });
+                                        } as any);
 
                                         pendingNotifsRef.current = {};
                                     });
@@ -1166,21 +1169,45 @@ function App() {
     };
 
     if (layer === 'AGE') return (
-        <div className="fixed inset-0 bg-black flex flex-col items-center justify-center text-center p-4 animate-fade-in">
-            <h1 className="font-header text-2xl text-gold tracking-[8px] mb-4">VERIFIKASI USIA</h1>
-            <p className="font-mystic text-lg mb-8 max-w-sm">Konfirmasi usia Anda.</p>
-            <div className="flex gap-4">
-                <button onClick={() => { safeStorage.set('oracle_adult', 'true'); setLayer('NAME'); }} className="px-8 py-2 bg-gold text-black font-bold rounded-lg shadow-lg">SAYA 18+</button>
-                <button onClick={() => window.location.href = 'https://google.com'} className="px-8 py-2 bg-gray-700 text-white rounded-lg">Keluar</button>
-            </div>
+        <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 to-zinc-900 flex flex-col items-center justify-center text-center p-4 animate-fade-in">
+            <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="bg-white/5 p-8 rounded-3xl border border-white/10 backdrop-blur-xl shadow-2xl flex flex-col items-center max-w-sm w-full"
+            >
+                <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mb-6">
+                    <span className="text-2xl">🔞</span>
+                </div>
+                <h1 className="font-header text-2xl text-gold tracking-[8px] mb-4">VERIFIKASI USIA</h1>
+                <p className="font-mystic text-sm text-white/60 mb-8">Anda harus berusia 18 tahun atau lebih untuk memasuki Oracle Chamber.</p>
+                <div className="flex flex-col gap-4 w-full">
+                    <button onClick={() => { safeStorage.set('oracle_adult', 'true'); setLayer('NAME'); }} className="w-full px-8 py-4 bg-gold text-black font-bold rounded-xl shadow-[0_0_15px_rgba(212,175,55,0.2)] hover:shadow-[0_0_25px_rgba(212,175,55,0.4)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase">
+                        SAYA 18+
+                    </button>
+                    <button onClick={() => window.location.href = 'https://google.com'} className="w-full px-8 py-4 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-xl transition-all tracking-widest uppercase border border-white/10">
+                        Keluar
+                    </button>
+                </div>
+            </motion.div>
         </div>
     );
 
     if (layer === 'NAME') return (
-        <div className="fixed inset-0 bg-[#111b21] flex flex-col items-center justify-center text-center p-6 animate-fade-in">
-            <h1 className="font-header text-3xl text-gold tracking-[10px] mb-8 drop-shadow-lg">IDENTITAS</h1>
+        <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 to-zinc-900 flex flex-col items-center justify-center text-center p-6 animate-fade-in">
+            <motion.h1 
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="font-header text-3xl text-gold tracking-[10px] mb-8 drop-shadow-lg"
+            >
+                IDENTITAS
+            </motion.h1>
             
-            <div className="relative w-32 h-32 mb-8 rounded-full bg-[#2a2f32] border-2 border-gold/50 flex items-center justify-center overflow-hidden group shadow-2xl">
+            <motion.div 
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.1, type: "spring" }}
+                className="relative w-32 h-32 mb-8 rounded-full bg-white/5 border-2 border-gold/30 flex items-center justify-center overflow-hidden group shadow-[0_0_30px_rgba(212,175,55,0.15)] backdrop-blur-md"
+            >
                 {(avatar.startsWith('http') || avatar.startsWith('data:image')) ? (
                     <img src={avatar} alt="avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 ) : (
@@ -1209,34 +1236,42 @@ function App() {
                         }
                     }} 
                 />
-            </div>
+            </motion.div>
 
-            <div className="w-full max-w-xs flex flex-col gap-4 mb-8">
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="w-full max-w-xs flex flex-col gap-4 mb-8"
+            >
                 <div className="relative">
                     <input 
                         type="text" 
                         value={username} 
                         onChange={e => setUsername(e.target.value)} 
                         placeholder="Nama Panggilan" 
-                        className="w-full bg-[#2a2f32] text-white text-center p-4 rounded-xl border border-white/10 focus:border-gold/50 outline-none transition-all shadow-inner placeholder:text-white/30 font-medium" 
+                        className="w-full bg-white/5 text-white text-center p-4 rounded-2xl border border-white/10 focus:border-gold/50 outline-none transition-all shadow-inner placeholder:text-white/30 font-medium backdrop-blur-sm focus:bg-white/10" 
                     />
                 </div>
                 
-                <div className="flex gap-4 items-center justify-center bg-[#2a2f32] p-4 rounded-xl border border-white/10 shadow-md">
+                <div className="flex gap-4 items-center justify-center bg-white/5 p-4 rounded-2xl border border-white/10 shadow-md backdrop-blur-sm">
                     <span className="text-xs text-white/50 uppercase tracking-widest font-bold">Warna Tema</span>
-                    <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-white/20 shadow-lg cursor-pointer">
+                    <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-white/20 shadow-lg cursor-pointer hover:scale-110 transition-transform">
                         <input type="color" value={userColor} onChange={e => setUserColor(e.target.value)} className="absolute -inset-4 w-20 h-20 cursor-pointer" />
                     </div>
                 </div>
 
-                <div className="flex gap-2 text-2xl justify-center flex-wrap bg-[#2a2f32] p-4 rounded-xl border border-white/10 shadow-md">
+                <div className="flex gap-2 text-2xl justify-center flex-wrap bg-white/5 p-4 rounded-2xl border border-white/10 shadow-md backdrop-blur-sm">
                     {['🔮', '👻', '💀', '👽', '🦊', '🦉', '🦋', '🕸️'].map(emoji => (
                         <button key={emoji} onClick={() => setAvatar(emoji)} className="hover:scale-125 transition-transform p-1">{emoji}</button>
                     ))}
                 </div>
-            </div>
+            </motion.div>
 
-            <button 
+            <motion.button 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
                 onClick={() => { 
                     if (!username.trim()) {
                         showToast("Nama tidak boleh kosong", "error");
@@ -1248,23 +1283,40 @@ function App() {
                     setLayer('SECURITY'); 
                 }} 
                 disabled={isUploading || !username.trim()}
-                className={`w-full max-w-xs px-10 py-4 bg-gradient-to-r from-gold/80 to-gold text-black font-bold rounded-full shadow-[0_0_20px_rgba(212,175,55,0.3)] hover:shadow-[0_0_30px_rgba(212,175,55,0.5)] transition-all tracking-widest uppercase ${isUploading || !username.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                className={`w-full max-w-xs px-10 py-4 bg-gradient-to-r from-gold/80 to-gold text-black font-bold rounded-2xl shadow-[0_0_20px_rgba(212,175,55,0.3)] hover:shadow-[0_0_30px_rgba(212,175,55,0.5)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase ${isUploading || !username.trim() ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''}`}
             >
                 {isUploading ? 'Menyimpan...' : 'Lanjutkan'}
-            </button>
+            </motion.button>
         </div>
     );
 
     if (layer === 'SECURITY') return (
-        <div className="fixed inset-0 bg-black flex flex-col items-center justify-center text-center p-4 animate-fade-in">
-            <h1 className="font-header text-2xl text-gold tracking-[8px] mb-4">AKSES</h1>
-            <input type="password" value={pinInput} onChange={e => setPinInput(e.target.value)} className="bg-white/10 text-center p-2 rounded-lg mb-4 w-64 tracking-[8px]" />
-            <button onClick={() => {
-                if (pinInput === '179' || pinInput === '010304') {
-                    safeStorage.set('oracle_unlocked', 'true');
-                    setLayer('MAIN');
-                } else showToast('PIN salah.', "error");
-            }} className="px-8 py-2 bg-gold text-black font-bold rounded-lg shadow-lg">Buka</button>
+        <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 to-zinc-900 flex flex-col items-center justify-center text-center p-4 animate-fade-in">
+            <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="bg-white/5 p-8 rounded-3xl border border-white/10 backdrop-blur-xl shadow-2xl flex flex-col items-center"
+            >
+                <div className="w-16 h-16 rounded-full bg-gold/10 border border-gold/30 flex items-center justify-center mb-6">
+                    <span className="text-2xl">🔒</span>
+                </div>
+                <h1 className="font-header text-2xl text-gold tracking-[8px] mb-6">AKSES</h1>
+                <input 
+                    type="password" 
+                    value={pinInput} 
+                    onChange={e => setPinInput(e.target.value)} 
+                    className="bg-black/50 text-center p-4 rounded-xl mb-6 w-64 tracking-[12px] text-xl text-white outline-none focus:ring-2 ring-gold/50 border border-white/10 transition-all" 
+                    placeholder="••••"
+                />
+                <button onClick={() => {
+                    if (pinInput === '179' || pinInput === '010304') {
+                        safeStorage.set('oracle_unlocked', 'true');
+                        setLayer('MAIN');
+                    } else showToast('PIN salah.', "error");
+                }} className="w-full px-8 py-4 bg-gold text-black font-bold rounded-xl shadow-[0_0_15px_rgba(212,175,55,0.2)] hover:shadow-[0_0_25px_rgba(212,175,55,0.4)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase">
+                    Buka Gerbang
+                </button>
+            </motion.div>
         </div>
     );
 
@@ -1274,7 +1326,7 @@ function App() {
             transition={{ duration: 0.4 }}
             className="h-[100dvh] w-full bg-void flex flex-col font-sans text-sm text-white/90 overflow-hidden overflow-x-hidden supports-[height:100dvh]:h-[100dvh]"
         >
-            <header className="flex items-center justify-between p-3 border-b border-white/10 bg-black/40 backdrop-blur-xl shadow-[0_4px_30px_rgba(0,0,0,0.1)] z-50 shrink-0">
+            <header className="flex items-center justify-between p-3 border-b border-white/10 bg-black/60 backdrop-blur-2xl shadow-[0_4px_30px_rgba(0,0,0,0.5)] z-50 shrink-0">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-gold/20 border border-gold/40 flex items-center justify-center text-lg font-header text-gold">O</div>
                     <div>
@@ -1354,21 +1406,24 @@ function App() {
             <AnimatePresence>
                 {toast && (
                     <motion.div 
-                        initial={{ opacity: 0, y: 50 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 50 }}
-                        className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-full shadow-2xl border backdrop-blur-xl flex items-center gap-3 ${
+                        initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 20, scale: 0.9 }}
+                        className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.5)] border backdrop-blur-2xl flex items-center gap-3 ${
                             toast.type === 'error' ? 'bg-red-500/20 border-red-500/50 text-red-200' : 
                             toast.type === 'success' ? 'bg-green-500/20 border-green-500/50 text-green-200' : 
                             'bg-gold/20 border-gold/50 text-gold'
                         }`}
                     >
+                        {toast.type === 'error' && <span className="text-lg">⚠️</span>}
+                        {toast.type === 'success' && <span className="text-lg">✅</span>}
+                        {toast.type === 'info' && <span className="text-lg">ℹ️</span>}
                         <span className="text-sm font-medium tracking-wide">{toast.message}</span>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            <footer className="p-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-black/60 border-t border-white/10 backdrop-blur-2xl shadow-[0_-4px_30px_rgba(0,0,0,0.1)] z-40 shrink-0">
+            <footer className="p-3 pb-[max(12px,env(safe-area-inset-bottom))] bg-black/60 border-t border-white/10 backdrop-blur-2xl shadow-[0_-10px_30px_rgba(0,0,0,0.5)] z-40 shrink-0">
                 {replyingTo && (
                     <div 
                         className="bg-white/5 p-2 rounded-t-xl flex justify-between items-center mb-2 border-l-4 border-gold cursor-pointer hover:bg-white/10 transition-colors"
@@ -1423,7 +1478,7 @@ function App() {
                     <button onClick={() => setFateMode(!fateMode)} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${fateMode ? 'bg-gold text-black' : 'bg-white/10'}`}>
                         <span className="font-header text-xl">?</span>
                     </button>
-                    <div className="flex-1 relative flex items-end">
+                    <div className="flex-1 relative flex items-end group">
                         <textarea 
                             ref={textareaRef}
                             value={inputText} 
@@ -1432,13 +1487,13 @@ function App() {
                                 handleTyping(); 
                             }}
                             placeholder="Kirim pesan..." 
-                            className="w-full min-h-[48px] max-h-[120px] bg-white/5 rounded-[24px] px-5 py-3 pr-12 outline-none focus:ring-1 ring-gold/30 transition-all resize-none overflow-y-auto custom-scrollbar"
+                            className="w-full min-h-[48px] max-h-[120px] bg-white/10 hover:bg-white/15 focus:bg-white/15 rounded-3xl px-5 py-3 pr-12 outline-none focus:ring-2 ring-gold/50 transition-all resize-none overflow-y-auto custom-scrollbar border border-white/5"
                             rows={1}
                             style={{ height: '48px' }}
                         />
-                        <label className="absolute right-4 bottom-3 cursor-pointer opacity-40 hover:opacity-100">
+                        <label className="absolute right-4 bottom-3 cursor-pointer opacity-50 hover:opacity-100 transition-opacity">
                             <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept="image/*" />
-                            📎
+                            <span className="text-xl">📎</span>
                         </label>
                     </div>
                     <button 
@@ -1448,7 +1503,7 @@ function App() {
                         onTouchStart={!(inputText.trim() || selectedFile) ? startRecording : undefined}
                         onTouchEnd={!(inputText.trim() || selectedFile) ? stopRecording : undefined}
                         onClick={(inputText.trim() || selectedFile) ? handleSend : undefined}
-                        className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all select-none ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-gold text-black'}`}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all select-none shadow-lg ${isRecording ? 'bg-red-500 animate-pulse shadow-red-500/50' : 'bg-gold text-black hover:scale-105 active:scale-95 shadow-gold/20'}`}
                     >
                         {(inputText.trim() || selectedFile) ? '➤' : (isRecording ? '⏹' : '🎤')}
                     </button>
@@ -1484,17 +1539,22 @@ function App() {
 
             {showDeleteConfirmModal && (
                 <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[200] flex flex-col items-center justify-center p-6 animate-fade-in" onClick={() => setShowDeleteConfirmModal(false)}>
-                    <div className="w-full max-w-xs space-y-4 bg-zinc-900 border border-red-500/50 rounded-2xl p-6 text-center" onClick={e => e.stopPropagation()}>
-                        <div className="text-4xl mb-2">⚠️</div>
-                        <h2 className="font-header text-red-500 text-xl tracking-[4px]">PERINGATAN</h2>
-                        <p className="text-xs text-white/70 leading-relaxed">
+                    <motion.div 
+                        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        className="w-full max-w-xs space-y-4 bg-zinc-900 border border-red-500/50 rounded-3xl p-8 text-center shadow-[0_0_40px_rgba(239,68,68,0.2)]" 
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="text-5xl mb-4 animate-bounce">⚠️</div>
+                        <h2 className="font-header text-red-500 text-2xl tracking-[4px]">PERINGATAN</h2>
+                        <p className="text-sm text-white/70 leading-relaxed">
                             Ini akan menghapus SEMUA pesan di database secara permanen beserta file media (Gambar & VN). Tindakan ini tidak dapat dibatalkan. Lanjutkan?
                         </p>
-                        <div className="flex gap-3 pt-4">
-                            <button onClick={() => setShowDeleteConfirmModal(false)} className="flex-1 py-2 rounded-lg bg-white/10 text-white text-xs font-bold tracking-widest uppercase hover:bg-white/20 transition-colors">Batal</button>
-                            <button onClick={handleDeleteHistory} className="flex-1 py-2 rounded-lg bg-red-500/20 text-red-500 border border-red-500/50 text-xs font-bold tracking-widest uppercase hover:bg-red-500/40 transition-colors">Hapus</button>
+                        <div className="flex gap-3 pt-6">
+                            <button onClick={() => setShowDeleteConfirmModal(false)} className="flex-1 py-3 rounded-xl bg-white/10 text-white text-xs font-bold tracking-widest uppercase hover:bg-white/20 transition-colors">Batal</button>
+                            <button onClick={handleDeleteHistory} className="flex-1 py-3 rounded-xl bg-red-500/20 text-red-500 border border-red-500/50 text-xs font-bold tracking-widest uppercase hover:bg-red-500/40 transition-colors">Hapus</button>
                         </div>
-                    </div>
+                    </motion.div>
                 </div>
             )}
 
@@ -1503,7 +1563,12 @@ function App() {
                     setShowPatchNotes(false);
                     safeStorage.set('patch_v17_11_seen', 'true');
                 }}>
-                    <div className="w-full max-w-md space-y-4 bg-zinc-900 border border-gold/30 rounded-2xl p-6 relative overflow-hidden" onClick={e => e.stopPropagation()}>
+                    <motion.div 
+                        initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        className="w-full max-w-md space-y-4 bg-zinc-900 border border-gold/30 rounded-3xl p-8 relative overflow-hidden shadow-[0_0_40px_rgba(212,175,55,0.1)]" 
+                        onClick={e => e.stopPropagation()}
+                    >
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gold/20 via-gold to-gold/20"></div>
                         <div className="flex justify-between items-start">
                             <div>
@@ -1513,64 +1578,80 @@ function App() {
                             <button onClick={() => {
                                 setShowPatchNotes(false);
                                 safeStorage.set('patch_v17_11_seen', 'true');
-                            }} className="text-white/50 hover:text-white text-xl">×</button>
+                            }} className="text-white/50 hover:text-white text-2xl transition-colors">×</button>
                         </div>
                         
-                        <div className="space-y-4 mt-6 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
-                            <div className="space-y-1">
+                        <div className="space-y-6 mt-6 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
+                            <div className="space-y-2">
                                 <h3 className="text-sm font-bold text-white flex items-center gap-2">🎤 Studio-Grade Voice Notes</h3>
                                 <p className="text-xs text-white/70 leading-relaxed">Kualitas rekaman suara ditingkatkan ke 128kbps (High-Fidelity) dengan peredam bising otomatis. Suara tidak lagi "mendem" atau terkompresi berlebihan.</p>
                             </div>
-                            <div className="space-y-1">
+                            <div className="space-y-2">
                                 <h3 className="text-sm font-bold text-white flex items-center gap-2">💬 Smart Reply Layout</h3>
                                 <p className="text-xs text-white/70 leading-relaxed">Teks balasan (reply) yang panjang sekarang dibungkus rapi ke bawah dan tidak lagi merusak dimensi layar.</p>
                             </div>
-                            <div className="space-y-1">
+                            <div className="space-y-2">
                                 <h3 className="text-sm font-bold text-white flex items-center gap-2">📜 Auto-Scroll & Image Fixes</h3>
                                 <p className="text-xs text-white/70 leading-relaxed">Layar akan otomatis turun saat Anda mengirim pesan atau saat gambar selesai dimuat. Gambar "Sekali Lihat" sekarang dilindungi dari klik kanan.</p>
                             </div>
-                            <div className="space-y-1">
+                            <div className="space-y-2">
                                 <h3 className="text-sm font-bold text-white flex items-center gap-2">🔔 Unread Count Accuracy</h3>
                                 <p className="text-xs text-white/70 leading-relaxed">Notifikasi angka merah sekarang jauh lebih akurat saat Anda sedang scroll ke atas membaca pesan lama.</p>
+                            </div>
+                            <div className="space-y-2">
+                                <h3 className="text-sm font-bold text-white flex items-center gap-2">✨ UI Remodel</h3>
+                                <p className="text-xs text-white/70 leading-relaxed">Pembaruan antarmuka secara menyeluruh dengan desain glassmorphic yang lebih modern, animasi yang lebih halus, dan pengalaman pengguna yang lebih baik.</p>
                             </div>
                         </div>
 
                         <button onClick={() => {
                             setShowPatchNotes(false);
                             safeStorage.set('patch_v17_11_seen', 'true');
-                        }} className="w-full py-3 mt-4 rounded-xl bg-gold text-black text-xs font-bold tracking-widest uppercase hover:bg-yellow-500 transition-colors shadow-[0_0_15px_rgba(212,175,55,0.3)]">
+                        }} className="w-full py-4 mt-6 rounded-xl bg-gold text-black text-xs font-bold tracking-widest uppercase hover:bg-yellow-500 hover:scale-[1.02] active:scale-95 transition-all shadow-[0_0_15px_rgba(212,175,55,0.3)]">
                             Lanjutkan
                         </button>
-                    </div>
+                    </motion.div>
                 </div>
             )}
 
             {showChaosPinModal && (
                 <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[200] flex flex-col items-center justify-center p-6 animate-fade-in">
-                    <div className="w-full max-w-xs space-y-6 text-center">
+                    <motion.div 
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="w-full max-w-xs space-y-6 text-center bg-zinc-900 border border-red-500/30 p-8 rounded-3xl shadow-[0_0_40px_rgba(239,68,68,0.15)]"
+                    >
+                        <div className="w-16 h-16 mx-auto rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mb-2">
+                            <span className="text-2xl animate-pulse">☢️</span>
+                        </div>
                         <h2 className="font-header text-red-500 text-xl tracking-[8px] animate-pulse">RESTRICTED AREA</h2>
                         <p className="text-xs text-white/50 uppercase tracking-widest">Masukkan kode akses untuk membuka Chaos Mode</p>
                         <input 
                             type="password" 
                             value={chaosPinInput} 
                             onChange={e => setChaosPinInput(e.target.value)} 
-                            className="w-full bg-white/10 text-center p-3 rounded-lg tracking-[8px] text-gold outline-none focus:ring-1 ring-red-500/50"
+                            className="w-full bg-black/50 text-center p-4 rounded-xl tracking-[12px] text-xl text-gold outline-none focus:ring-2 ring-red-500/50 border border-white/10 transition-all"
                             placeholder="••••••"
                             onKeyDown={e => e.key === 'Enter' && handleChaosPinSubmit()}
                         />
-                        <div className="flex gap-3">
-                            <button onClick={() => { setShowChaosPinModal(false); setChaosPinInput(''); }} className="flex-1 p-3 rounded-lg border border-white/10 text-white/50 hover:bg-white/5 transition-all text-xs uppercase tracking-widest">Batal</button>
-                            <button onClick={handleChaosPinSubmit} className="flex-1 p-3 rounded-lg bg-red-500/20 border border-red-500/50 text-red-400 font-bold hover:bg-red-500/30 transition-all text-xs uppercase tracking-widest shadow-[0_0_15px_rgba(239,68,68,0.2)]">Buka</button>
+                        <div className="flex gap-3 pt-2">
+                            <button onClick={() => { setShowChaosPinModal(false); setChaosPinInput(''); }} className="flex-1 py-3 rounded-xl bg-white/10 text-white text-xs font-bold tracking-widest uppercase hover:bg-white/20 transition-colors">Batal</button>
+                            <button onClick={handleChaosPinSubmit} className="flex-1 py-3 rounded-xl bg-red-500/20 text-red-500 border border-red-500/50 text-xs font-bold tracking-widest uppercase hover:bg-red-500/40 transition-colors shadow-[0_0_15px_rgba(239,68,68,0.2)]">Buka</button>
                         </div>
-                    </div>
+                    </motion.div>
                 </div>
             )}
 
             {viewingSecret && (
-                <div className="fixed inset-0 bg-black/98 z-[200] flex items-center justify-center p-8 animate-fade-in" onClick={() => setViewingSecret(null)}>
-                    <div className="text-center space-y-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
-                        <div className="text-red-500 font-header tracking-[8px] uppercase animate-pulse">Secret Revealed</div>
-                        <div className="bg-white/5 p-6 rounded-3xl border border-red-500/20">
+                <div className="fixed inset-0 bg-black/98 backdrop-blur-xl z-[200] flex items-center justify-center p-8 animate-fade-in" onClick={() => setViewingSecret(null)}>
+                    <motion.div 
+                        initial={{ scale: 0.9, opacity: 0, rotateX: 20 }}
+                        animate={{ scale: 1, opacity: 1, rotateX: 0 }}
+                        className="text-center space-y-8 max-w-sm w-full" 
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <div className="text-red-500 font-header text-2xl tracking-[12px] uppercase animate-pulse drop-shadow-[0_0_15px_rgba(239,68,68,0.5)]">Secret Revealed</div>
+                        <div className="bg-zinc-900/80 p-8 rounded-[2rem] border border-red-500/30 shadow-[0_0_50px_rgba(239,68,68,0.15)] backdrop-blur-2xl">
                             <MessageContent 
                                 type={viewingSecret.type} 
                                 content={viewingSecret.content} 
@@ -1580,8 +1661,8 @@ function App() {
                                 isSecret={true}
                             />
                         </div>
-                        <div className="text-[10px] text-white/20 uppercase tracking-widest">Pesan ini akan terbakar selamanya...</div>
-                    </div>
+                        <div className="text-xs text-red-500/50 uppercase tracking-[4px] animate-pulse">Pesan ini akan terbakar selamanya...</div>
+                    </motion.div>
                 </div>
             )}
 
@@ -1631,20 +1712,111 @@ function App() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: "100%" }}
                         transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                        className="fixed inset-0 z-[500] bg-zinc-950/95 backdrop-blur-xl flex flex-col"
+                        className="fixed inset-0 z-[500] bg-zinc-950/95 backdrop-blur-2xl flex flex-col"
                     >
-                        <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black/50 sticky top-0 z-10">
-                            <h2 className="font-header text-xl text-gold tracking-[5px]">PENGATURAN</h2>
-                            <button onClick={() => setShowMenu(false)} className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white transition-colors">✕</button>
+                        <div className="flex items-center justify-between p-6 border-b border-white/10 bg-black/50 sticky top-0 z-10 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+                            <h2 className="font-header text-2xl text-gold tracking-[8px]">PENGATURAN</h2>
+                            <button onClick={() => setShowMenu(false)} className="w-12 h-12 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white transition-colors text-xl">✕</button>
                         </div>
                     
-                    <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:max-w-3xl lg:mx-auto lg:w-full space-y-8 custom-scrollbar pb-24">
+                    <div className="flex-1 overflow-y-auto p-6 md:p-8 lg:max-w-3xl lg:mx-auto lg:w-full space-y-10 custom-scrollbar pb-32">
                         
                         {updateAvailable && (
-                            <button onClick={() => window.location.reload()} className="w-full text-center px-4 py-4 rounded-xl bg-green-500/20 border border-green-500/50 text-green-400 font-bold animate-pulse shadow-[0_0_15px_rgba(34,197,94,0.2)]">
+                            <button onClick={() => window.location.reload()} className="w-full text-center px-6 py-4 rounded-2xl bg-green-500/20 border border-green-500/50 text-green-400 font-bold animate-pulse shadow-[0_0_20px_rgba(34,197,94,0.2)] hover:bg-green-500/30 transition-colors">
                                 🔄 UPDATE TERSEDIA - KLIK UNTUK MEMPERBARUI
                             </button>
                         )}
+
+                        {/* PROFIL PENGGUNA */}
+                        <section className="space-y-4">
+                            <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+                                <span className="text-gold text-lg">👤</span>
+                                <h3 className="text-sm font-bold text-white uppercase tracking-widest">Profil Pengguna</h3>
+                            </div>
+                            
+                            <div className="bg-white/5 rounded-xl p-4 space-y-4 border border-white/5">
+                                <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                                    <div className="relative w-16 h-16 rounded-full bg-black/50 border border-white/10 flex items-center justify-center text-3xl overflow-hidden shrink-0">
+                                        {avatar.startsWith('http') || avatar.startsWith('data:image') ? (
+                                            <img src={avatar} alt="avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                        ) : (
+                                            avatar
+                                        )}
+                                        <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 hover:opacity-100 cursor-pointer transition-opacity">
+                                            <span className="text-[10px] uppercase font-bold text-white">Ubah</span>
+                                            <input 
+                                                type="file" 
+                                                accept="image/*" 
+                                                className="hidden" 
+                                                onChange={async e => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file && storageManagerRef.current) {
+                                                        setIsUploading(true);
+                                                        try {
+                                                            const url = await storageManagerRef.current.uploadImage(file);
+                                                            setAvatar(url);
+                                                            safeStorage.set('oracle_avatar', url);
+                                                            showToast("Avatar berhasil diperbarui", "success");
+                                                        } catch (err: any) {
+                                                            showToast("Gagal upload avatar", "error");
+                                                        } finally {
+                                                            setIsUploading(false);
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+                                    
+                                    <div className="flex-1 space-y-3 w-full">
+                                        <div>
+                                            <label className="block text-xs text-white/60 uppercase tracking-widest mb-1">Nama Panggilan</label>
+                                            <input 
+                                                type="text" 
+                                                value={username} 
+                                                onChange={e => {
+                                                    setUsername(e.target.value);
+                                                    safeStorage.set('oracle_user', e.target.value);
+                                                }} 
+                                                className="w-full bg-black/50 text-white p-3 rounded-lg border border-white/10 focus:border-gold/50 outline-none transition-all placeholder:text-white/30 text-sm" 
+                                            />
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-xs text-white/60 uppercase tracking-widest mb-1">Warna Nama</label>
+                                            <div className="flex gap-2 flex-wrap">
+                                                {['#D4AF37', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#D4A5A5', '#9B59B6'].map(color => (
+                                                    <button 
+                                                        key={color} 
+                                                        onClick={() => {
+                                                            setUserColor(color);
+                                                            safeStorage.set('oracle_color', color);
+                                                        }} 
+                                                        className={`w-6 h-6 rounded-full border-2 transition-transform ${userColor === color ? 'scale-125 border-white' : 'border-transparent hover:scale-110'}`} 
+                                                        style={{ backgroundColor: color }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex gap-2 text-xl justify-center flex-wrap bg-black/30 p-3 rounded-lg border border-white/5">
+                                    {['🔮', '👻', '💀', '👽', '🦊', '🦉', '🦋', '🕸️'].map(emoji => (
+                                        <button 
+                                            key={emoji} 
+                                            onClick={() => {
+                                                setAvatar(emoji);
+                                                safeStorage.set('oracle_avatar', emoji);
+                                            }} 
+                                            className="hover:scale-125 transition-transform p-1"
+                                        >
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </section>
 
                         {/* AUDIO & NOTIFIKASI */}
                         <section className="space-y-4">
