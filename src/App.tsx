@@ -241,7 +241,7 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
     }, [msg.id, isMe, msg.is_read, onVisible]);
 
     const parsed = useMemo(() => {
-        return MessageParser.parse(msg.teks);
+        return MessageParser.parse(msg.teks, encryptionKey);
     }, [msg.teks, encryptionKey]);
     
     const identity = useMemo(() => {
@@ -367,7 +367,7 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
                                 }
                             }}
                         >
-                            <span className="font-bold text-gold not-italic">{parsed.replyData.name}:</span> {MessageParser.getPreview(parsed.replyData.text)}
+                            <span className="font-bold text-gold not-italic">{parsed.replyData.name}:</span> {MessageParser.getPreview(parsed.replyData.text, encryptionKey)}
                         </div>
                     )}
                     
@@ -440,8 +440,17 @@ function App() {
     const [layer, setLayer] = useState(() => {
         if (safeStorage.get('oracle_adult') === null) return 'AGE';
         if (safeStorage.get('oracle_user') === null) return 'NAME';
-        return safeStorage.get('oracle_unlocked') === 'true' ? 'MAIN' : 'SECURITY';
+        return safeStorage.get('oracle_unlocked') === 'true' ? 'LOBBY' : 'SECURITY';
     });
+
+    const [currentRoom, setCurrentRoom] = useState<'A' | 'B'>('A');
+    const currentRoomRef = useRef<'A' | 'B'>('A');
+    useEffect(() => { currentRoomRef.current = currentRoom; }, [currentRoom]);
+
+    const getEncKey = useCallback(() => {
+        const room = currentRoomRef.current;
+        return safeStorage.get(`enc_key_${room}`) || (room === 'A' ? safeStorage.get('enc_key') : '') || '';
+    }, []);
 
     const [username, setUsername] = useState(() => safeStorage.get('oracle_user') || '');
     const [avatar, setAvatar] = useState(() => safeStorage.get('oracle_avatar') || '🔮');
@@ -454,7 +463,20 @@ function App() {
     const [replyingTo, setReplyingTo] = useState<any>(null);
     const [editingMsg, setEditingMsg] = useState<any>(null);
     const [showMenu, setShowMenu] = useState(false);
-    const [encryptionKey, setEncryptionKey] = useState(() => safeStorage.get('enc_key') || '');
+    const [encryptionKeyA, setEncryptionKeyA] = useState(() => safeStorage.get('enc_key_A') || safeStorage.get('enc_key') || '');
+    const [encryptionKeyB, setEncryptionKeyB] = useState(() => safeStorage.get('enc_key_B') || '');
+    const encryptionKey = currentRoom === 'A' ? encryptionKeyA : encryptionKeyB;
+
+    const setEncryptionKey = (key: string) => {
+        if (currentRoom === 'A') {
+            setEncryptionKeyA(key);
+            safeStorage.set('enc_key_A', key);
+            safeStorage.set('enc_key', key);
+        } else {
+            setEncryptionKeyB(key);
+            safeStorage.set('enc_key_B', key);
+        }
+    };
     const [isRecording, setIsRecording] = useState(false);
     const [viewingSecret, setViewingSecret] = useState<any>(null);
     const [pinInput, setPinInput] = useState('');
@@ -490,7 +512,7 @@ function App() {
 
     const [bgmVolume, setBgmVolume] = useState(0.3);
     const [isBgmMuted, setIsBgmMuted] = useState(false);
-    const [bgmTrack, setBgmTrack] = useState(0);
+    const [bgmTrack, setBgmTrack] = useState(() => bgmManager.getTrackIndex());
 
     const [isIOS, setIsIOS] = useState(false);
 
@@ -540,7 +562,8 @@ function App() {
     useEffect(() => {
         const handleInteraction = () => {
             const bgm = bgmManager;
-            if (bgm && !bgm.isPlaying && !bgm.isMuted) {
+            if (bgm && (!bgm.isPlaying || bgm.audio.paused) && !bgm.isMuted) {
+                bgm.isPlaying = false; // Force reset state if it was stuck
                 bgm.play();
             }
         };
@@ -608,29 +631,41 @@ function App() {
         }
     }, [bgmVolume, isBgmMuted, bgmTrack]);
 
-    useEffect(() => {
-        setBgmTrack(bgmManager.getTrackIndex());
-    }, []);
+
 
     useEffect(() => {
         if (layer !== 'MAIN') return;
 
         const initialize = async () => {
-            const { data } = await supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
+            let query = supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
+            if (currentRoomRef.current === 'B') {
+                query = query.like('nama', 'ROOM_B|%');
+            } else {
+                query = query.not('nama', 'like', 'ROOM_B|%');
+            }
+            const { data } = await query;
             if (data) setMessages(data);
 
             connManagerRef.current = new ConnectionManager(supabaseClient, setConnStatus);
             connManagerRef.current.subscribe('msgs', (event: any) => {
                 if (event.type === 'INSERT') {
                     const newMsg = event.payload.new;
-                        setMessages(prev => [...prev, newMsg]);
-                        
-                        // Decrypt nama for notifications and effects
-                        let decNama = newMsg.nama;
-                        try {
-                            const encKey = safeStorage.get('enc_key') || '';
-                            decNama = CryptoUtils.decrypt(newMsg.nama, encKey);
-                        } catch (e) {}
+                    const isRoomB = newMsg.nama.startsWith('ROOM_B|');
+                    if (currentRoomRef.current === 'B' && !isRoomB) return;
+                    if (currentRoomRef.current === 'A' && isRoomB) return;
+
+                    setMessages(prev => [...prev, newMsg]);
+                    
+                    // Decrypt nama for notifications and effects
+                    let rawNama = newMsg.nama;
+                    if (rawNama.startsWith('ROOM_B|') || rawNama.startsWith('ROOM_A|')) {
+                        rawNama = rawNama.substring(7);
+                    }
+                    let decNama = rawNama;
+                    try {
+                        const encKey = getEncKey();
+                        decNama = CryptoUtils.decrypt(rawNama, encKey);
+                    } catch (e) {}
 
                         // Oracle Effect
                         if (decNama === "ORACLE") {
@@ -649,7 +684,7 @@ function App() {
 
                             let decTeks = newMsg.teks;
                             try {
-                                const encKey = safeStorage.get('enc_key') || '';
+                                const encKey = getEncKey();
                                 decTeks = CryptoUtils.decrypt(newMsg.teks, encKey);
                             } catch (e) {}
 
@@ -680,7 +715,7 @@ function App() {
 
                                         let title = '';
                                         let body = '';
-                                        const previewText = MessageParser.getPreview(newMsg.teks) || (decTeks.startsWith('[') ? 'Mengirim media...' : decTeks);
+                                        const previewText = MessageParser.getPreview(newMsg.teks, getEncKey()) || (decTeks.startsWith('[') ? 'Mengirim media...' : decTeks);
 
                                         if (senders.length === 1) {
                                             const count = pendingNotifsRef.current[senders[0]];
@@ -707,12 +742,25 @@ function App() {
                             }
                         }
                     } else if (event.type === 'UPDATE') {
-                        setMessages(prev => prev.map(m => m.id === event.payload.new.id ? event.payload.new : m));
+                        const updatedMsg = event.payload.new;
+                        const isRoomB = updatedMsg.nama.startsWith('ROOM_B|');
+                        if (currentRoomRef.current === 'B' && !isRoomB) return;
+                        if (currentRoomRef.current === 'A' && isRoomB) return;
+                        setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
                     } else if (event.type === 'TYPING') {
                         let typer = event.payload.payload.user;
+                        const isRoomB = typer.startsWith('ROOM_B|');
+                        if (currentRoomRef.current === 'B' && !isRoomB) return;
+                        if (currentRoomRef.current === 'A' && isRoomB) return;
+                        
+                        let rawTyper = typer;
+                        if (rawTyper.startsWith('ROOM_B|') || rawTyper.startsWith('ROOM_A|')) {
+                            rawTyper = rawTyper.substring(7);
+                        }
+                        
                         try {
-                            const encKey = safeStorage.get('enc_key') || '';
-                            typer = CryptoUtils.decrypt(typer, encKey);
+                            const encKey = getEncKey();
+                            typer = CryptoUtils.decrypt(rawTyper, encKey);
                         } catch (e) {}
 
                         if (typer && typer !== username && !typer.startsWith('🔒')) {
@@ -744,7 +792,13 @@ function App() {
                 setConnStatus('RECONNECTING');
                 
                 // 1. Fetch latest messages to catch up
-                const { data } = await supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
+                let query = supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
+                if (currentRoomRef.current === 'B') {
+                    query = query.like('nama', 'ROOM_B|%');
+                } else {
+                    query = query.not('nama', 'like', 'ROOM_B|%');
+                }
+                const { data } = await query;
                 if (data) setMessages(data);
 
                 // 2. Force reconnect realtime channel
@@ -770,9 +824,13 @@ function App() {
 
     const decryptedMessages = useMemo(() => {
         return messages.map(m => {
-            let decNama = m.nama;
+            let rawNama = m.nama;
+            if (rawNama.startsWith('ROOM_B|') || rawNama.startsWith('ROOM_A|')) {
+                rawNama = rawNama.substring(7);
+            }
+            let decNama = rawNama;
             try {
-                decNama = CryptoUtils.decrypt(m.nama, encryptionKey);
+                decNama = CryptoUtils.decrypt(rawNama, encryptionKey);
             } catch (e) {}
             return { ...m, nama: decNama };
         });
@@ -864,12 +922,13 @@ function App() {
         if (typingTimeoutRef.current) return;
         
         if (connManagerRef.current && connManagerRef.current.channel) {
-            const encKey = safeStorage.get('enc_key') || '';
+            const encKey = getEncKey();
             const encUser = CryptoUtils.encrypt(username, encKey);
+            const finalUser = currentRoomRef.current === 'B' ? `ROOM_B|${encUser}` : `ROOM_A|${encUser}`;
             connManagerRef.current.channel.send({
                 type: 'broadcast',
                 event: 'typing',
-                payload: { user: encUser }
+                payload: { user: finalUser }
             });
             
             typingTimeoutRef.current = setTimeout(() => {
@@ -895,13 +954,13 @@ function App() {
                 clearSelectedFile();
                 
                 if (editingMsg) {
-                    const parsed = MessageParser.parse(editingMsg.teks);
+                    const parsed = MessageParser.parse(editingMsg.teks, getEncKey());
                     if (parsed.replyData && !replyingTo) {
                         teks = `[REPLY:${JSON.stringify(parsed.replyData)}]${teks}`;
                     }
                 }
             } else if (editingMsg) {
-                const parsed = MessageParser.parse(editingMsg.teks);
+                const parsed = MessageParser.parse(editingMsg.teks, getEncKey());
                 if (parsed.type === 'img') {
                     const url = parsed.content.split('\n')[0];
                     teks = teks.trim() ? `[IMG]${url}\n${teks}` : `[IMG]${url}`;
@@ -912,7 +971,7 @@ function App() {
             }
 
             if (replyingTo) {
-                const context = MessageParser.createReplyContext(replyingTo);
+                const context = MessageParser.createReplyContext(replyingTo, getEncKey());
                 teks = `[REPLY:${JSON.stringify(context)}]${teks}`;
             }
 
@@ -922,15 +981,16 @@ function App() {
                 if (!teks.endsWith("[EDITED]")) {
                     teks = `${teks} [EDITED]`;
                 }
-                const encKey = safeStorage.get('enc_key') || '';
+                const encKey = getEncKey();
                 const finalTeks = CryptoUtils.encrypt(teks, encKey);
                 await supabaseClient.from('Pesan').update({ teks: finalTeks }).eq('id', editingMsg.id);
                 setEditingMsg(null);
                 showToast("Pesan diperbarui", "success");
             } else {
-                const encKey = safeStorage.get('enc_key') || '';
+                const encKey = getEncKey();
                 const finalTeks = CryptoUtils.encrypt(teks, encKey);
-                const finalNama = CryptoUtils.encrypt(nama, encKey);
+                const encryptedNama = CryptoUtils.encrypt(nama, encKey);
+                const finalNama = currentRoomRef.current === 'B' ? `ROOM_B|${encryptedNama}` : `ROOM_A|${encryptedNama}`;
                 forceScrollRef.current = true;
                 await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
             }
@@ -993,17 +1053,18 @@ function App() {
             try {
                 const publicUrl = await storageManagerRef.current.uploadVoiceNote(blob, ext);
                 const nama = `${username}|${avatar}|${userColor}`;
-                const encKey = safeStorage.get('enc_key') || '';
+                const encKey = getEncKey();
                 
                 let teks = `[VN]${publicUrl}`;
                 if (replyingTo) {
-                    const context = MessageParser.createReplyContext(replyingTo);
+                    const context = MessageParser.createReplyContext(replyingTo, getEncKey());
                     teks = `[REPLY:${JSON.stringify(context)}]${teks}`;
                 }
                 if (isViewOnce) teks = `[VO]${teks}`;
 
                 const finalTeks = CryptoUtils.encrypt(teks, encKey);
-                const finalNama = CryptoUtils.encrypt(nama, encKey);
+                const encryptedNama = CryptoUtils.encrypt(nama, encKey);
+                const finalNama = currentRoomRef.current === 'B' ? `ROOM_B|${encryptedNama}` : `ROOM_A|${encryptedNama}`;
                 forceScrollRef.current = true;
                 await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
                 setReplyingTo(null);
@@ -1033,7 +1094,7 @@ function App() {
     };
 
     const handleStartEdit = useCallback((msg: any) => {
-        const parsed = MessageParser.parse(msg.teks);
+        const parsed = MessageParser.parse(msg.teks, getEncKey());
         if (parsed.content.startsWith('🔒')) {
             showToast("Tidak dapat mengedit pesan yang gagal didekripsi.", "error");
             return;
@@ -1078,9 +1139,10 @@ function App() {
             invoker: username
         });
 
-        const encKey = safeStorage.get('enc_key') || '';
+        const encKey = getEncKey();
         const finalTeks = CryptoUtils.encrypt(payload, encKey);
-        const finalNama = CryptoUtils.encrypt('ORACLE', encKey);
+        const encryptedNama = CryptoUtils.encrypt('ORACLE', encKey);
+        const finalNama = currentRoomRef.current === 'B' ? `ROOM_B|${encryptedNama}` : `ROOM_A|${encryptedNama}`;
 
         await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
         setFateMode(false);
@@ -1102,7 +1164,7 @@ function App() {
     };
 
     const handleViewOnce = useCallback((msg: any) => {
-        const parsed = MessageParser.parse(msg.teks);
+        const parsed = MessageParser.parse(msg.teks, getEncKey());
         setViewingSecret({ ...msg, ...parsed });
         
         // Burn logic
@@ -1110,6 +1172,24 @@ function App() {
             supabaseClient.from('Pesan').delete().eq('id', msg.id).then(() => {
                 setMessages(prev => prev.filter(m => m.id !== msg.id));
                 setViewingSecret(null);
+                
+                if (parsed.type === 'img') {
+                    const url = parsed.content;
+                    const urlParts = url.split('/gambar/');
+                    if (urlParts.length > 1) {
+                        const filePath = urlParts[1].split('?')[0];
+                        supabaseClient.storage.from('gambar').remove([filePath]).catch(console.error);
+                    }
+                } else if (parsed.type === 'vn') {
+                    const url = parsed.content;
+                    const urlParts = url.includes('/voice%20note/') 
+                        ? url.split('/voice%20note/') 
+                        : url.split('/voice_note/');
+                    if (urlParts.length > 1) {
+                        const filePath = urlParts[1].split('?')[0];
+                        supabaseClient.storage.from('voice note').remove([filePath]).catch(console.error);
+                    }
+                }
             });
         }, 10000); // 10 seconds to view
     }, []);
@@ -1118,14 +1198,20 @@ function App() {
         setShowDeleteConfirmModal(false);
         try {
             // 1. Ambil semua pesan untuk mencari file media
-            const { data: messagesToDelete } = await supabaseClient.from('Pesan').select('teks');
+            let selectQuery = supabaseClient.from('Pesan').select('teks');
+            if (currentRoom === 'B') {
+                selectQuery = selectQuery.like('nama', 'ROOM_B|%');
+            } else {
+                selectQuery = selectQuery.not('nama', 'like', 'ROOM_B|%');
+            }
+            const { data: messagesToDelete } = await selectQuery;
             
             if (messagesToDelete && messagesToDelete.length > 0) {
                 const buktiFilesToRemove: string[] = [];
                 const vnFilesToRemove: string[] = [];
                 
                 messagesToDelete.forEach(msg => {
-                    const parsed = MessageParser.parse(msg.teks);
+                    const parsed = MessageParser.parse(msg.teks, getEncKey());
                     if (parsed.type === 'img') {
                         const url = parsed.content;
                         const urlParts = url.split('/gambar/');
@@ -1157,7 +1243,13 @@ function App() {
             }
 
             // 3. Hapus semua pesan dari database
-            const { error } = await supabaseClient.from('Pesan').delete().neq('id', 0);
+            let deleteQuery = supabaseClient.from('Pesan').delete().neq('id', 0);
+            if (currentRoom === 'B') {
+                deleteQuery = deleteQuery.like('nama', 'ROOM_B|%');
+            } else {
+                deleteQuery = deleteQuery.not('nama', 'like', 'ROOM_B|%');
+            }
+            const { error } = await deleteQuery;
             if (error) throw error;
             
             setMessages([]);
@@ -1311,11 +1403,38 @@ function App() {
                 <button onClick={() => {
                     if (pinInput === '179' || pinInput === '010304') {
                         safeStorage.set('oracle_unlocked', 'true');
-                        setLayer('MAIN');
+                        setLayer('LOBBY');
                     } else showToast('PIN salah.', "error");
                 }} className="w-full px-8 py-4 bg-gold text-black font-bold rounded-xl shadow-[0_0_15px_rgba(212,175,55,0.2)] hover:shadow-[0_0_25px_rgba(212,175,55,0.4)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase">
                     Buka Gerbang
                 </button>
+            </motion.div>
+        </div>
+    );
+
+    if (layer === 'LOBBY') return (
+        <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 to-zinc-900 flex flex-col items-center justify-center text-center p-4 animate-fade-in">
+            <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="bg-white/5 p-8 rounded-3xl border border-white/10 backdrop-blur-xl shadow-2xl flex flex-col items-center w-full max-w-sm"
+            >
+                <div className="w-20 h-20 bg-gold/20 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(212,175,55,0.3)]">
+                    <span className="text-4xl">🏛️</span>
+                </div>
+                <h2 className="text-2xl font-header text-gold mb-2 tracking-widest">LOBBY</h2>
+                <p className="text-zinc-400 mb-8 text-sm">Pilih dimensi yang ingin Anda masuki.</p>
+                
+                <div className="w-full flex flex-col gap-4">
+                    <button onClick={() => { setCurrentRoom('A'); setLayer('MAIN'); }} className="w-full px-8 py-4 bg-white/5 border border-white/10 text-white font-bold rounded-xl hover:bg-white/10 hover:border-gold/50 hover:shadow-[0_0_25px_rgba(212,175,55,0.2)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase flex items-center justify-between">
+                        <span>Side A</span>
+                        <span className="text-gold">→</span>
+                    </button>
+                    <button onClick={() => { setCurrentRoom('B'); setLayer('MAIN'); }} className="w-full px-8 py-4 bg-white/5 border border-white/10 text-white font-bold rounded-xl hover:bg-white/10 hover:border-gold/50 hover:shadow-[0_0_25px_rgba(212,175,55,0.2)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase flex items-center justify-between">
+                        <span>Side B</span>
+                        <span className="text-gold">→</span>
+                    </button>
+                </div>
             </motion.div>
         </div>
     );
@@ -1328,9 +1447,16 @@ function App() {
         >
             <header className="flex items-center justify-between p-3 border-b border-white/10 bg-black/60 backdrop-blur-2xl shadow-[0_4px_30px_rgba(0,0,0,0.5)] z-50 shrink-0">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gold/20 border border-gold/40 flex items-center justify-center text-lg font-header text-gold">O</div>
+                    <button onClick={() => setLayer('LOBBY')} className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-lg transition-colors">
+                        🚪
+                    </button>
                     <div>
-                        <h1 className="font-bold text-base">Oracle Chamber</h1>
+                        <h1 className="font-bold text-base flex items-center gap-2">
+                            Oracle Chamber
+                            <span className="text-[9px] bg-gold/20 text-gold px-1.5 py-0.5 rounded-sm uppercase tracking-wider border border-gold/30">
+                                Side {currentRoom}
+                            </span>
+                        </h1>
                         <div className="flex items-center gap-1.5">
                             <div className={`w-1.5 h-1.5 rounded-full ${connStatus === 'ONLINE' ? 'bg-green-500' : 'bg-red-500'}`}></div>
                             <p className="text-[10px] text-white/40 uppercase tracking-widest">{connStatus}</p>
@@ -1439,7 +1565,7 @@ function App() {
                         }}
                     >
                         <div className="text-xs italic break-words whitespace-pre-wrap line-clamp-2 overflow-hidden opacity-70">
-                            Replying to <span className="font-bold text-gold">{replyingTo.nama.split('|')[0]}</span>: {MessageParser.getPreview(replyingTo.teks)}
+                            Replying to <span className="font-bold text-gold">{replyingTo.nama.split('|')[0]}</span>: {MessageParser.getPreview(replyingTo.teks, encryptionKey)}
                         </div>
                         <button onClick={(e) => { e.stopPropagation(); setReplyingTo(null); }} className="text-lg opacity-50 hover:opacity-100 ml-2 shrink-0">×</button>
                     </div>
@@ -1904,14 +2030,13 @@ function App() {
                             
                             <div className="bg-white/5 rounded-xl p-4 space-y-4 border border-white/5">
                                 <div>
-                                    <label className="block text-xs text-white/60 uppercase tracking-widest mb-2">Kunci Enkripsi (E2EE)</label>
+                                    <label className="block text-xs text-white/60 uppercase tracking-widest mb-2">Kunci Enkripsi Side {currentRoom}</label>
                                     <input 
                                         type="password" 
                                         placeholder="Masukkan kunci rahasia..." 
                                         value={encryptionKey}
                                         onChange={e => {
                                             setEncryptionKey(e.target.value);
-                                            safeStorage.set('enc_key', e.target.value);
                                         }}
                                         className="w-full p-3 rounded-lg text-sm bg-black/50 border border-white/10 outline-none focus:border-gold/50 transition-colors text-white tracking-widest"
                                     />

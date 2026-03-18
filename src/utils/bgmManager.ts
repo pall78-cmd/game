@@ -5,7 +5,7 @@ export const AVAILABLE_BGMS = [
 
 export class BGMManager {
     private tracks: string[] = AVAILABLE_BGMS.map(b => b.url);
-    private audio: HTMLAudioElement;
+    public audio: HTMLAudioElement;
     private currentTrackIndex: number = 0;
     public isPlaying: boolean = false;
     private userVolume: number = 0.3;
@@ -75,10 +75,10 @@ export class BGMManager {
     mute(muted: boolean) {
         this.isMuted = muted;
         if (this.isMuted) {
-            this.audio.volume = 0;
+            try { this.audio.volume = 0; } catch(e) {}
         } else {
             if (this.isPlaying) {
-                this.audio.volume = this.userVolume;
+                try { this.audio.volume = this.userVolume; } catch(e) {}
             }
         }
     }
@@ -86,17 +86,24 @@ export class BGMManager {
     play() {
         if (this.activeInteractions.size > 0) return;
         if (this.isPlaying) return;
+        
+        this.isPlaying = true;
         if (!this.audio.src || this.audio.src === window.location.href) {
             this.audio.src = this.tracks[this.currentTrackIndex];
         }
-        this.audio.volume = this.isMuted ? 0 : 0;
+        
+        // Start from 0 to fade in smoothly
+        try { this.audio.volume = 0; } catch(e) {}
+        
         const playPromise = this.audio.play();
         if (playPromise !== undefined) {
             playPromise.then(() => {
-                this.isPlaying = true;
                 this.autoplayFailed = false;
-                if (!this.isMuted) this.fadeIn();
+                if (!this.isMuted && this.isPlaying) {
+                    this.fadeIn();
+                }
             }).catch(() => {
+                this.isPlaying = false;
                 this.autoplayFailed = true;
                 const unlock = () => {
                     this.play();
@@ -113,13 +120,16 @@ export class BGMManager {
 
     pause() {
         if (!this.isPlaying) return;
+        this.isPlaying = false;
+        
         if (this.isMuted) {
             this.audio.pause();
-            this.isPlaying = false;
         } else {
             this.fadeOut(() => {
-                this.audio.pause();
-                this.isPlaying = false;
+                // Only pause if it's still supposed to be paused
+                if (!this.isPlaying) {
+                    this.audio.pause();
+                }
             });
         }
     }
@@ -145,19 +155,21 @@ export class BGMManager {
         if (this.fadeInterval) clearInterval(this.fadeInterval);
         const step = 0.02;
         const intervalTime = 50;
+        let current = this.audio.volume;
         this.fadeInterval = setInterval(() => {
-            let current = this.audio.volume;
             if (Math.abs(current - targetVolume) < step) {
-                this.audio.volume = targetVolume;
+                current = targetVolume;
+                try { this.audio.volume = current; } catch(e) {}
                 clearInterval(this.fadeInterval);
                 this.fadeInterval = null;
                 if (callback) callback();
             } else {
                 if (current < targetVolume) {
-                    this.audio.volume = Math.min(1, current + step);
+                    current = Math.min(1, current + step);
                 } else {
-                    this.audio.volume = Math.max(0, current - step);
+                    current = Math.max(0, current - step);
                 }
+                try { this.audio.volume = current; } catch(e) {}
             }
         }, intervalTime);
     }

@@ -17,12 +17,12 @@ export interface ParsedMessage {
 }
 
 export const MessageParser = {
-    parse: (rawText: string): ParsedMessage => {
+    parse: (rawText: string, encKey?: string): ParsedMessage => {
         if (!rawText) return { isVO: false, replyData: null, type: 'text', content: '', originalText: '', vnDuration: null, isEdited: false };
 
         let text = rawText;
         try {
-            const key = localStorage.getItem('enc_key') || '';
+            const key = encKey || localStorage.getItem('enc_key') || '';
             text = CryptoUtils.decrypt(text, key);
         } catch (e) {}
 
@@ -99,11 +99,11 @@ export const MessageParser = {
         return { isVO, replyData, type, content, originalText: rawText, vnDuration, isEdited };
     },
 
-    getPreview: (rawText: string): string => {
+    getPreview: (rawText: string, encKey?: string): string => {
         if (!rawText) return "";
         let currentText = rawText;
         try {
-            const key = localStorage.getItem('enc_key') || '';
+            const key = encKey || localStorage.getItem('enc_key') || '';
             currentText = CryptoUtils.decrypt(currentText, key);
         } catch (e) {}
 
@@ -145,11 +145,11 @@ export const MessageParser = {
         return currentText.length > 50 ? currentText.substring(0, 50) + "..." : currentText;
     },
 
-    parseVoiceNote: (rawText: string) => {
+    parseVoiceNote: (rawText: string, encKey?: string) => {
         if (!rawText) return null;
         let text = rawText;
         try {
-            const key = localStorage.getItem('enc_key') || '';
+            const key = encKey || localStorage.getItem('enc_key') || '';
             text = CryptoUtils.decrypt(text, key);
         } catch (e) {}
 
@@ -166,11 +166,11 @@ export const MessageParser = {
         return { url, duration };
     },
 
-    createReplyContext: (messageObj: any): ReplyData => {
+    createReplyContext: (messageObj: any, encKey?: string): ReplyData => {
         const name = messageObj.nama.split('|')[0];
         let text = messageObj.teks;
         try {
-            const key = localStorage.getItem('enc_key') || '';
+            const key = encKey || localStorage.getItem('enc_key') || '';
             text = CryptoUtils.decrypt(text, key);
         } catch (e) {}
 
