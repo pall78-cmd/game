@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Reply, Check, CheckCheck } from 'lucide-react';
+import { Reply, Check, CheckCheck, Copy } from 'lucide-react';
 
 import { ConnectionManager } from './utils/ConnectionManager';
 import { supabaseClient } from '../supabase';
 import { ORACLE_CONFIG } from './config';
 import { GAME_DECK } from './constants/deck';
+import { drawUnoCard, drawRemiCard } from './constants/boardGames';
 import { MessageParser } from './utils/messageParser';
 import { AudioManager } from './utils/audioManager';
 import { bgmManager, AVAILABLE_BGMS } from './utils/bgmManager';
@@ -162,6 +163,142 @@ const FateCardDisplay = ({ raw }: { raw: string }) => {
     } catch { return <div className="p-3 text-red-500 border border-red-500/20 rounded-lg text-xs italic">Takdir yang Terdistorsi</div>; }
 };
 
+const BoardGameCardDisplay = ({ raw }: { raw: string }) => {
+    try {
+        const d = JSON.parse(raw);
+        const contentStr = d.content || "";
+        
+        if (!contentStr.startsWith("BOARDGAME:")) return null;
+        
+        const parts = contentStr.split(":");
+        if (parts.length < 3) return null;
+        
+        const gameType = parts[1];
+        const cardColorOrSuit = parts[2];
+        const cardValue = parts[3];
+        const invoker = d.invoker;
+
+        if (gameType === 'UNO') {
+            const isWild = cardColorOrSuit === 'WILD';
+            const bgColor = isWild ? 'bg-zinc-900' : 
+                            cardColorOrSuit === 'RED' ? 'bg-red-600' :
+                            cardColorOrSuit === 'BLUE' ? 'bg-blue-600' :
+                            cardColorOrSuit === 'GREEN' ? 'bg-green-600' :
+                            cardColorOrSuit === 'YELLOW' ? 'bg-yellow-500' : 'bg-zinc-800';
+            
+            const textColor = cardColorOrSuit === 'YELLOW' ? 'text-black' : 'text-white';
+
+            return (
+                <motion.div 
+                    initial={{ rotateY: 90, opacity: 0, scale: 0.8 }}
+                    animate={{ rotateY: 0, opacity: 1, scale: 1 }}
+                    transition={{ type: 'spring', damping: 12, stiffness: 100 }}
+                    className={`w-40 h-60 rounded-xl border-4 border-white ${bgColor} flex flex-col items-center justify-center relative shadow-2xl mx-auto`}
+                >
+                    {/* Top Left */}
+                    <div className={`absolute top-2 left-2 ${textColor} font-bold text-lg leading-none`}>
+                        {cardValue}
+                    </div>
+                    
+                    {/* Center Oval */}
+                    <div className="w-32 h-48 bg-white rounded-[50%] flex items-center justify-center transform -rotate-12 shadow-inner">
+                        <div className={`text-5xl font-black ${isWild ? 'text-black' : bgColor.replace('bg-', 'text-')} transform rotate-12 drop-shadow-md`}>
+                            {cardValue}
+                        </div>
+                    </div>
+
+                    {/* Bottom Right */}
+                    <div className={`absolute bottom-2 right-2 ${textColor} font-bold text-lg leading-none transform rotate-180`}>
+                        {cardValue}
+                    </div>
+
+                    <div className="absolute -bottom-6 text-[8px] opacity-60 uppercase tracking-widest text-white whitespace-nowrap">
+                        Ditarik oleh {invoker}
+                    </div>
+                </motion.div>
+            );
+        } else if (gameType === 'REMI') {
+            const isRed = cardColorOrSuit === '♥' || cardColorOrSuit === '♦';
+            const textColor = isRed ? 'text-red-600' : 'text-black';
+
+            return (
+                <motion.div 
+                    initial={{ rotateY: 90, opacity: 0, scale: 0.8 }}
+                    animate={{ rotateY: 0, opacity: 1, scale: 1 }}
+                    transition={{ type: 'spring', damping: 12, stiffness: 100 }}
+                    className="w-40 h-60 rounded-xl border border-gray-300 bg-white flex flex-col items-center justify-center relative shadow-2xl mx-auto"
+                >
+                    {/* Top Left */}
+                    <div className={`absolute top-2 left-2 flex flex-col items-center ${textColor} leading-none`}>
+                        <span className="font-bold text-xl">{cardValue}</span>
+                        <span className="text-2xl">{cardColorOrSuit}</span>
+                    </div>
+                    
+                    {/* Center */}
+                    <div className={`text-6xl ${textColor}`}>
+                        {cardColorOrSuit}
+                    </div>
+
+                    {/* Bottom Right */}
+                    <div className={`absolute bottom-2 right-2 flex flex-col items-center ${textColor} leading-none transform rotate-180`}>
+                        <span className="font-bold text-xl">{cardValue}</span>
+                        <span className="text-2xl">{cardColorOrSuit}</span>
+                    </div>
+
+                    <div className="absolute -bottom-6 text-[8px] opacity-60 uppercase tracking-widest text-white whitespace-nowrap">
+                        Ditarik oleh {invoker}
+                    </div>
+                </motion.div>
+            );
+        } else if (gameType === 'REMI41') {
+            if (parts.length < 10) return null;
+            const cards = [
+                { suit: parts[2], value: parts[3] },
+                { suit: parts[4], value: parts[5] },
+                { suit: parts[6], value: parts[7] },
+                { suit: parts[8], value: parts[9] }
+            ];
+
+            return (
+                <div className="flex flex-col items-center gap-6">
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:-space-x-8 justify-center relative">
+                        {cards.map((card, idx) => {
+                            const isRed = card.suit === '♥' || card.suit === '♦';
+                            const textColor = isRed ? 'text-red-600' : 'text-black';
+                            return (
+                                <motion.div 
+                                    key={idx}
+                                    initial={{ rotateY: 90, opacity: 0, x: -50 }}
+                                    animate={{ rotateY: 0, opacity: 1, x: 0 }}
+                                    transition={{ type: 'spring', damping: 12, stiffness: 100, delay: idx * 0.1 }}
+                                    className="w-24 h-36 sm:w-32 sm:h-48 rounded-xl border border-gray-300 bg-white flex flex-col items-center justify-center relative shadow-xl hover:z-10 hover:-translate-y-4 transition-transform"
+                                    style={{ zIndex: idx }}
+                                >
+                                    <div className={`absolute top-1 left-1 sm:top-2 sm:left-2 flex flex-col items-center ${textColor} leading-none`}>
+                                        <span className="font-bold text-sm sm:text-lg">{card.value}</span>
+                                        <span className="text-sm sm:text-xl">{card.suit}</span>
+                                    </div>
+                                    <div className={`text-3xl sm:text-5xl ${textColor}`}>
+                                        {card.suit}
+                                    </div>
+                                    <div className={`absolute bottom-1 right-1 sm:bottom-2 sm:right-2 flex flex-col items-center ${textColor} leading-none transform rotate-180`}>
+                                        <span className="font-bold text-sm sm:text-lg">{card.value}</span>
+                                        <span className="text-sm sm:text-xl">{card.suit}</span>
+                                    </div>
+                                </motion.div>
+                            );
+                        })}
+                    </div>
+                    <div className="text-[10px] opacity-60 uppercase tracking-widest text-white whitespace-nowrap">
+                        Ditarik oleh {invoker}
+                    </div>
+                </div>
+            );
+        }
+        return null;
+    } catch { return <div className="p-3 text-red-500 border border-red-500/20 rounded-lg text-xs italic">Kartu Rusak</div>; }
+};
+
 const formatText = (text: string) => {
     if (!text) return '';
     let formatted = text
@@ -224,6 +361,7 @@ const MessageContent = ({ type, content, isPlayingAudio, msgId, onPlayAudio, isM
 const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, onPlayAudio, onVisible, encryptionKey, onImageClick }: any) => {
     const bubbleRef = useRef<HTMLDivElement>(null);
     const [swipeX, setSwipeX] = useState(0);
+    const [isCopied, setIsCopied] = useState(false);
     const touchStartRef = useRef(0);
     const longPressTimer = useRef<any>(null);
     const isSwiping = useRef(false);
@@ -288,10 +426,15 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
     };
 
     if (msg.nama === "ORACLE") {
+        const isBoardGame = parsed.content.includes('"BOARDGAME:');
         return (
             <div ref={bubbleRef} className="flex flex-col items-center w-full my-6 px-4 animate-slide-up">
                 <div className="w-full max-w-sm">
-                    <FateCardDisplay raw={parsed.content} />
+                    {isBoardGame ? (
+                        <BoardGameCardDisplay raw={parsed.content} />
+                    ) : (
+                        <FateCardDisplay raw={parsed.content} />
+                    )}
                 </div>
             </div>
         );
@@ -339,10 +482,10 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
                 <motion.div 
                     animate={{ x: swipeX }}
                     transition={{ type: 'spring', damping: 20, stiffness: 200 }}
-                    className={`relative flex flex-col p-3 shadow-2xl transition-all ${
+                    className={`relative flex flex-col p-3 shadow-2xl transition-all hover:scale-[1.01] ${
                         isMe 
-                        ? 'bg-gradient-to-br from-emerald-900/90 to-emerald-800/90 backdrop-blur-md border border-emerald-500/20 text-white rounded-2xl rounded-tr-sm' 
-                        : 'bg-gradient-to-br from-zinc-800/90 to-zinc-900/90 backdrop-blur-md border border-white/10 text-white rounded-2xl rounded-tl-sm'
+                        ? 'bg-gradient-to-br from-emerald-900/90 to-emerald-800/90 backdrop-blur-md border border-emerald-500/20 text-white rounded-3xl rounded-tr-md' 
+                        : 'bg-gradient-to-br from-zinc-800/90 to-zinc-900/90 backdrop-blur-md border border-white/10 text-white rounded-3xl rounded-tl-md'
                     } ${parsed.isVO ? 'bg-red-950/60 border border-red-500/40 text-red-400 cursor-pointer' : ''}`}
                     onClick={() => parsed.isVO && onViewOnce(msg)}
                 >
@@ -393,6 +536,31 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
                         )}
                         
                         <div className="flex items-center justify-end gap-1 mt-1 self-end opacity-60">
+                            {(parsed.type === 'text' || (parsed.type === 'img' && parsed.content.includes('\n'))) && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        let textToCopy = '';
+                                        if (parsed.type === 'text') {
+                                            textToCopy = parsed.content;
+                                        } else if (parsed.type === 'img') {
+                                            const parts = parsed.content.split('\n');
+                                            if (parts.length > 1) {
+                                                textToCopy = parts.slice(1).join('\n');
+                                            }
+                                        }
+                                        if (textToCopy) {
+                                            navigator.clipboard.writeText(textToCopy);
+                                            setIsCopied(true);
+                                            setTimeout(() => setIsCopied(false), 2000);
+                                        }
+                                    }}
+                                    className="mr-1 hover:text-white transition-colors cursor-pointer"
+                                    title="Copy message"
+                                >
+                                    {isCopied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+                                </button>
+                            )}
                             {parsed.isEdited && (
                                 <span className="text-[8px] italic mr-1">
                                     (diedit)
@@ -1148,6 +1316,39 @@ function App() {
         setFateMode(false);
     };
 
+    const handleDrawBoardGame = async (game: 'UNO' | 'REMI BESAR' | 'REMI 41') => {
+        bgmManager.onFateCardDraw();
+        
+        let contentStr = '';
+        if (game === 'UNO') {
+            const card = drawUnoCard();
+            if (card.color === 'Black') {
+                contentStr = `BOARDGAME:UNO:WILD:${card.value}`;
+            } else {
+                contentStr = `BOARDGAME:UNO:${card.color.toUpperCase()}:${card.value}`;
+            }
+        } else if (game === 'REMI BESAR') {
+            const card = drawRemiCard();
+            contentStr = `BOARDGAME:REMI:${card.suit}:${card.value}`;
+        } else if (game === 'REMI 41') {
+            const cards = [drawRemiCard(), drawRemiCard(), drawRemiCard(), drawRemiCard()];
+            contentStr = `BOARDGAME:REMI41:${cards.map(c => `${c.suit}:${c.value}`).join(':')}`;
+        }
+
+        const payload = JSON.stringify({
+            content: contentStr,
+            invoker: username
+        });
+
+        const encKey = getEncKey();
+        const finalTeks = CryptoUtils.encrypt(payload, encKey);
+        const encryptedNama = CryptoUtils.encrypt('ORACLE', encKey);
+        const finalNama = currentRoomRef.current === 'B' ? `ROOM_B|${encryptedNama}` : `ROOM_A|${encryptedNama}`;
+
+        await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
+        setFateMode(false);
+    };
+
     const handleChaosPinSubmit = () => {
         if (chaosPinInput === '131225') {
             try { sessionStorage.setItem('chaos_unlocked', 'true'); } catch {}
@@ -1443,7 +1644,7 @@ function App() {
         <motion.div 
             animate={oracleEffect ? { x: [-5, 5, -5, 5, 0], y: [-2, 2, -2, 2, 0] } : {}}
             transition={{ duration: 0.4 }}
-            className="h-[100dvh] w-full bg-void flex flex-col font-sans text-sm text-white/90 overflow-hidden overflow-x-hidden supports-[height:100dvh]:h-[100dvh]"
+            className="h-[100dvh] w-full flex flex-col font-sans text-sm text-white/90 overflow-hidden overflow-x-hidden supports-[height:100dvh]:h-[100dvh]"
         >
             <header className="flex items-center justify-between p-3 border-b border-white/10 bg-black/60 backdrop-blur-2xl shadow-[0_4px_30px_rgba(0,0,0,0.5)] z-50 shrink-0">
                 <div className="flex items-center gap-3">
@@ -1611,6 +1812,10 @@ function App() {
                             onChange={e => { 
                                 setInputText(e.target.value); 
                                 handleTyping(); 
+                                if (textareaRef.current) {
+                                    textareaRef.current.style.height = '48px';
+                                    textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+                                }
                             }}
                             placeholder="Kirim pesan..." 
                             className="w-full min-h-[48px] max-h-[120px] bg-white/10 hover:bg-white/15 focus:bg-white/15 rounded-3xl px-5 py-3 pr-12 outline-none focus:ring-2 ring-gold/50 transition-all resize-none overflow-y-auto custom-scrollbar border border-white/5"

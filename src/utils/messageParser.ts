@@ -9,7 +9,7 @@ export interface ReplyData {
 export interface ParsedMessage {
     isVO: boolean;
     replyData: ReplyData | null;
-    type: 'text' | 'vn' | 'img' | 'game';
+    type: 'text' | 'vn' | 'img' | 'game' | 'boardgame';
     content: string;
     originalText: string;
     vnDuration: number | null;
@@ -60,7 +60,7 @@ export const MessageParser = {
             }
         }
 
-        let type: 'text' | 'vn' | 'img' | 'game' = "text";
+        let type: 'text' | 'vn' | 'img' | 'game' | 'boardgame' = "text";
         let content = text;
         let vnDuration: number | null = null;
 
@@ -94,6 +94,8 @@ export const MessageParser = {
             }
         } else if (text.startsWith("GAME ")) {
             type = "game";
+        } else if (text.startsWith("BOARDGAME ")) {
+            type = "boardgame";
         }
 
         return { isVO, replyData, type, content, originalText: rawText, vnDuration, isEdited };
@@ -141,6 +143,20 @@ export const MessageParser = {
                  return `🔮 ${type}: ${content}`;
              }
              return "🔮 Oracle Card";
+        }
+        if (currentText.startsWith("BOARDGAME:")) {
+             const parts = currentText.split(":");
+             if (parts.length > 1) {
+                 const type = parts[1];
+                 if (type === 'UNO') {
+                     return `🃏 UNO: ${parts[2]} ${parts[3]}`;
+                 } else if (type === 'REMI') {
+                     return `🃏 Remi: ${parts[2]} ${parts[3]}`;
+                 } else if (type === 'REMI41') {
+                     return `🃏 Remi 41`;
+                 }
+             }
+             return "🃏 Board Game Card";
         }
         return currentText.length > 50 ? currentText.substring(0, 50) + "..." : currentText;
     },
@@ -218,6 +234,20 @@ export const MessageParser = {
         } else if (currentText.startsWith("GAME ")) {
              const parts = currentText.split(":");
              currentText = parts.length > 1 ? `🔮 ${parts[0].replace("GAME ", "")}: ${parts.slice(1).join(":").trim()}` : "🔮 Oracle Card";
+        } else if (currentText.startsWith("BOARDGAME:")) {
+             const parts = currentText.split(":");
+             if (parts.length > 1) {
+                 const type = parts[1];
+                 if (type === 'UNO') {
+                     currentText = `🃏 UNO: ${parts[2]} ${parts[3]}`;
+                 } else if (type === 'REMI') {
+                     currentText = `🃏 Remi: ${parts[2]} ${parts[3]}`;
+                 } else if (type === 'REMI41') {
+                     currentText = `🃏 Remi 41`;
+                 }
+             } else {
+                 currentText = "🃏 Board Game Card";
+             }
         }
         if (currentText.length > 100) currentText = currentText.substring(0, 100) + "...";
         return { id: messageObj.id, name, text: currentText };
