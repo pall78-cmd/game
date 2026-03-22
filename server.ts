@@ -73,21 +73,25 @@ async function startServer() {
                 socket.join(gameId);
                 playerRooms.set(socket.id, gameId);
                 
-                if (engine instanceof UnoEngine) {
-                    engine.state.players.push({
-                        id: socket.id,
-                        name: playerName || `Player ${engine.state.players.length + 1}`,
-                        hand: [],
-                        score: 0,
-                        hasCalledUno: false
-                    });
-                    engine.log(`${playerName || 'A player'} joined the game.`);
-                } else {
-                    engine.state.players.push({
-                        id: socket.id,
-                        hand: [],
-                        score: 0
-                    });
+                const playerExists = engine.state.players.some(p => p.id === socket.id);
+                
+                if (!playerExists) {
+                    if (engine instanceof UnoEngine) {
+                        engine.state.players.push({
+                            id: socket.id,
+                            name: playerName || `Player ${engine.state.players.length + 1}`,
+                            hand: [],
+                            score: 0,
+                            hasCalledUno: false
+                        });
+                        engine.log(`${playerName || 'A player'} joined the game.`);
+                    } else {
+                        engine.state.players.push({
+                            id: socket.id,
+                            hand: [],
+                            score: 0
+                        });
+                    }
                 }
                 
                 console.log(`User ${socket.id} joined game ${gameId}`);
@@ -97,12 +101,21 @@ async function startServer() {
 
         socket.on("gameAction", async (data) => {
             const { gameId, action, payload } = data;
+            console.log(`[gameAction] action: ${action}, gameId: ${gameId}`);
             const engine = gameManager.getEngine(gameId);
-            if (engine) {
-                const previousStatus = engine.state.status;
+            if (!engine) {
+                console.log(`[gameAction] Engine not found for gameId: ${gameId}`);
+                socket.emit("gameError", "Game not found. The server might have restarted. Please refresh the page and create a new game.");
+                return;
+            }
+            
+            const previousStatus = engine.state.status;
+            console.log(`[gameAction] engine found. is UnoEngine: ${engine instanceof UnoEngine}`);
                 if (engine instanceof UnoEngine) {
                     if (action === 'start') {
+                        console.log(`[gameAction] calling UnoEngine.start()`);
                         engine.start();
+                        console.log(`[gameAction] UnoEngine.start() finished. status: ${engine.state.status}`);
                     } else if (action === 'draw') {
                         engine.drawCard(socket.id);
                     } else if (action === 'play') {
@@ -140,7 +153,6 @@ async function startServer() {
                 }
 
                 io.to(gameId).emit("gameUpdate", { type: "STATE_UPDATE", state: engine.state });
-            }
         });
 
         socket.on("disconnect", () => {

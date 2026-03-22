@@ -601,8 +601,18 @@ function App() {
                 }
             }
         };
+        const handleGameError = (msg: string) => {
+            alert(msg);
+            setShowUnoBoard(false);
+            setShowRemiBoard(false);
+            setGameId('');
+        };
         socket.on("gameUpdate", handleGameUpdate);
-        return () => { socket.off("gameUpdate", handleGameUpdate); };
+        socket.on("gameError", handleGameError);
+        return () => { 
+            socket.off("gameUpdate", handleGameUpdate); 
+            socket.off("gameError", handleGameError);
+        };
     }, [socket, showUnoBoard, showRemiBoard]);
 
     const createGame = (gameType: 'UNO' | 'REMI41' = 'REMI41') => {
