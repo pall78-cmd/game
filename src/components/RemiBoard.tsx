@@ -9,10 +9,11 @@ interface RemiBoardProps {
     gameId: string;
     username: string;
     onLeave: () => void;
+    initialGameState?: GameState | null;
 }
 
-export const RemiBoard: React.FC<RemiBoardProps> = ({ socket, gameId, username, onLeave }) => {
-    const [gameState, setGameState] = useState<GameState | null>(null);
+export const RemiBoard: React.FC<RemiBoardProps> = ({ socket, gameId, username, onLeave, initialGameState }) => {
+    const [gameState, setGameState] = useState<GameState | null>(initialGameState || null);
     const gameRef = useRef<Phaser.Game | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -37,7 +38,8 @@ export const RemiBoard: React.FC<RemiBoardProps> = ({ socket, gameId, username, 
 
         game.scene.start('RemiScene', {
             socket,
-            gameId
+            gameId,
+            initialGameState
         });
 
         return () => {

@@ -29,6 +29,9 @@ export class PhaserUnoScene extends Phaser.Scene {
         this.myPlayerId = data.socket.id;
         this.onShowColorPicker = data.onShowColorPicker;
         this.onSetPendingWildCardIndex = data.onSetPendingWildCardIndex;
+        if (data.initialGameState) {
+            this.gameState = data.initialGameState;
+        }
     }
 
     preload() {
@@ -115,6 +118,10 @@ export class PhaserUnoScene extends Phaser.Scene {
 
         // Handle Resize
         this.scale.on('resize', this.handleResize, this);
+
+        if (this.gameState) {
+            this.handleGameStateUpdate(this.gameState);
+        }
     }
 
     private handleResize(gameSize: Phaser.Structs.Size) {
@@ -158,6 +165,8 @@ export class PhaserUnoScene extends Phaser.Scene {
 
     public handleGameStateUpdate(newState: UnoGameState) {
         this.gameState = newState;
+        if (!this.turnText) return; // Ensure create() has finished
+
         const { width, height } = this.scale;
 
         if (newState.status !== 'playing') {

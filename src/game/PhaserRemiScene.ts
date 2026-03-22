@@ -22,6 +22,9 @@ export class PhaserRemiScene extends Phaser.Scene {
         this.socket = data.socket;
         this.gameId = data.gameId;
         this.myPlayerId = data.socket.id;
+        if (data.initialGameState) {
+            this.gameState = data.initialGameState;
+        }
     }
 
     preload() {
@@ -84,6 +87,10 @@ export class PhaserRemiScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         this.scale.on('resize', this.handleResize, this);
+
+        if (this.gameState) {
+            this.handleGameStateUpdate(this.gameState);
+        }
     }
 
     handleResize(gameSize: Phaser.Structs.Size) {
@@ -113,6 +120,7 @@ export class PhaserRemiScene extends Phaser.Scene {
 
     handleGameStateUpdate(state: GameState) {
         this.gameState = state;
+        if (!this.turnText) return; // Ensure create() has finished
 
         if (state.status === 'waiting') {
             this.turnText.setText('Waiting to start...');

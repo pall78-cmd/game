@@ -96,6 +96,8 @@ async function startServer() {
                 
                 console.log(`User ${socket.id} joined game ${gameId}`);
                 io.to(gameId).emit("gameUpdate", { type: "STATE_UPDATE", state: engine.state });
+            } else {
+                socket.emit("gameError", "Game not found or room is full.");
             }
         });
 

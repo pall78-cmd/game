@@ -10,10 +10,11 @@ interface UnoBoardProps {
     gameId: string;
     username: string;
     onLeave: () => void;
+    initialGameState?: UnoGameState | null;
 }
 
-export const UnoBoard: React.FC<UnoBoardProps> = ({ socket, gameId, username, onLeave }) => {
-    const [gameState, setGameState] = useState<UnoGameState | null>(null);
+export const UnoBoard: React.FC<UnoBoardProps> = ({ socket, gameId, username, onLeave, initialGameState }) => {
+    const [gameState, setGameState] = useState<UnoGameState | null>(initialGameState || null);
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [pendingWildCardIndex, setPendingWildCardIndex] = useState<number | null>(null);
     const gameRef = useRef<Phaser.Game | null>(null);
@@ -41,6 +42,7 @@ export const UnoBoard: React.FC<UnoBoardProps> = ({ socket, gameId, username, on
         game.scene.start('UnoScene', {
             socket,
             gameId,
+            initialGameState,
             onShowColorPicker: () => setShowColorPicker(true),
             onSetPendingWildCardIndex: (index: number) => setPendingWildCardIndex(index)
         });

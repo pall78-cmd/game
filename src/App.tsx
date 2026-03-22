@@ -618,11 +618,7 @@ function App() {
     const createGame = (gameType: 'UNO' | 'REMI41' = 'REMI41') => {
         if (!gameId) return;
         socket?.emit("createGame", { gameId, gameType, playerName: username });
-        if (gameType === 'UNO') {
-            setShowUnoBoard(true);
-        } else if (gameType === 'REMI41') {
-            setShowRemiBoard(true);
-        }
+        // We will listen to gameUpdate to show the correct board
     };
 
     const joinGame = () => {
@@ -2486,6 +2482,7 @@ function App() {
                     gameId={gameId} 
                     username={username} 
                     onLeave={() => setShowUnoBoard(false)} 
+                    initialGameState={gameState as any}
                 />
             )}
             {showRemiBoard && socket && (
@@ -2494,6 +2491,7 @@ function App() {
                     gameId={gameId} 
                     username={username} 
                     onLeave={() => setShowRemiBoard(false)} 
+                    initialGameState={gameState as any}
                 />
             )}
             {showLeaderboard && (
