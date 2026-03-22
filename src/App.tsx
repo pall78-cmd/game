@@ -1,17 +1,22 @@
 import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reply, Check, CheckCheck, Copy } from 'lucide-react';
+import { io, Socket } from "socket.io-client";
+import { UNO_CARD_SVG, REMI_CARD_SVG } from './constants/boardGameDeck';
 
 import { ConnectionManager } from './utils/ConnectionManager';
 import { supabaseClient } from '../supabase';
 import { ORACLE_CONFIG } from './config';
 import { GAME_DECK } from './constants/deck';
-import { drawUnoCard, drawRemiCard } from './constants/boardGames';
+import { drawUnoFlipCard, drawRemiCard } from './constants/boardGames';
 import { MessageParser } from './utils/messageParser';
 import { AudioManager } from './utils/audioManager';
 import { bgmManager, AVAILABLE_BGMS } from './utils/bgmManager';
 import { StorageManager } from './utils/StorageManager';
 import { CryptoUtils } from './utils/crypto';
+import { UnoBoard } from './components/UnoBoard';
+import { RemiBoard } from './components/RemiBoard';
+import { Leaderboard } from './components/Leaderboard';
 
 // --- CONSTANTS & UTILS ---
 const SUPA_URL = import.meta.env.VITE_SUPA_URL || ORACLE_CONFIG?.SUPA_URL;
@@ -31,6 +36,7 @@ const safeStorage = {
 };
 
 // --- COMPONENTS ---
+
 
 const AudioPlayer = ({ url, isPlaying, onToggle }: { url: string, isPlaying: boolean, onToggle: () => void }) => {
     const [progress, setProgress] = useState(0);
@@ -163,10 +169,16 @@ const FateCardDisplay = ({ raw }: { raw: string }) => {
     } catch { return <div className="p-3 text-red-500 border border-red-500/20 rounded-lg text-xs italic">Takdir yang Terdistorsi</div>; }
 };
 
-const BoardGameCardDisplay = ({ raw }: { raw: string }) => {
+const BoardGameCardDisplay = ({ raw, invokerName }: { raw: string, invokerName?: string }) => {
     try {
-        const d = JSON.parse(raw);
-        const contentStr = d.content || "";
+        let contentStr = raw;
+        let invoker = invokerName || "";
+        
+        if (raw.startsWith("{")) {
+            const d = JSON.parse(raw);
+            contentStr = d.content || "";
+            invoker = d.invoker || invoker;
+        }
         
         if (!contentStr.startsWith("BOARDGAME:")) return null;
         
@@ -176,78 +188,39 @@ const BoardGameCardDisplay = ({ raw }: { raw: string }) => {
         const gameType = parts[1];
         const cardColorOrSuit = parts[2];
         const cardValue = parts[3];
-        const invoker = d.invoker;
 
-        if (gameType === 'UNO') {
-            const isWild = cardColorOrSuit === 'WILD';
-            const bgColor = isWild ? 'bg-zinc-900' : 
-                            cardColorOrSuit === 'RED' ? 'bg-red-600' :
-                            cardColorOrSuit === 'BLUE' ? 'bg-blue-600' :
-                            cardColorOrSuit === 'GREEN' ? 'bg-green-600' :
-                            cardColorOrSuit === 'YELLOW' ? 'bg-yellow-500' : 'bg-zinc-800';
+        if (gameType === 'UNO_FLIP') {
+            const side = parts[2] as 'Light' | 'Dark';
+            const color = parts[3];
+            const value = parts[4];
             
-            const textColor = cardColorOrSuit === 'YELLOW' ? 'text-black' : 'text-white';
-
             return (
                 <motion.div 
                     initial={{ rotateY: 90, opacity: 0, scale: 0.8 }}
                     animate={{ rotateY: 0, opacity: 1, scale: 1 }}
                     transition={{ type: 'spring', damping: 12, stiffness: 100 }}
-                    className={`w-40 h-60 rounded-xl border-4 border-white ${bgColor} flex flex-col items-center justify-center relative shadow-2xl mx-auto`}
+                    className="w-40 h-60 relative shadow-lg mx-auto mb-6"
                 >
-                    {/* Top Left */}
-                    <div className={`absolute top-2 left-2 ${textColor} font-bold text-lg leading-none`}>
-                        {cardValue}
-                    </div>
-                    
-                    {/* Center Oval */}
-                    <div className="w-32 h-48 bg-white rounded-[50%] flex items-center justify-center transform -rotate-12 shadow-inner">
-                        <div className={`text-5xl font-black ${isWild ? 'text-black' : bgColor.replace('bg-', 'text-')} transform rotate-12 drop-shadow-md`}>
-                            {cardValue}
-                        </div>
-                    </div>
-
-                    {/* Bottom Right */}
-                    <div className={`absolute bottom-2 right-2 ${textColor} font-bold text-lg leading-none transform rotate-180`}>
-                        {cardValue}
-                    </div>
-
-                    <div className="absolute -bottom-6 text-[8px] opacity-60 uppercase tracking-widest text-white whitespace-nowrap">
-                        Ditarik oleh {invoker}
+                    <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: UNO_CARD_SVG(side, color, value) }} />
+                    <div className="absolute -bottom-6 left-0 right-0 text-[8px] opacity-60 uppercase tracking-widest text-white whitespace-nowrap text-center">
+                        {invoker ? `Ditarik oleh ${invoker} ` : ''}({side} Side)
                     </div>
                 </motion.div>
             );
         } else if (gameType === 'REMI') {
-            const isRed = cardColorOrSuit === '♥' || cardColorOrSuit === '♦';
-            const textColor = isRed ? 'text-red-600' : 'text-black';
-
             return (
                 <motion.div 
                     initial={{ rotateY: 90, opacity: 0, scale: 0.8 }}
                     animate={{ rotateY: 0, opacity: 1, scale: 1 }}
                     transition={{ type: 'spring', damping: 12, stiffness: 100 }}
-                    className="w-40 h-60 rounded-xl border border-gray-300 bg-white flex flex-col items-center justify-center relative shadow-2xl mx-auto"
+                    className="w-40 h-60 relative shadow-lg mx-auto mb-6"
                 >
-                    {/* Top Left */}
-                    <div className={`absolute top-2 left-2 flex flex-col items-center ${textColor} leading-none`}>
-                        <span className="font-bold text-xl">{cardValue}</span>
-                        <span className="text-2xl">{cardColorOrSuit}</span>
-                    </div>
-                    
-                    {/* Center */}
-                    <div className={`text-6xl ${textColor}`}>
-                        {cardColorOrSuit}
-                    </div>
-
-                    {/* Bottom Right */}
-                    <div className={`absolute bottom-2 right-2 flex flex-col items-center ${textColor} leading-none transform rotate-180`}>
-                        <span className="font-bold text-xl">{cardValue}</span>
-                        <span className="text-2xl">{cardColorOrSuit}</span>
-                    </div>
-
-                    <div className="absolute -bottom-6 text-[8px] opacity-60 uppercase tracking-widest text-white whitespace-nowrap">
-                        Ditarik oleh {invoker}
-                    </div>
+                    <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: REMI_CARD_SVG(cardColorOrSuit, cardValue) }} />
+                    {invoker && (
+                        <div className="absolute -bottom-6 left-0 right-0 text-[8px] opacity-60 uppercase tracking-widest text-white whitespace-nowrap text-center">
+                            Ditarik oleh {invoker}
+                        </div>
+                    )}
                 </motion.div>
             );
         } else if (gameType === 'REMI41') {
@@ -261,33 +234,23 @@ const BoardGameCardDisplay = ({ raw }: { raw: string }) => {
 
             return (
                 <div className="flex flex-col items-center gap-6">
-                    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:-space-x-8 justify-center relative">
-                        {cards.map((card, idx) => {
-                            const isRed = card.suit === '♥' || card.suit === '♦';
-                            const textColor = isRed ? 'text-red-600' : 'text-black';
-                            return (
-                                <motion.div 
-                                    key={idx}
-                                    initial={{ rotateY: 90, opacity: 0, x: -50 }}
-                                    animate={{ rotateY: 0, opacity: 1, x: 0 }}
-                                    transition={{ type: 'spring', damping: 12, stiffness: 100, delay: idx * 0.1 }}
-                                    className="w-24 h-36 sm:w-32 sm:h-48 rounded-xl border border-gray-300 bg-white flex flex-col items-center justify-center relative shadow-xl hover:z-10 hover:-translate-y-4 transition-transform"
-                                    style={{ zIndex: idx }}
-                                >
-                                    <div className={`absolute top-1 left-1 sm:top-2 sm:left-2 flex flex-col items-center ${textColor} leading-none`}>
-                                        <span className="font-bold text-sm sm:text-lg">{card.value}</span>
-                                        <span className="text-sm sm:text-xl">{card.suit}</span>
-                                    </div>
-                                    <div className={`text-3xl sm:text-5xl ${textColor}`}>
-                                        {card.suit}
-                                    </div>
-                                    <div className={`absolute bottom-1 right-1 sm:bottom-2 sm:right-2 flex flex-col items-center ${textColor} leading-none transform rotate-180`}>
-                                        <span className="font-bold text-sm sm:text-lg">{card.value}</span>
-                                        <span className="text-sm sm:text-xl">{card.suit}</span>
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
+                    <div className="flex justify-center relative">
+                        {cards.map((card, idx) => (
+                            <motion.div 
+                                key={idx}
+                                initial={{ rotateY: 90, opacity: 0, x: -50 }}
+                                animate={{ rotateY: 0, opacity: 1, x: 0 }}
+                                transition={{ type: 'spring', damping: 12, stiffness: 100, delay: idx * 0.1 }}
+                                className="w-24 h-36 sm:w-32 sm:h-48 relative shadow-md hover:z-20 hover:-translate-y-4 transition-transform"
+                                style={{ 
+                                    zIndex: idx,
+                                    marginLeft: idx === 0 ? 0 : '-40px',
+                                    transform: `rotate(${idx * 5 - 10}deg)`
+                                }}
+                            >
+                                <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: REMI_CARD_SVG(card.suit, card.value) }} />
+                            </motion.div>
+                        ))}
                     </div>
                     <div className="text-[10px] opacity-60 uppercase tracking-widest text-white whitespace-nowrap">
                         Ditarik oleh {invoker}
@@ -319,7 +282,11 @@ const formatText = (text: string) => {
     return formatted;
 };
 
-const MessageContent = ({ type, content, isPlayingAudio, msgId, onPlayAudio, isMe, isSecret = false, onImageClick }: any) => {
+const MessageContent = ({ type, content, isPlayingAudio, msgId, onPlayAudio, isMe, isSecret = false, onImageClick, invokerName }: any) => {
+    if (type === "boardgame") {
+        return <BoardGameCardDisplay raw={content} invokerName={invokerName} />;
+    }
+
     // Robust detection: if type is vn OR content starts with [VN] (fallback for parser delay)
     if (type === "vn" || (typeof content === 'string' && content.startsWith("[VN]"))) {
         const url = type === "vn" ? content : content.substring(4).trim();
@@ -532,6 +499,7 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
                                 onPlayAudio={onPlayAudio} 
                                 isMe={isMe} 
                                 onImageClick={onImageClick}
+                                invokerName={identity.name}
                             />
                         )}
                         
@@ -605,6 +573,62 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
 // --- MAIN APP ---
 
 function App() {
+    const [socket, setSocket] = useState<Socket | null>(null);
+    const [gameState, setGameState] = useState<any>(null);
+    const [gameId, setGameId] = useState('');
+    const [showUnoBoard, setShowUnoBoard] = useState(false);
+    const [showRemiBoard, setShowRemiBoard] = useState(false);
+    const [showLeaderboard, setShowLeaderboard] = useState(false);
+
+    useEffect(() => {
+        const newSocket = io();
+        setSocket(newSocket);
+        return () => { newSocket.close(); };
+    }, []);
+
+    useEffect(() => {
+        if (!socket) return;
+        const handleGameUpdate = (data: any) => {
+            if (data.type === "STATE_UPDATE") {
+                setGameState(data.state);
+                // If we joined a game but don't have a board open, open the correct one
+                if (!showUnoBoard && !showRemiBoard && data.state.players.length > 0) {
+                    if ('hasCalledUno' in data.state.players[0]) {
+                        setShowUnoBoard(true);
+                    } else {
+                        setShowRemiBoard(true);
+                    }
+                }
+            }
+        };
+        socket.on("gameUpdate", handleGameUpdate);
+        return () => { socket.off("gameUpdate", handleGameUpdate); };
+    }, [socket, showUnoBoard, showRemiBoard]);
+
+    const createGame = (gameType: 'UNO' | 'REMI41' = 'REMI41') => {
+        if (!gameId) return;
+        socket?.emit("createGame", { gameId, gameType, playerName: username });
+        if (gameType === 'UNO') {
+            setShowUnoBoard(true);
+        } else if (gameType === 'REMI41') {
+            setShowRemiBoard(true);
+        }
+    };
+
+    const joinGame = () => {
+        if (!gameId) return;
+        socket?.emit("joinGame", { gameId, playerName: username });
+        // We will listen to gameUpdate to show the correct board
+    };
+
+    const drawCard = () => {
+        socket?.emit("gameAction", { gameId, action: 'draw' });
+    };
+
+    const discardCard = (cardIndex: number) => {
+        socket?.emit("gameAction", { gameId, action: 'discard', payload: { cardIndex } });
+    };
+
     const [layer, setLayer] = useState(() => {
         if (safeStorage.get('oracle_adult') === null) return 'AGE';
         if (safeStorage.get('oracle_user') === null) return 'NAME';
@@ -627,6 +651,7 @@ function App() {
     const [inputText, setInputText] = useState('');
     const [isViewOnce, setIsViewOnce] = useState(false);
     const [fateMode, setFateMode] = useState(false);
+    const [boardGameMenuOpen, setBoardGameMenuOpen] = useState(false);
     const [currentAudioId, setCurrentAudioId] = useState<string | number | null>(null);
     const [replyingTo, setReplyingTo] = useState<any>(null);
     const [editingMsg, setEditingMsg] = useState<any>(null);
@@ -1177,6 +1202,35 @@ function App() {
         }
     };
 
+    const handleSendBoardGame = async (game: string) => {
+        let contentStr = '';
+        if (game === 'UNO') {
+            const card = drawUnoFlipCard('Light');
+            contentStr = `BOARDGAME:UNO_FLIP:${card.side}:${card.color}:${card.value}`;
+        } else if (game === 'UNO_DARK') {
+            const card = drawUnoFlipCard('Dark');
+            contentStr = `BOARDGAME:UNO_FLIP:${card.side}:${card.color}:${card.value}`;
+        } else if (game === 'REMI') {
+            const card = drawRemiCard();
+            contentStr = `BOARDGAME:REMI:${card.suit}:${card.value}`;
+        } else if (game === 'REMI41') {
+            const cards = [drawRemiCard(), drawRemiCard(), drawRemiCard(), drawRemiCard()];
+            contentStr = `BOARDGAME:REMI41:${cards.map(c => `${c.suit}:${c.value}`).join(':')}`;
+        }
+        
+        try {
+            const nama = `${username}|${avatar}|${userColor}`;
+            const encKey = getEncKey();
+            const finalTeks = CryptoUtils.encrypt(contentStr, encKey);
+            const encryptedNama = CryptoUtils.encrypt(nama, encKey);
+            const finalNama = currentRoomRef.current === 'B' ? `ROOM_B|${encryptedNama}` : `ROOM_A|${encryptedNama}`;
+            forceScrollRef.current = true;
+            await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
+        } catch (err: any) {
+            showToast(`Gagal mengirim: ${err.message}`, "error");
+        }
+    };
+
     const isRecordingRef = useRef(false);
     const isStartingRef = useRef(false);
 
@@ -1316,17 +1370,16 @@ function App() {
         setFateMode(false);
     };
 
-    const handleDrawBoardGame = async (game: 'UNO' | 'REMI BESAR' | 'REMI 41') => {
+    const handleDrawBoardGame = async (game: 'UNO' | 'UNO_DARK' | 'REMI BESAR' | 'REMI 41') => {
         bgmManager.onFateCardDraw();
         
         let contentStr = '';
         if (game === 'UNO') {
-            const card = drawUnoCard();
-            if (card.color === 'Black') {
-                contentStr = `BOARDGAME:UNO:WILD:${card.value}`;
-            } else {
-                contentStr = `BOARDGAME:UNO:${card.color.toUpperCase()}:${card.value}`;
-            }
+            const card = drawUnoFlipCard('Light');
+            contentStr = `BOARDGAME:UNO_FLIP:${card.side}:${card.color}:${card.value}`;
+        } else if (game === 'UNO_DARK') {
+            const card = drawUnoFlipCard('Dark');
+            contentStr = `BOARDGAME:UNO_FLIP:${card.side}:${card.color}:${card.value}`;
         } else if (game === 'REMI BESAR') {
             const card = drawRemiCard();
             contentStr = `BOARDGAME:REMI:${card.suit}:${card.value}`;
@@ -1802,9 +1855,25 @@ function App() {
                     </div>
                 )}
                 <div className="flex items-center gap-2">
-                    <button onClick={() => setFateMode(!fateMode)} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${fateMode ? 'bg-gold text-black' : 'bg-white/10'}`}>
-                        <span className="font-header text-xl">?</span>
-                    </button>
+                    {currentRoomRef.current === 'B' ? (
+                        <div className="relative">
+                            <button onClick={() => setBoardGameMenuOpen(!boardGameMenuOpen)} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${boardGameMenuOpen ? 'bg-gold text-black' : 'bg-white/10'}`}>
+                                <span className="font-header text-xl">🎲</span>
+                            </button>
+                            {boardGameMenuOpen && (
+                                <div className="absolute bottom-14 left-0 bg-zinc-900 border border-white/10 rounded-xl p-2 flex flex-col gap-2 z-50 w-32">
+                                    <button onClick={() => { handleSendBoardGame('UNO'); setBoardGameMenuOpen(false); }} className="px-4 py-2 hover:bg-white/10 rounded-lg text-sm">UNO</button>
+                                    <button onClick={() => { handleSendBoardGame('UNO_DARK'); setBoardGameMenuOpen(false); }} className="px-4 py-2 hover:bg-white/10 rounded-lg text-sm">UNO (Dark)</button>
+                                    <button onClick={() => { handleSendBoardGame('REMI'); setBoardGameMenuOpen(false); }} className="px-4 py-2 hover:bg-white/10 rounded-lg text-sm">REMI</button>
+                                    <button onClick={() => { handleSendBoardGame('REMI41'); setBoardGameMenuOpen(false); }} className="px-4 py-2 hover:bg-white/10 rounded-lg text-sm">REMI 41</button>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <button onClick={() => setFateMode(!fateMode)} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${fateMode ? 'bg-gold text-black' : 'bg-white/10'}`}>
+                            <span className="font-header text-xl">?</span>
+                        </button>
+                    )}
                     <div className="flex-1 relative flex items-end group">
                         <textarea 
                             ref={textareaRef}
@@ -2287,6 +2356,36 @@ function App() {
                             </div>
                         </section>
 
+                        {/* GAME UI */}
+                        <div className="p-4 bg-zinc-900 text-white rounded-xl mb-4 border border-white/10">
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-xl font-bold text-gold">Multiplayer Game</h2>
+                                <button 
+                                    onClick={() => {
+                                        setShowMenu(false);
+                                        setShowLeaderboard(true);
+                                    }}
+                                    className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                                >
+                                    🏆 Leaderboard
+                                </button>
+                            </div>
+                            <div className="flex flex-col gap-2 mb-4">
+                                <input 
+                                    type="text" 
+                                    value={gameId} 
+                                    onChange={(e) => setGameId(e.target.value)} 
+                                    placeholder="Enter Game ID (e.g., room123)" 
+                                    className="p-3 rounded-lg bg-black/50 border border-white/10 outline-none focus:border-gold/50"
+                                />
+                                <div className="grid grid-cols-3 gap-2 mt-2">
+                                    <button onClick={() => createGame('UNO')} className="p-3 bg-red-600/80 hover:bg-red-500 rounded-lg font-bold transition-colors shadow-lg">Create UNO</button>
+                                    <button onClick={() => createGame('REMI41')} className="p-3 bg-emerald-600/80 hover:bg-emerald-500 rounded-lg font-bold transition-colors shadow-lg">Create REMI 41</button>
+                                    <button onClick={joinGame} className="p-3 bg-blue-600/80 hover:bg-blue-500 rounded-lg font-bold transition-colors shadow-lg">Join Game</button>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* SISTEM & MAINTENANCE */}
                         <section className="space-y-4">
                             <div className="flex items-center gap-2 border-b border-white/10 pb-2">
@@ -2370,6 +2469,26 @@ function App() {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {showUnoBoard && socket && (
+                <UnoBoard 
+                    socket={socket} 
+                    gameId={gameId} 
+                    username={username} 
+                    onLeave={() => setShowUnoBoard(false)} 
+                />
+            )}
+            {showRemiBoard && socket && (
+                <RemiBoard 
+                    socket={socket} 
+                    gameId={gameId} 
+                    username={username} 
+                    onLeave={() => setShowRemiBoard(false)} 
+                />
+            )}
+            {showLeaderboard && (
+                <Leaderboard onClose={() => setShowLeaderboard(false)} />
+            )}
         </motion.div>
     );
 }

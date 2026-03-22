@@ -94,7 +94,7 @@ export const MessageParser = {
             }
         } else if (text.startsWith("GAME ")) {
             type = "game";
-        } else if (text.startsWith("BOARDGAME ")) {
+        } else if (text.startsWith("BOARDGAME:")) {
             type = "boardgame";
         }
 
@@ -148,7 +148,9 @@ export const MessageParser = {
              const parts = currentText.split(":");
              if (parts.length > 1) {
                  const type = parts[1];
-                 if (type === 'UNO') {
+                 if (type === 'UNO_FLIP') {
+                     return `🃏 UNO: ${parts[2]} ${parts[3]} ${parts[4]}`;
+                 } else if (type === 'UNO') {
                      return `🃏 UNO: ${parts[2]} ${parts[3]}`;
                  } else if (type === 'REMI') {
                      return `🃏 Remi: ${parts[2]} ${parts[3]}`;
@@ -238,7 +240,10 @@ export const MessageParser = {
              const parts = currentText.split(":");
              if (parts.length > 1) {
                  const type = parts[1];
-                 if (type === 'UNO') {
+                 if (type === 'UNO_FLIP') {
+                     const colorStr = parts[3] === 'Black' ? '' : `${parts[3]} `;
+                     currentText = `🃏 UNO: ${parts[2]} ${colorStr}${parts[4]}`;
+                 } else if (type === 'UNO') {
                      currentText = `🃏 UNO: ${parts[2]} ${parts[3]}`;
                  } else if (type === 'REMI') {
                      currentText = `🃏 Remi: ${parts[2]} ${parts[3]}`;
