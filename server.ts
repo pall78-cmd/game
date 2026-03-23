@@ -76,21 +76,24 @@ async function startServer() {
                 const playerExists = engine.state.players.some(p => p.id === socket.id);
                 
                 if (!playerExists) {
-                    if (engine instanceof UnoEngine) {
-                        engine.state.players.push({
+                    const isUno = 'currentColor' in engine.state;
+                    if (isUno) {
+                        const unoEngine = engine as any;
+                        unoEngine.state.players.push({
                             id: socket.id,
-                            name: playerName || `Player ${engine.state.players.length + 1}`,
+                            name: playerName || `Player ${unoEngine.state.players.length + 1}`,
                             hand: [],
                             score: 0,
                             hasCalledUno: false
                         });
-                        engine.log(`${playerName || 'A player'} joined the game.`);
+                        unoEngine.log(`${playerName || 'A player'} joined the game.`);
                     } else {
                         engine.state.players.push({
                             id: socket.id,
                             hand: [],
                             score: 0
                         });
+                        (engine.state.players[engine.state.players.length - 1] as any).name = playerName || `Player ${engine.state.players.length}`;
                     }
                 }
                 
@@ -112,35 +115,38 @@ async function startServer() {
             }
             
             const previousStatus = engine.state.status;
-            console.log(`[gameAction] engine found. is UnoEngine: ${engine instanceof UnoEngine}`);
-                if (engine instanceof UnoEngine) {
+            const isUno = 'currentColor' in engine.state;
+            console.log(`[gameAction] engine found. is UnoEngine: ${isUno}`);
+                if (isUno) {
+                    const unoEngine = engine as any;
                     if (action === 'start') {
                         console.log(`[gameAction] calling UnoEngine.start()`);
-                        engine.start();
-                        console.log(`[gameAction] UnoEngine.start() finished. status: ${engine.state.status}`);
+                        unoEngine.start();
+                        console.log(`[gameAction] UnoEngine.start() finished. status: ${unoEngine.state.status}`);
                     } else if (action === 'draw') {
-                        engine.drawCard(socket.id);
+                        unoEngine.drawCard(socket.id);
                     } else if (action === 'play') {
-                        engine.playCard(socket.id, payload.cardIndex, payload.chosenColor);
+                        unoEngine.playCard(socket.id, payload.cardIndex, payload.chosenColor);
                     } else if (action === 'callUno') {
-                        engine.callUno(socket.id);
+                        unoEngine.callUno(socket.id);
                     }
                 } else {
+                    const game41Engine = engine as any;
                     if (action === 'start') {
-                        (engine as Game41Engine).start();
+                        game41Engine.start();
                     } else if (action === 'draw') {
-                        engine.drawCard(socket.id);
+                        game41Engine.drawCard(socket.id);
                     } else if (action === 'drawFromDiscard') {
-                        (engine as Game41Engine).drawFromDiscard(socket.id);
+                        game41Engine.drawFromDiscard(socket.id);
                     } else if (action === 'discard') {
-                        engine.discardCard(socket.id, payload.cardIndex);
+                        game41Engine.discardCard(socket.id, payload.cardIndex);
                     }
                 }
                 
                 if (previousStatus === 'playing' && engine.state.status === 'finished') {
                     // Game just finished, save to Supabase
                     const matchData = {
-                        game_type: engine instanceof UnoEngine ? 'UNO' : 'GAME41',
+                        game_type: isUno ? 'UNO' : 'GAME41',
                         winner_name: engine.state.winner,
                         players: engine.state.players.map(p => (p as any).name || p.id),
                         created_at: new Date().toISOString()
@@ -163,10 +169,11 @@ async function startServer() {
             if (gameId) {
                 const engine = gameManager.getEngine(gameId);
                 if (engine) {
-                    if (engine instanceof UnoEngine) {
+                    const isUno = 'currentColor' in engine.state;
+                    if (isUno) {
                         const player = engine.state.players.find(p => p.id === socket.id);
                         if (player) {
-                            engine.log(`${player.name} disconnected.`);
+                            (engine as any).log(`${(player as any).name || player.id} disconnected.`);
                         }
                     }
                     // Remove player from engine state

@@ -6,7 +6,6 @@ export class PhaserRemiScene extends Phaser.Scene {
     private gameState: GameState | null = null;
     private socket: any;
     private gameId: string = '';
-    private myPlayerId: string = '';
 
     private handGroup!: Phaser.GameObjects.Group;
     private discardPileSprite!: Phaser.GameObjects.Sprite;
@@ -21,7 +20,6 @@ export class PhaserRemiScene extends Phaser.Scene {
     init(data: any) {
         this.socket = data.socket;
         this.gameId = data.gameId;
-        this.myPlayerId = data.socket.id;
         if (data.initialGameState) {
             this.gameState = data.initialGameState;
         }
@@ -115,7 +113,7 @@ export class PhaserRemiScene extends Phaser.Scene {
     isMyTurn() {
         if (!this.gameState || this.gameState.status !== 'playing') return false;
         const currentPlayer = this.gameState.players[this.gameState.currentPlayerIndex];
-        return currentPlayer && currentPlayer.id === this.myPlayerId;
+        return currentPlayer && currentPlayer.id === this.socket.id;
     }
 
     handleGameStateUpdate(state: GameState) {
@@ -155,7 +153,7 @@ export class PhaserRemiScene extends Phaser.Scene {
 
     renderHand() {
         if (!this.gameState) return;
-        const myPlayer = this.gameState.players.find(p => p.id === this.myPlayerId);
+        const myPlayer = this.gameState.players.find(p => p.id === this.socket.id);
         if (!myPlayer) return;
 
         this.handGroup.clear(true, true);
@@ -197,7 +195,7 @@ export class PhaserRemiScene extends Phaser.Scene {
         if (!this.gameState) return;
         this.opponentsGroup.clear(true, true);
 
-        const opponents = this.gameState.players.filter(p => p.id !== this.myPlayerId);
+        const opponents = this.gameState.players.filter(p => p.id !== this.socket.id);
         const { width } = this.scale;
 
         opponents.forEach((opponent, index) => {

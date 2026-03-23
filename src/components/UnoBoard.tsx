@@ -125,7 +125,7 @@ export const UnoBoard: React.FC<UnoBoardProps> = ({ socket, gameId, username, on
                                 </div>
                             ))}
                         </div>
-                        {gameState.players.length >= 2 ? (
+                        {gameState.players.length >= 1 ? (
                             <button
                                 onClick={handleStartGame}
                                 className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors"

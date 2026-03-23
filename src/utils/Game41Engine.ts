@@ -47,6 +47,7 @@ export class Game41Engine extends BaseGameEngine {
             // Check win condition
             if (checkWin(player.hand)) {
                 this.state.status = 'finished';
+                this.state.winner = (player as any).name || player.id;
                 player.score = calculateScore(player.hand);
                 return;
             }

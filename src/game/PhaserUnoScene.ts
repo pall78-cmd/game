@@ -6,7 +6,6 @@ export class PhaserUnoScene extends Phaser.Scene {
     private gameState: UnoGameState | null = null;
     private socket: any;
     private gameId: string = '';
-    private myPlayerId: string = '';
 
     private handGroup!: Phaser.GameObjects.Group;
     private discardPileSprite!: Phaser.GameObjects.Sprite;
@@ -26,7 +25,6 @@ export class PhaserUnoScene extends Phaser.Scene {
     init(data: any) {
         this.socket = data.socket;
         this.gameId = data.gameId;
-        this.myPlayerId = data.socket.id;
         this.onShowColorPicker = data.onShowColorPicker;
         this.onSetPendingWildCardIndex = data.onSetPendingWildCardIndex;
         if (data.initialGameState) {
@@ -145,7 +143,7 @@ export class PhaserUnoScene extends Phaser.Scene {
 
     private isMyTurn(): boolean {
         if (!this.gameState) return false;
-        const myIndex = this.gameState.players.findIndex(p => p.id === this.myPlayerId);
+        const myIndex = this.gameState.players.findIndex(p => p.id === this.socket.id);
         return this.gameState.currentPlayerIndex === myIndex;
     }
 
@@ -228,7 +226,7 @@ export class PhaserUnoScene extends Phaser.Scene {
 
         // Update Hand
         this.handGroup.clear(true, true);
-        const myPlayer = newState.players.find(p => p.id === this.myPlayerId);
+        const myPlayer = newState.players.find(p => p.id === this.socket.id);
         if (myPlayer) {
             const handSize = myPlayer.hand.length;
             const cardWidth = 100;
@@ -291,7 +289,7 @@ export class PhaserUnoScene extends Phaser.Scene {
 
         // Update Opponents
         this.opponentsGroup.clear(true, true);
-        const opponents = newState.players.filter(p => p.id !== this.myPlayerId);
+        const opponents = newState.players.filter(p => p.id !== this.socket.id);
         opponents.forEach((opp, index) => {
             const x = width / 2 + (index - (opponents.length - 1) / 2) * 200;
             const y = 80;
