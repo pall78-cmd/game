@@ -56,7 +56,7 @@ async function startServer() {
             if (gameType === 'UNO') {
                 engine = new UnoEngine([socket.id], [playerName || 'Player 1']);
             } else {
-                engine = new Game41Engine([socket.id]);
+                engine = new Game41Engine([socket.id], [playerName || 'Player 1']);
             }
             gameManager.createRoom(gameId, engine);
             gameManager.joinRoom(gameId, socket.id);
@@ -72,6 +72,12 @@ async function startServer() {
             if (engine && gameManager.joinRoom(gameId, socket.id)) {
                 socket.join(gameId);
                 playerRooms.set(socket.id, gameId);
+                
+                // Add player name to engine state if possible
+                const playerIndex = engine.state.players.findIndex((p: any) => p.id === socket.id);
+                if (playerIndex !== -1 && engine.state.players[playerIndex]) {
+                    (engine.state.players[playerIndex] as any).name = playerName || `Player ${playerIndex + 1}`;
+                }
                 
                 const playerExists = engine.state.players.some(p => p.id === socket.id);
                 

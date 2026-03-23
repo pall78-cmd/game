@@ -616,15 +616,21 @@ function App() {
     }, [socket, showUnoBoard, showRemiBoard]);
 
     const createGame = (gameType: 'UNO' | 'REMI41' = 'REMI41') => {
-        if (!gameId) return;
+        if (!gameId) {
+            showToast("Masukkan Game ID terlebih dahulu!", "error");
+            return;
+        }
         socket?.emit("createGame", { gameId, gameType, playerName: username });
-        // We will listen to gameUpdate to show the correct board
+        setShowMenu(false);
     };
 
     const joinGame = () => {
-        if (!gameId) return;
+        if (!gameId) {
+            showToast("Masukkan Game ID terlebih dahulu!", "error");
+            return;
+        }
         socket?.emit("joinGame", { gameId, playerName: username });
-        // We will listen to gameUpdate to show the correct board
+        setShowMenu(false);
     };
 
     const drawCard = () => {

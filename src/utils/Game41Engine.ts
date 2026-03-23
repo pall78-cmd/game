@@ -1,7 +1,25 @@
-import { BaseGameEngine } from './GameEngine';
+import { BaseGameEngine, Player, GameState } from './GameEngine';
 import { checkWin, calculateScore } from './game41';
 
+export interface Game41Player extends Player {
+    name: string;
+}
+
+export interface Game41State extends GameState {
+    players: Game41Player[];
+}
+
 export class Game41Engine extends BaseGameEngine {
+    state: Game41State;
+
+    constructor(playerIds: string[], playerNames: string[]) {
+        super(playerIds);
+        this.state = {
+            ...this.state,
+            players: playerIds.map((id, index) => ({ id, name: playerNames[index] || `Player ${index+1}`, hand: [], score: 0 }))
+        };
+    }
+
     start(): void {
         this.deal();
         // Reveal one card to discard pile to start

@@ -90,7 +90,7 @@ export const UnoBoard: React.FC<UnoBoardProps> = ({ socket, gameId, username, on
     }
 
     return (
-        <div className="fixed inset-0 bg-zinc-950 z-50 flex flex-col font-sans overflow-hidden">
+        <div className="fixed inset-0 bg-zinc-950 z-[1000] flex flex-col font-sans overflow-hidden">
             {/* Header Overlay */}
             <div className="absolute top-0 left-0 right-0 z-10 flex justify-between items-center p-4 bg-black/50 border-b border-white/10 pointer-events-auto">
                 <div className="flex items-center gap-4">
