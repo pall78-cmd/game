@@ -108,7 +108,7 @@ export class UnoEngine extends BaseGameEngine {
     }
 
     start() {
-        if (this.state.players.length < 1) return;
+        if (this.state.players.length < 1 || this.state.status !== 'waiting') return;
         this.state.status = 'playing';
         this.deal();
         

@@ -21,6 +21,7 @@ export class Game41Engine extends BaseGameEngine {
     }
 
     start(): void {
+        if (this.state.status !== 'waiting') return;
         this.deal();
         // Reveal one card to discard pile to start
         const firstCard = this.state.deck.pop();
@@ -42,10 +43,22 @@ export class Game41Engine extends BaseGameEngine {
 
     drawCard(playerId: string): void {
         const player = this.state.players.find(p => p.id === playerId);
-        if (player && this.state.deck.length > 0 && this.state.players[this.state.currentPlayerIndex].id === playerId && player.hand.length === 4) {
-            const card = this.state.deck.pop();
-            if (card) player.hand.push(card);
+        if (player && this.state.players[this.state.currentPlayerIndex].id === playerId && player.hand.length === 4) {
+            if (this.state.deck.length === 0) {
+                this.reshuffleDiscardPile();
+            }
+            if (this.state.deck.length > 0) {
+                const card = this.state.deck.pop();
+                if (card) player.hand.push(card);
+            }
         }
+    }
+
+    reshuffleDiscardPile() {
+        if (this.state.discardPile.length <= 1) return;
+        const topCard = this.state.discardPile.pop()!;
+        this.state.deck = this.shuffle(this.state.discardPile);
+        this.state.discardPile = [topCard];
     }
 
     drawFromDiscard(playerId: string): void {

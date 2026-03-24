@@ -158,15 +158,54 @@ async function startServer() {
                         created_at: new Date().toISOString()
                     };
                     
-                    const { error } = await supabase.from('match_history').insert([matchData]);
-                    if (error) {
-                        console.error("Error saving match to Supabase:", error);
-                    } else {
-                        console.log("Match saved to Supabase successfully!");
+                    try {
+                        const { error } = await supabase.from('match_history').insert([matchData]);
+                        if (error) {
+                            console.error("Error saving match to Supabase:", error);
+                        } else {
+                            console.log("Match saved to Supabase successfully!");
+                        }
+                    } catch (err) {
+                        console.error("Exception saving match to Supabase:", err);
                     }
                 }
 
                 io.to(gameId).emit("gameUpdate", { type: "STATE_UPDATE", state: engine.state });
+        });
+
+        socket.on("leaveGame", () => {
+            console.log("User left game:", socket.id);
+            const gameId = playerRooms.get(socket.id);
+            if (gameId) {
+                const engine = gameManager.getEngine(gameId);
+                if (engine) {
+                    const isUno = 'currentColor' in engine.state;
+                    if (isUno) {
+                        const player = engine.state.players.find(p => p.id === socket.id);
+                        if (player) {
+                            (engine as any).log(`${(player as any).name || player.id} left the game.`);
+                        }
+                    }
+                    const playerIndex = engine.state.players.findIndex(p => p.id === socket.id);
+                    if (playerIndex !== -1) {
+                        engine.state.players.splice(playerIndex, 1);
+                        if (engine.state.players.length > 0) {
+                            if (engine.state.currentPlayerIndex >= engine.state.players.length) {
+                                engine.state.currentPlayerIndex = 0;
+                            } else if (playerIndex < engine.state.currentPlayerIndex) {
+                                engine.state.currentPlayerIndex--;
+                            }
+                        } else {
+                            engine.state.currentPlayerIndex = 0;
+                            engine.state.status = 'finished';
+                        }
+                    }
+                    io.to(gameId).emit("gameUpdate", { type: "STATE_UPDATE", state: engine.state });
+                }
+                gameManager.leaveRoom(gameId, socket.id);
+                playerRooms.delete(socket.id);
+                socket.leave(gameId);
+            }
         });
 
         socket.on("disconnect", () => {
@@ -182,8 +221,20 @@ async function startServer() {
                             (engine as any).log(`${(player as any).name || player.id} disconnected.`);
                         }
                     }
-                    // Remove player from engine state
-                    engine.state.players = engine.state.players.filter(p => p.id !== socket.id);
+                    const playerIndex = engine.state.players.findIndex(p => p.id === socket.id);
+                    if (playerIndex !== -1) {
+                        engine.state.players.splice(playerIndex, 1);
+                        if (engine.state.players.length > 0) {
+                            if (engine.state.currentPlayerIndex >= engine.state.players.length) {
+                                engine.state.currentPlayerIndex = 0;
+                            } else if (playerIndex < engine.state.currentPlayerIndex) {
+                                engine.state.currentPlayerIndex--;
+                            }
+                        } else {
+                            engine.state.currentPlayerIndex = 0;
+                            engine.state.status = 'finished';
+                        }
+                    }
                     
                     // If no players left, we could clean up the room, but let's just emit update for now
                     io.to(gameId).emit("gameUpdate", { type: "STATE_UPDATE", state: engine.state });

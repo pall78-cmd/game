@@ -14,8 +14,8 @@ import { AudioManager } from './utils/audioManager';
 import { bgmManager, AVAILABLE_BGMS } from './utils/bgmManager';
 import { StorageManager } from './utils/StorageManager';
 import { CryptoUtils } from './utils/crypto';
-import { UnoBoard } from './components/UnoBoard';
-import { RemiBoard } from './components/RemiBoard';
+import { ReactUnoBoard } from './components/ReactUnoBoard';
+import { ReactRemiBoard } from './components/ReactRemiBoard';
 import { Leaderboard } from './components/Leaderboard';
 
 // --- CONSTANTS & UTILS ---
@@ -2483,20 +2483,28 @@ function App() {
             </AnimatePresence>
 
             {showUnoBoard && socket && (
-                <UnoBoard 
+                <ReactUnoBoard 
                     socket={socket} 
                     gameId={gameId} 
                     username={username} 
-                    onLeave={() => setShowUnoBoard(false)} 
+                    onLeave={() => {
+                        socket.emit("leaveGame");
+                        setShowUnoBoard(false);
+                        setGameId('');
+                    }} 
                     initialGameState={gameState as any}
                 />
             )}
             {showRemiBoard && socket && (
-                <RemiBoard 
+                <ReactRemiBoard 
                     socket={socket} 
                     gameId={gameId} 
                     username={username} 
-                    onLeave={() => setShowRemiBoard(false)} 
+                    onLeave={() => {
+                        socket.emit("leaveGame");
+                        setShowRemiBoard(false);
+                        setGameId('');
+                    }} 
                     initialGameState={gameState as any}
                 />
             )}
