@@ -33,7 +33,7 @@ export const Leaderboard: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     }, []);
 
     return (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center backdrop-blur-sm p-4">
+        <div className="fixed inset-0 bg-black/80 z-[600] flex items-center justify-center backdrop-blur-sm p-4">
             <div className="bg-zinc-900 border border-white/10 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
                 <div className="p-6 border-b border-white/10 flex justify-between items-center bg-zinc-950">
                     <h2 className="text-2xl font-bold text-white">Match History</h2>

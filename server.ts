@@ -4,20 +4,30 @@ import { Server } from "socket.io";
 import { fileURLToPath } from "url";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GameManager } from "./src/utils/GameManager";
-import { Game41Engine } from "./src/utils/Game41Engine";
-import { UnoEngine } from "./src/utils/UnoEngine";
+import { createProxyMiddleware } from "http-proxy-middleware";
+import pkg from "boardgame.io/dist/cjs/server.js";
+const { Server: BgioServer, SocketIO: BgioSocketIO, Origins } = pkg;
+import { UnoGame } from "./src/game/UnoGame";
+import { Game41 } from "./src/game/Game41";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-    cors: { origin: "*" }
+    cors: { origin: "*" },
+    destroyUpgrade: false
 });
 
-const gameManager = new GameManager();
-
 const PORT = 3000;
+const BGIO_PORT = 3001;
+
+const bgioServer = BgioServer({
+    games: [UnoGame, Game41],
+    origins: [Origins.LOCALHOST, '*'],
+    transport: new BgioSocketIO({
+        socketOpts: { path: '/boardgameio/' }
+    })
+});
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -26,6 +36,19 @@ const supabaseKey = process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cC
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function startServer() {
+    // Start boardgame.io server
+    await bgioServer.run({ port: BGIO_PORT });
+
+    // Proxy boardgame.io API and WebSocket
+    app.use('/games', createProxyMiddleware({ target: `http://localhost:${BGIO_PORT}`, changeOrigin: true }));
+    const wsProxy = createProxyMiddleware({ target: `http://localhost:${BGIO_PORT}`, ws: true, changeOrigin: true });
+    app.use('/boardgameio', wsProxy);
+    httpServer.on('upgrade', (req, socket, head) => {
+        if (req.url && req.url.startsWith('/boardgameio/')) {
+            wsProxy.upgrade(req, socket, head);
+        }
+    });
+
     // API routes FIRST
     app.get("/api/health", (req, res) => {
         res.json({ status: "ok" });
@@ -45,203 +68,176 @@ async function startServer() {
         });
     }
 
+    const savedGames = new Set<string>();
+
     io.on("connection", (socket) => {
         console.log("User connected:", socket.id);
 
         const playerRooms = new Map<string, string>(); // socket.id -> gameId
 
-        socket.on("createGame", (data) => {
+        socket.on("createGame", async (data) => {
             const { gameId, gameType, playerName } = data;
-            let engine;
-            if (gameType === 'UNO') {
-                engine = new UnoEngine([socket.id], [playerName || 'Player 1']);
-            } else {
-                engine = new Game41Engine([socket.id], [playerName || 'Player 1']);
+            const bgioGameName = gameType === 'UNO' ? 'uno' : 'remi41';
+            try {
+                console.log(`Creating game ${bgioGameName} with ID ${gameId}`);
+                // Create game via boardgame.io API
+                const response = await fetch(`http://localhost:${BGIO_PORT}/games/${bgioGameName}/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        numPlayers: 4, // Default to 4 players max
+                        setupData: { playerNames: { '0': playerName || 'Player 1' } }
+                    })
+                });
+                const result = await response.json();
+                console.log("Create game result:", result);
+                const matchID = result.matchID;
+                
+                // Join the game
+                const joinResponse = await fetch(`http://localhost:${BGIO_PORT}/games/${bgioGameName}/${matchID}/join`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        playerID: '0',
+                        playerName: playerName || 'Player 1'
+                    })
+                });
+                const joinResult = await joinResponse.json();
+                console.log("Join game result:", joinResult);
+                
+                socket.emit("gameCreated", { gameId: matchID, playerID: '0', credentials: joinResult.playerCredentials, gameType });
+                console.log(`User ${socket.id} created ${gameType} game ${matchID}`);
+            } catch (error) {
+                console.error("Error creating game:", error);
+                socket.emit("gameError", "Failed to create game.");
             }
-            gameManager.createRoom(gameId, engine);
-            gameManager.joinRoom(gameId, socket.id);
-            socket.join(gameId);
-            playerRooms.set(socket.id, gameId);
-            console.log(`User ${socket.id} created ${gameType} game ${gameId}`);
-            io.to(gameId).emit("gameUpdate", { type: "STATE_UPDATE", state: engine.state });
         });
 
-        socket.on("joinGame", (data) => {
+        socket.on("joinGame", async (data) => {
             const { gameId, playerName } = data;
-            const engine = gameManager.getEngine(gameId);
-            if (engine && gameManager.joinRoom(gameId, socket.id)) {
-                socket.join(gameId);
-                playerRooms.set(socket.id, gameId);
-                
-                // Add player name to engine state if possible
-                const playerIndex = engine.state.players.findIndex((p: any) => p.id === socket.id);
-                if (playerIndex !== -1 && engine.state.players[playerIndex]) {
-                    (engine.state.players[playerIndex] as any).name = playerName || `Player ${playerIndex + 1}`;
-                }
-                
-                const playerExists = engine.state.players.some(p => p.id === socket.id);
-                
-                if (!playerExists) {
-                    const isUno = 'currentColor' in engine.state;
-                    if (isUno) {
-                        const unoEngine = engine as any;
-                        unoEngine.state.players.push({
-                            id: socket.id,
-                            name: playerName || `Player ${unoEngine.state.players.length + 1}`,
-                            hand: [],
-                            score: 0,
-                            hasCalledUno: false
-                        });
-                        unoEngine.log(`${playerName || 'A player'} joined the game.`);
-                    } else {
-                        engine.state.players.push({
-                            id: socket.id,
-                            hand: [],
-                            score: 0
-                        });
-                        (engine.state.players[engine.state.players.length - 1] as any).name = playerName || `Player ${engine.state.players.length}`;
-                    }
-                }
-                
-                console.log(`User ${socket.id} joined game ${gameId}`);
-                io.to(gameId).emit("gameUpdate", { type: "STATE_UPDATE", state: engine.state });
-            } else {
-                socket.emit("gameError", "Game not found or room is full.");
-            }
-        });
-
-        socket.on("gameAction", async (data) => {
-            const { gameId, action, payload } = data;
-            console.log(`[gameAction] action: ${action}, gameId: ${gameId}`);
-            const engine = gameManager.getEngine(gameId);
-            if (!engine) {
-                console.log(`[gameAction] Engine not found for gameId: ${gameId}`);
-                socket.emit("gameError", "Game not found. The server might have restarted. Please refresh the page and create a new game.");
-                return;
-            }
+            let gameType = data.gameType;
+            let bgioGameName = '';
+            let matchData = null;
             
-            const previousStatus = engine.state.status;
-            const isUno = 'currentColor' in engine.state;
-            console.log(`[gameAction] engine found. is UnoEngine: ${isUno}`);
-                if (isUno) {
-                    const unoEngine = engine as any;
-                    if (action === 'start') {
-                        console.log(`[gameAction] calling UnoEngine.start()`);
-                        unoEngine.start();
-                        console.log(`[gameAction] UnoEngine.start() finished. status: ${unoEngine.state.status}`);
-                    } else if (action === 'draw') {
-                        unoEngine.drawCard(socket.id);
-                    } else if (action === 'play') {
-                        unoEngine.playCard(socket.id, payload.cardIndex, payload.chosenColor);
-                    } else if (action === 'callUno') {
-                        unoEngine.callUno(socket.id);
+            try {
+                if (!gameType) {
+                    // Try UNO first
+                    let response = await fetch(`http://localhost:${BGIO_PORT}/games/uno/${gameId}`);
+                    if (response.ok) {
+                        gameType = 'UNO';
+                        bgioGameName = 'uno';
+                        matchData = await response.json();
+                    } else {
+                        // Try REMI41
+                        response = await fetch(`http://localhost:${BGIO_PORT}/games/remi41/${gameId}`);
+                        if (response.ok) {
+                            gameType = 'REMI41';
+                            bgioGameName = 'remi41';
+                            matchData = await response.json();
+                        }
                     }
                 } else {
-                    const game41Engine = engine as any;
-                    if (action === 'start') {
-                        game41Engine.start();
-                    } else if (action === 'draw') {
-                        game41Engine.drawCard(socket.id);
-                    } else if (action === 'drawFromDiscard') {
-                        game41Engine.drawFromDiscard(socket.id);
-                    } else if (action === 'discard') {
-                        game41Engine.discardCard(socket.id, payload.cardIndex);
+                    bgioGameName = gameType === 'UNO' ? 'uno' : 'remi41';
+                    const response = await fetch(`http://localhost:${BGIO_PORT}/games/${bgioGameName}/${gameId}`);
+                    if (response.ok) {
+                        matchData = await response.json();
                     }
+                }
+
+                if (!matchData) {
+                    socket.emit("gameError", "Game not found.");
+                    return;
                 }
                 
-                if (previousStatus === 'playing' && engine.state.status === 'finished') {
-                    // Game just finished, save to Supabase
-                    const matchData = {
-                        game_type: isUno ? 'UNO' : 'GAME41',
-                        winner_name: engine.state.winner,
-                        players: engine.state.players.map(p => (p as any).name || p.id),
-                        created_at: new Date().toISOString()
-                    };
-                    
-                    try {
-                        const { error } = await supabase.from('match_history').insert([matchData]);
-                        if (error) {
-                            console.error("Error saving match to Supabase:", error);
-                        } else {
-                            console.log("Match saved to Supabase successfully!");
-                        }
-                    } catch (err) {
-                        console.error("Exception saving match to Supabase:", err);
+                // Find first empty seat
+                const players = matchData.players;
+                let emptySeatID = null;
+                for (const pID in players) {
+                    if (!players[pID].name) {
+                        emptySeatID = pID;
+                        break;
                     }
                 }
 
-                io.to(gameId).emit("gameUpdate", { type: "STATE_UPDATE", state: engine.state });
+                if (emptySeatID === null) {
+                    socket.emit("gameError", "Game is full.");
+                    return;
+                }
+                
+                const playerID = emptySeatID.toString();
+                
+                // Join the game
+                const joinResponse = await fetch(`http://localhost:${BGIO_PORT}/games/${bgioGameName}/${gameId}/join`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        playerID,
+                        playerName: playerName || `Player ${parseInt(playerID) + 1}`
+                    })
+                });
+                
+                if (!joinResponse.ok) {
+                    socket.emit("gameError", "Failed to join game.");
+                    return;
+                }
+                
+                const joinResult = await joinResponse.json();
+                
+                socket.emit("gameJoined", { gameId, playerID, credentials: joinResult.playerCredentials, gameType });
+                console.log(`User ${socket.id} joined game ${gameId} as player ${playerID}`);
+            } catch (error) {
+                console.error("Error joining game:", error);
+                socket.emit("gameError", "Failed to join game.");
+            }
         });
 
-        socket.on("leaveGame", () => {
-            console.log("User left game:", socket.id);
-            const gameId = playerRooms.get(socket.id);
-            if (gameId) {
-                const engine = gameManager.getEngine(gameId);
-                if (engine) {
-                    const isUno = 'currentColor' in engine.state;
-                    if (isUno) {
-                        const player = engine.state.players.find(p => p.id === socket.id);
-                        if (player) {
-                            (engine as any).log(`${(player as any).name || player.id} left the game.`);
-                        }
-                    }
-                    const playerIndex = engine.state.players.findIndex(p => p.id === socket.id);
-                    if (playerIndex !== -1) {
-                        engine.state.players.splice(playerIndex, 1);
-                        if (engine.state.players.length > 0) {
-                            if (engine.state.currentPlayerIndex >= engine.state.players.length) {
-                                engine.state.currentPlayerIndex = 0;
-                            } else if (playerIndex < engine.state.currentPlayerIndex) {
-                                engine.state.currentPlayerIndex--;
-                            }
-                        } else {
-                            engine.state.currentPlayerIndex = 0;
-                            engine.state.status = 'finished';
-                        }
-                    }
-                    io.to(gameId).emit("gameUpdate", { type: "STATE_UPDATE", state: engine.state });
+        socket.on("gameFinished", async (data) => {
+            const { gameId, gameType, winner, players } = data;
+            
+            if (savedGames.has(gameId)) return;
+            savedGames.add(gameId);
+            
+            const matchData = {
+                game_type: gameType,
+                winner_name: winner,
+                players: players,
+                created_at: new Date().toISOString()
+            };
+            
+            try {
+                const { error } = await supabase.from('match_history').insert([matchData]);
+                if (error) {
+                    console.error("Error saving match to Supabase:", error);
+                } else {
+                    console.log(`Match ${gameId} saved to Supabase successfully!`);
                 }
-                gameManager.leaveRoom(gameId, socket.id);
-                playerRooms.delete(socket.id);
-                socket.leave(gameId);
+            } catch (err) {
+                console.error("Exception saving match to Supabase:", err);
+            }
+        });
+
+        socket.on("leaveGame", async (data) => {
+            if (!data) return;
+            const { gameId, playerID, credentials, gameType } = data;
+            console.log(`User ${socket.id} leaving game ${gameId}`);
+            const bgioGameName = gameType === 'UNO' ? 'uno' : 'remi41';
+            
+            try {
+                await fetch(`http://localhost:${BGIO_PORT}/games/${bgioGameName}/${gameId}/leave`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        playerID,
+                        credentials
+                    })
+                });
+            } catch (error) {
+                console.error("Error leaving game:", error);
             }
         });
 
         socket.on("disconnect", () => {
             console.log("User disconnected:", socket.id);
-            const gameId = playerRooms.get(socket.id);
-            if (gameId) {
-                const engine = gameManager.getEngine(gameId);
-                if (engine) {
-                    const isUno = 'currentColor' in engine.state;
-                    if (isUno) {
-                        const player = engine.state.players.find(p => p.id === socket.id);
-                        if (player) {
-                            (engine as any).log(`${(player as any).name || player.id} disconnected.`);
-                        }
-                    }
-                    const playerIndex = engine.state.players.findIndex(p => p.id === socket.id);
-                    if (playerIndex !== -1) {
-                        engine.state.players.splice(playerIndex, 1);
-                        if (engine.state.players.length > 0) {
-                            if (engine.state.currentPlayerIndex >= engine.state.players.length) {
-                                engine.state.currentPlayerIndex = 0;
-                            } else if (playerIndex < engine.state.currentPlayerIndex) {
-                                engine.state.currentPlayerIndex--;
-                            }
-                        } else {
-                            engine.state.currentPlayerIndex = 0;
-                            engine.state.status = 'finished';
-                        }
-                    }
-                    
-                    // If no players left, we could clean up the room, but let's just emit update for now
-                    io.to(gameId).emit("gameUpdate", { type: "STATE_UPDATE", state: engine.state });
-                }
-                gameManager.leaveRoom(gameId, socket.id);
-                playerRooms.delete(socket.id);
-            }
         });
     });
 

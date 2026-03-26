@@ -1,86 +1,78 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Socket } from 'socket.io-client';
 import { Game41State, Card } from '../utils/Game41Engine';
 import { REMI_CARD_SVG } from '../constants/boardGameDeck';
 
 interface RemiBoardProps {
-    socket: Socket;
-    gameId: string;
-    username: string;
-    onLeave: () => void;
-    initialGameState?: Game41State | null;
+    G: Game41State;
+    ctx: any;
+    moves: any;
+    playerID: string | null;
+    matchID: string;
+    username?: string;
+    onLeave?: () => void;
+    onGameEnd?: (winner: string, players: string[]) => void;
 }
 
-export const ReactRemiBoard: React.FC<RemiBoardProps> = ({ socket, gameId, username, onLeave, initialGameState }) => {
-    const [gameState, setGameState] = useState<Game41State | null>(initialGameState || null);
-
-    useEffect(() => {
-        const handleGameUpdate = (data: any) => {
-            if (data.type === 'STATE_UPDATE') {
-                setGameState(data.state);
-            }
-        };
-
-        socket.on('gameUpdate', handleGameUpdate);
-        return () => {
-            socket.off('gameUpdate', handleGameUpdate);
-        };
-    }, [socket]);
-
-    const handleStartGame = () => {
-        socket.emit('gameAction', { gameId, action: 'start' });
-    };
+export const ReactRemiBoard: React.FC<RemiBoardProps> = ({ G, ctx, moves, playerID, matchID, username, onLeave, onGameEnd }) => {
+    React.useEffect(() => {
+        if (G && G.status === 'finished' && G.winner) {
+            const playerNames = G.players.map(p => p.name || p.id);
+            onGameEnd?.(G.winner, playerNames);
+        }
+    }, [G?.status, G?.winner]);
 
     const handleDrawDeck = () => {
-        if (!gameState || gameState.status !== 'playing') return;
-        const myIndex = gameState.players.findIndex(p => p.id === socket.id);
-        const myPlayer = gameState.players[myIndex];
-        if (myIndex === gameState.currentPlayerIndex && myPlayer && myPlayer.hand.length === 4) {
-            socket.emit('gameAction', { gameId, action: 'draw' });
+        if (G.status !== 'playing') return;
+        const myIndex = G.players.findIndex(p => p.id === playerID);
+        const myPlayer = G.players[myIndex];
+        if (myIndex === G.currentPlayerIndex && myPlayer && myPlayer.hand.length === 4) {
+            moves.drawCard();
         }
     };
 
     const handleDrawDiscard = () => {
-        if (!gameState || gameState.status !== 'playing') return;
-        const myIndex = gameState.players.findIndex(p => p.id === socket.id);
-        const myPlayer = gameState.players[myIndex];
-        if (myIndex === gameState.currentPlayerIndex && myPlayer && myPlayer.hand.length === 4) {
-            socket.emit('gameAction', { gameId, action: 'drawDiscard' });
+        if (G.status !== 'playing') return;
+        const myIndex = G.players.findIndex(p => p.id === playerID);
+        const myPlayer = G.players[myIndex];
+        if (myIndex === G.currentPlayerIndex && myPlayer && myPlayer.hand.length === 4) {
+            moves.drawFromDiscard();
         }
     };
 
     const handleDiscard = (index: number) => {
-        if (!gameState || gameState.status !== 'playing') return;
-        const myIndex = gameState.players.findIndex(p => p.id === socket.id);
-        const myPlayer = gameState.players[myIndex];
-        if (myIndex === gameState.currentPlayerIndex && myPlayer && myPlayer.hand.length === 5) {
-            socket.emit('gameAction', { gameId, action: 'discard', payload: { cardIndex: index } });
+        if (G.status !== 'playing') return;
+        const myIndex = G.players.findIndex(p => p.id === playerID);
+        const myPlayer = G.players[myIndex];
+        if (myIndex === G.currentPlayerIndex && myPlayer && myPlayer.hand.length === 5) {
+            moves.discardCard(index);
         }
     };
 
-    if (!gameState) {
+    if (!G) {
         return <div className="fixed inset-0 bg-zinc-950 flex items-center justify-center text-white">Loading game state...</div>;
     }
 
-    const myPlayer = gameState.players.find(p => p.id === socket.id);
-    const isMyTurn = gameState.players[gameState.currentPlayerIndex]?.id === socket.id;
-    const opponents = gameState.players.filter(p => p.id !== socket.id);
+    const myPlayer = G.players.find(p => p.id === playerID);
+    const isMyTurn = G.players[G.currentPlayerIndex]?.id === playerID;
+    const opponents = G.players.filter(p => p.id !== playerID);
 
     return (
         <div className="fixed inset-0 bg-zinc-950 z-[1000] flex flex-col font-sans overflow-hidden text-white">
             {/* Header */}
             <div className="absolute top-0 left-0 right-0 z-10 flex justify-between items-center p-4 bg-black/50 border-b border-white/10">
                 <div className="flex items-center gap-4">
-                    <button onClick={onLeave} className="text-white/70 hover:text-white transition-colors">
-                        ← Leave Game
-                    </button>
+                    {onLeave && (
+                        <button onClick={onLeave} className="text-white/70 hover:text-white transition-colors">
+                            ← Leave Game
+                        </button>
+                    )}
                     <h1 className="text-xl font-bold tracking-widest">REMI 41</h1>
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${socket.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                        <span className="text-white/50 text-sm">{gameState.players.length} Players</span>
+                        <div className={`w-3 h-3 rounded-full bg-green-500`}></div>
+                        <span className="text-white/50 text-sm">{G.players.length} Players</span>
                     </div>
                 </div>
             </div>
@@ -88,10 +80,27 @@ export const ReactRemiBoard: React.FC<RemiBoardProps> = ({ socket, gameId, usern
             {/* Game Area */}
             <div className="flex-1 relative flex flex-col items-center justify-center p-8 mt-16">
                 
+                {G.status === 'waiting' && (
+                    <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/80">
+                        <div className="bg-zinc-900 p-8 rounded-2xl border border-white/10 text-center max-w-md w-full">
+                            <h2 className="text-2xl font-bold mb-4">Waiting for players...</h2>
+                            <p className="text-white/50 mb-8">
+                                Share the Game ID: <span className="text-white font-mono bg-white/10 px-2 py-1 rounded">{matchID}</span>
+                            </p>
+                            <button
+                                onClick={() => moves.startGame()}
+                                className="w-full py-3 bg-white text-black font-bold rounded-xl hover:bg-white/90 transition-colors"
+                            >
+                                Start Game
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Opponents */}
                 <div className="absolute top-8 left-0 right-0 flex justify-center gap-8 px-8">
                     {opponents.map((opp, i) => (
-                        <div key={opp.id} className={`flex flex-col items-center p-4 rounded-xl bg-white/5 border ${gameState.players[gameState.currentPlayerIndex]?.id === opp.id ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)]' : 'border-white/10'}`}>
+                        <div key={opp.id} className={`flex flex-col items-center p-4 rounded-xl bg-white/5 border ${G.players[G.currentPlayerIndex]?.id === opp.id ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)]' : 'border-white/10'}`}>
                             <div className="w-12 h-12 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-xl mb-2">
                                 {opp.name.charAt(0).toUpperCase()}
                             </div>
@@ -103,39 +112,39 @@ export const ReactRemiBoard: React.FC<RemiBoardProps> = ({ socket, gameId, usern
                 </div>
 
                 {/* Center Play Area */}
-                {gameState.status === 'playing' && (
+                {G.status === 'playing' && (
                     <div className="flex items-center gap-12">
                         {/* Deck */}
                         <div 
-                            className={`relative w-32 h-48 rounded-xl cursor-pointer transition-transform ${isMyTurn && myPlayer.hand.length === 4 ? 'hover:scale-105 hover:-translate-y-2 shadow-[0_0_20px_rgba(255,255,255,0.3)]' : 'opacity-50'}`}
+                            className={`relative w-32 h-48 rounded-xl cursor-pointer transition-transform ${isMyTurn && myPlayer?.hand.length === 4 ? 'hover:scale-105 hover:-translate-y-2' : 'opacity-50'}`}
                             onClick={handleDrawDeck}
                         >
-                            <div className="absolute inset-0 bg-blue-900 rounded-xl border-4 border-white/20 flex items-center justify-center shadow-xl">
+                            <div className="absolute inset-0 bg-indigo-900 rounded-xl border-4 border-white/20 flex items-center justify-center shadow-xl">
                                 <span className="text-white/30 font-bold rotate-45 text-2xl">REMI</span>
                             </div>
                             <div className="absolute -bottom-8 left-0 right-0 text-center text-sm text-white/50">
-                                {gameState.deck.length} cards
+                                {G.deck.length} cards
                             </div>
                         </div>
 
                         {/* Discard Pile */}
                         <div 
-                            className={`relative w-32 h-48 rounded-xl transition-transform ${isMyTurn && myPlayer.hand.length === 4 && gameState.discardPile.length > 0 ? 'cursor-pointer hover:scale-105 hover:-translate-y-2 shadow-[0_0_20px_rgba(255,255,255,0.3)]' : ''}`}
+                            className={`relative w-32 h-48 transition-transform ${isMyTurn && myPlayer?.hand.length === 4 && G.discardPile.length > 0 ? 'cursor-pointer hover:scale-105 hover:-translate-y-2' : ''}`}
                             onClick={handleDrawDiscard}
                         >
-                            {gameState.discardPile.length > 0 ? (
+                            {G.discardPile.length > 0 ? (
                                 <div 
                                     className="absolute inset-0 shadow-2xl"
                                     dangerouslySetInnerHTML={{ 
                                         __html: REMI_CARD_SVG(
-                                            gameState.discardPile[gameState.discardPile.length - 1].suit, 
-                                            gameState.discardPile[gameState.discardPile.length - 1].value
+                                            G.discardPile[G.discardPile.length - 1].suit, 
+                                            G.discardPile[G.discardPile.length - 1].value
                                         ) 
                                     }}
                                 />
                             ) : (
-                                <div className="absolute inset-0 border-2 border-dashed border-white/20 rounded-xl flex items-center justify-center">
-                                    <span className="text-white/20 text-sm">Empty</span>
+                                <div className="absolute inset-0 rounded-xl border-4 border-dashed border-white/20 flex items-center justify-center">
+                                    <span className="text-white/30 text-sm text-center px-4">Discard Pile</span>
                                 </div>
                             )}
                         </div>
@@ -143,35 +152,40 @@ export const ReactRemiBoard: React.FC<RemiBoardProps> = ({ socket, gameId, usern
                 )}
 
                 {/* Player Hand */}
-                {myPlayer && gameState.status === 'playing' && (
+                {myPlayer && G.status === 'playing' && (
                     <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center">
                         <div className="flex items-center gap-4 mb-4">
                             <div className={`px-6 py-2 rounded-full font-bold tracking-widest ${isMyTurn ? 'bg-yellow-400 text-black shadow-[0_0_20px_rgba(250,204,21,0.5)]' : 'bg-white/10 text-white/50'}`}>
-                                {isMyTurn ? (myPlayer.hand.length === 5 ? 'DISCARD A CARD' : 'DRAW A CARD') : 'WAITING...'}
+                                {isMyTurn ? (myPlayer.hand.length === 4 ? 'DRAW A CARD' : 'DISCARD A CARD') : 'WAITING...'}
                             </div>
-                            <div className="px-4 py-2 bg-white/10 rounded-full text-white/80 font-bold">
+                            <div className="px-6 py-2 bg-white/10 text-yellow-400 font-bold rounded-full">
                                 Score: {myPlayer.score}
                             </div>
                         </div>
                         
-                        <div className="flex justify-center flex-wrap gap-[-40px] px-8 max-w-full">
+                        <div className="flex justify-center flex-wrap gap-4 px-8 max-w-full">
                             {myPlayer.hand.map((card, i) => {
-                                const canDiscard = isMyTurn && myPlayer.hand.length === 5;
+                                const isPlayable = isMyTurn && myPlayer.hand.length === 5;
 
                                 return (
                                     <motion.div
-                                        key={`${card.id}-${i}`}
+                                        key={`${card.suit}-${card.value}-${i}`}
                                         initial={{ y: 50, opacity: 0 }}
                                         animate={{ y: 0, opacity: 1 }}
-                                        whileHover={canDiscard ? { y: -20, scale: 1.1, zIndex: 50 } : {}}
-                                        className={`relative w-24 h-36 -ml-8 first:ml-0 transition-all ${canDiscard ? 'cursor-pointer hover:z-50' : 'opacity-80'}`}
+                                        whileHover={isPlayable ? { y: -20, scale: 1.1, zIndex: 50 } : {}}
+                                        className={`relative w-32 h-48 transition-all ${isPlayable ? 'cursor-pointer hover:z-50' : 'opacity-90'}`}
                                         style={{ zIndex: i }}
-                                        onClick={() => canDiscard && handleDiscard(i)}
+                                        onClick={() => isPlayable && handleDiscard(i)}
                                     >
                                         <div 
                                             className="w-full h-full shadow-xl"
                                             dangerouslySetInnerHTML={{ __html: REMI_CARD_SVG(card.suit, card.value) }}
                                         />
+                                        {isPlayable && (
+                                            <div className="absolute -top-3 -right-3 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white font-bold opacity-0 hover:opacity-100 transition-opacity shadow-lg">
+                                                ×
+                                            </div>
+                                        )}
                                     </motion.div>
                                 );
                             })}
@@ -179,56 +193,27 @@ export const ReactRemiBoard: React.FC<RemiBoardProps> = ({ socket, gameId, usern
                     </div>
                 )}
 
-            </div>
-
-            {/* Waiting Room Overlay */}
-            {gameState.status === 'waiting' && (
-                <div className="absolute inset-0 z-20 bg-black/80 flex items-center justify-center backdrop-blur-sm">
-                    <div className="bg-zinc-900 p-8 rounded-2xl border border-white/10 max-w-md w-full text-center">
-                        <h2 className="text-2xl font-bold text-white mb-6">Waiting Room</h2>
-                        <div className="space-y-2 mb-8 text-left">
-                            {gameState.players.map((p) => (
-                                <div key={p.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
-                                    <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold">
-                                        {p.name.charAt(0).toUpperCase()}
-                                    </div>
-                                    <span className="text-white">{p.name} {p.id === socket.id ? '(You)' : ''}</span>
-                                </div>
-                            ))}
-                        </div>
-                        {gameState.players.length >= 2 ? (
-                            <button
-                                onClick={handleStartGame}
-                                className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors"
+                {/* Winner Screen */}
+                {G.status === 'finished' && (
+                    <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-50">
+                        <motion.div 
+                            initial={{ scale: 0.5, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="text-6xl font-bold text-yellow-400 mb-8 tracking-widest text-center"
+                        >
+                            {G.winner === myPlayer?.name ? 'YOU WON!' : `${G.winner} WON!`}
+                        </motion.div>
+                        {onLeave && (
+                            <button 
+                                onClick={onLeave}
+                                className="px-8 py-3 bg-white text-black font-bold rounded-full hover:bg-white/90 transition-colors"
                             >
-                                Start Game
+                                Back to Lobby
                             </button>
-                        ) : (
-                            <div className="text-white/50">Waiting for more players... (Min 2)</div>
                         )}
                     </div>
-                </div>
-            )}
-
-            {/* Winner Overlay */}
-            {gameState.status === 'finished' && (
-                <div className="absolute inset-0 z-40 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center">
-                    <motion.div
-                        initial={{ scale: 0, rotate: -180 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        transition={{ type: "spring", bounce: 0.5 }}
-                        className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-yellow-200 to-yellow-500 mb-8 drop-shadow-[0_0_30px_rgba(250,204,21,0.5)]"
-                    >
-                        {gameState.winner} WINS!
-                    </motion.div>
-                    <button
-                        onClick={onLeave}
-                        className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl transition-all hover:scale-105"
-                    >
-                        Back to Lobby
-                    </button>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 };

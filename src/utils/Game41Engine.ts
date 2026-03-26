@@ -22,6 +22,7 @@ export class Game41Engine extends BaseGameEngine {
 
     start(): void {
         if (this.state.status !== 'waiting') return;
+        this.state.status = 'playing';
         this.deal();
         // Reveal one card to discard pile to start
         const firstCard = this.state.deck.pop();

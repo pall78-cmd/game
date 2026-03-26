@@ -1,97 +1,94 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Socket } from 'socket.io-client';
-import { UnoGameState, Card } from '../utils/UnoEngine';
+import { UnoGameState, UnoCard } from '../utils/UnoEngine';
 import { UNO_CARD_SVG } from '../constants/boardGameDeck';
 
 interface UnoBoardProps {
-    socket: Socket;
-    gameId: string;
-    username: string;
-    onLeave: () => void;
-    initialGameState?: UnoGameState | null;
+    G: UnoGameState;
+    ctx: any;
+    moves: any;
+    playerID: string | null;
+    matchID: string;
+    username?: string;
+    onLeave?: () => void;
+    onGameEnd?: (winner: string, players: string[]) => void;
 }
 
-export const ReactUnoBoard: React.FC<UnoBoardProps> = ({ socket, gameId, username, onLeave, initialGameState }) => {
-    const [gameState, setGameState] = useState<UnoGameState | null>(initialGameState || null);
+export const ReactUnoBoard: React.FC<UnoBoardProps> = ({ G, ctx, moves, playerID, matchID, username, onLeave, onGameEnd }) => {
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [pendingWildCardIndex, setPendingWildCardIndex] = useState<number | null>(null);
 
-    useEffect(() => {
-        const handleGameUpdate = (data: any) => {
-            if (data.type === 'STATE_UPDATE') {
-                setGameState(data.state);
-            }
-        };
-
-        socket.on('gameUpdate', handleGameUpdate);
-        return () => {
-            socket.off('gameUpdate', handleGameUpdate);
-        };
-    }, [socket]);
-
-    const handleStartGame = () => {
-        socket.emit('gameAction', { gameId, action: 'start' });
-    };
+    React.useEffect(() => {
+        if (G && G.status === 'finished' && G.winner) {
+            const playerNames = G.players.map(p => p.name || p.id);
+            onGameEnd?.(G.winner, playerNames);
+        }
+    }, [G?.status, G?.winner]);
 
     const handleDrawCard = () => {
-        if (!gameState || gameState.status !== 'playing') return;
-        const myIndex = gameState.players.findIndex(p => p.id === socket.id);
-        if (myIndex === gameState.currentPlayerIndex) {
-            socket.emit('gameAction', { gameId, action: 'draw' });
+        if (G.status !== 'playing') return;
+        const myIndex = G.players.findIndex(p => p.id === playerID);
+        if (myIndex === G.currentPlayerIndex) {
+            moves.drawCard();
         }
     };
 
     const handlePlayCard = (index: number) => {
-        if (!gameState || gameState.status !== 'playing') return;
-        const myIndex = gameState.players.findIndex(p => p.id === socket.id);
-        if (myIndex !== gameState.currentPlayerIndex) return;
+        if (G.status !== 'playing') return;
+        const myIndex = G.players.findIndex(p => p.id === playerID);
+        if (myIndex !== G.currentPlayerIndex) return;
 
-        const me = gameState.players[myIndex];
+        const me = G.players[myIndex];
         const card = me.hand[index];
+        const sideData = G.isDarkSide ? card.dark : card.light;
         
-        if (card.value === 'Wild' || card.value === 'Wild Draw 4' || card.value === 'Wild Draw Color') {
+        if (sideData.value === 'Wild' || sideData.value === 'Wild Draw 4' || sideData.value === 'Wild Draw Color' || sideData.value === 'Wild Draw 2') {
             setPendingWildCardIndex(index);
             setShowColorPicker(true);
         } else {
-            socket.emit('gameAction', { gameId, action: 'play', payload: { cardIndex: index } });
+            moves.playCard(index);
         }
     };
 
     const handleCallUno = () => {
-        socket.emit('gameAction', { gameId, action: 'callUno' });
+        moves.callUno();
     };
 
     const handleColorChosen = (color: string) => {
         if (pendingWildCardIndex !== null) {
-            socket.emit('gameAction', { gameId, action: 'play', payload: { cardIndex: pendingWildCardIndex, chosenColor: color } });
+            moves.playCard(pendingWildCardIndex, color);
             setPendingWildCardIndex(null);
             setShowColorPicker(false);
         }
     };
 
-    if (!gameState) {
+    if (!G) {
         return <div className="fixed inset-0 bg-zinc-950 flex items-center justify-center text-white">Loading game state...</div>;
     }
 
-    const myPlayer = gameState.players.find(p => p.id === socket.id);
-    const isMyTurn = gameState.players[gameState.currentPlayerIndex]?.id === socket.id;
-    const opponents = gameState.players.filter(p => p.id !== socket.id);
+    const myPlayer = G.players.find(p => p.id === playerID);
+    const isMyTurn = G.players[G.currentPlayerIndex]?.id === playerID;
+    const opponents = G.players.filter(p => p.id !== playerID);
+
+    const isDark = G.isDarkSide;
+    const sideStr = isDark ? 'Dark' : 'Light';
 
     return (
         <div className="fixed inset-0 bg-zinc-950 z-[1000] flex flex-col font-sans overflow-hidden text-white">
             {/* Header */}
             <div className="absolute top-0 left-0 right-0 z-10 flex justify-between items-center p-4 bg-black/50 border-b border-white/10">
                 <div className="flex items-center gap-4">
-                    <button onClick={onLeave} className="text-white/70 hover:text-white transition-colors">
-                        ← Leave Game
-                    </button>
+                    {onLeave && (
+                        <button onClick={onLeave} className="text-white/70 hover:text-white transition-colors">
+                            ← Leave Game
+                        </button>
+                    )}
                     <h1 className="text-xl font-bold tracking-widest">UNO FLIP</h1>
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 rounded-full ${socket.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                        <span className="text-white/50 text-sm">{gameState.players.length} Players</span>
+                        <div className={`w-3 h-3 rounded-full bg-green-500`}></div>
+                        <span className="text-white/50 text-sm">{G.players.length} Players</span>
                     </div>
                 </div>
             </div>
@@ -99,10 +96,27 @@ export const ReactUnoBoard: React.FC<UnoBoardProps> = ({ socket, gameId, usernam
             {/* Game Area */}
             <div className="flex-1 relative flex flex-col items-center justify-center p-8 mt-16">
                 
+                {G.status === 'waiting' && (
+                    <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/80">
+                        <div className="bg-zinc-900 p-8 rounded-2xl border border-white/10 text-center max-w-md w-full">
+                            <h2 className="text-2xl font-bold mb-4">Waiting for players...</h2>
+                            <p className="text-white/50 mb-8">
+                                Share the Game ID: <span className="text-white font-mono bg-white/10 px-2 py-1 rounded">{matchID}</span>
+                            </p>
+                            <button
+                                onClick={() => moves.startGame()}
+                                className="w-full py-3 bg-white text-black font-bold rounded-xl hover:bg-white/90 transition-colors"
+                            >
+                                Start Game
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Opponents */}
                 <div className="absolute top-8 left-0 right-0 flex justify-center gap-8 px-8">
                     {opponents.map((opp, i) => (
-                        <div key={opp.id} className={`flex flex-col items-center p-4 rounded-xl bg-white/5 border ${gameState.players[gameState.currentPlayerIndex]?.id === opp.id ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)]' : 'border-white/10'}`}>
+                        <div key={opp.id} className={`flex flex-col items-center p-4 rounded-xl bg-white/5 border ${G.players[G.currentPlayerIndex]?.id === opp.id ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)]' : 'border-white/10'}`}>
                             <div className="w-12 h-12 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-xl mb-2">
                                 {opp.name.charAt(0).toUpperCase()}
                             </div>
@@ -114,7 +128,7 @@ export const ReactUnoBoard: React.FC<UnoBoardProps> = ({ socket, gameId, usernam
                 </div>
 
                 {/* Center Play Area */}
-                {gameState.status === 'playing' && (
+                {G.status === 'playing' && (
                     <div className="flex items-center gap-12">
                         {/* Deck */}
                         <div 
@@ -125,20 +139,20 @@ export const ReactUnoBoard: React.FC<UnoBoardProps> = ({ socket, gameId, usernam
                                 <span className="text-white/30 font-bold rotate-45 text-2xl">UNO</span>
                             </div>
                             <div className="absolute -bottom-8 left-0 right-0 text-center text-sm text-white/50">
-                                {gameState.deck.length} cards
+                                {G.deck.length} cards
                             </div>
                         </div>
 
                         {/* Discard Pile */}
                         <div className="relative w-32 h-48">
-                            {gameState.discardPile.length > 0 && (
+                            {G.discardPile.length > 0 && (
                                 <div 
                                     className="absolute inset-0 shadow-2xl"
                                     dangerouslySetInnerHTML={{ 
                                         __html: UNO_CARD_SVG(
-                                            gameState.discardPile[gameState.discardPile.length - 1].side, 
-                                            gameState.discardPile[gameState.discardPile.length - 1].color, 
-                                            gameState.discardPile[gameState.discardPile.length - 1].value
+                                            sideStr, 
+                                            (isDark ? G.discardPile[G.discardPile.length - 1].dark : G.discardPile[G.discardPile.length - 1].light).color, 
+                                            (isDark ? G.discardPile[G.discardPile.length - 1].dark : G.discardPile[G.discardPile.length - 1].light).value
                                         ) 
                                     }}
                                 />
@@ -150,17 +164,17 @@ export const ReactUnoBoard: React.FC<UnoBoardProps> = ({ socket, gameId, usernam
                             <span className="text-sm text-white/50 uppercase tracking-widest">Current Color</span>
                             <div 
                                 className="w-16 h-16 rounded-full border-4 border-white/20 shadow-lg"
-                                style={{ backgroundColor: gameState.currentColor === 'Black' ? '#18181b' : gameState.currentColor.toLowerCase() }}
+                                style={{ backgroundColor: G.currentColor === 'Black' ? '#18181b' : (G.currentColor || 'transparent').toLowerCase() }}
                             />
                             <span className="text-xs text-white/30 mt-2">
-                                Direction: {gameState.direction === 1 ? '→' : '←'}
+                                Direction: {G.direction === 1 ? '→' : '←'}
                             </span>
                         </div>
                     </div>
                 )}
 
                 {/* Player Hand */}
-                {myPlayer && gameState.status === 'playing' && (
+                {myPlayer && G.status === 'playing' && (
                     <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center">
                         <div className="flex items-center gap-4 mb-4">
                             <div className={`px-6 py-2 rounded-full font-bold tracking-widest ${isMyTurn ? 'bg-yellow-400 text-black shadow-[0_0_20px_rgba(250,204,21,0.5)]' : 'bg-white/10 text-white/50'}`}>
@@ -178,17 +192,19 @@ export const ReactUnoBoard: React.FC<UnoBoardProps> = ({ socket, gameId, usernam
                         
                         <div className="flex justify-center flex-wrap gap-[-40px] px-8 max-w-full">
                             {myPlayer.hand.map((card, i) => {
-                                // Simple playability check for visual feedback
-                                const topCard = gameState.discardPile[gameState.discardPile.length - 1];
+                                const topCard = G.discardPile[G.discardPile.length - 1];
+                                const topSide = topCard ? (isDark ? topCard.dark : topCard.light) : null;
+                                const sideData = isDark ? card.dark : card.light;
+                                
                                 const isPlayable = isMyTurn && (
-                                    card.color === 'Black' || 
-                                    card.color === gameState.currentColor || 
-                                    card.value === topCard?.value
+                                    sideData.color === 'Black' || 
+                                    sideData.color === G.currentColor || 
+                                    sideData.value === topSide?.value
                                 );
 
                                 return (
                                     <motion.div
-                                        key={`${card.id}-${i}`}
+                                        key={`${card.suit}-${card.value}-${i}`}
                                         initial={{ y: 50, opacity: 0 }}
                                         animate={{ y: 0, opacity: 1 }}
                                         whileHover={isPlayable ? { y: -20, scale: 1.1, zIndex: 50 } : {}}
@@ -198,7 +214,7 @@ export const ReactUnoBoard: React.FC<UnoBoardProps> = ({ socket, gameId, usernam
                                     >
                                         <div 
                                             className="w-full h-full shadow-xl"
-                                            dangerouslySetInnerHTML={{ __html: UNO_CARD_SVG(card.side, card.color, card.value) }}
+                                            dangerouslySetInnerHTML={{ __html: UNO_CARD_SVG(sideStr, sideData.color, sideData.value) }}
                                         />
                                     </motion.div>
                                 );
@@ -207,110 +223,58 @@ export const ReactUnoBoard: React.FC<UnoBoardProps> = ({ socket, gameId, usernam
                     </div>
                 )}
 
-            </div>
-
-            {/* Action Log Overlay */}
-            {gameState.status === 'playing' && gameState.actionLog && (
-                <div className="absolute bottom-4 left-4 w-72 h-48 bg-black/60 border border-white/20 rounded-lg p-3 overflow-y-auto pointer-events-auto flex flex-col z-10">
-                    <div className="space-y-1 mt-auto">
-                        {gameState.actionLog.map((log, i) => (
-                            <div key={i} className="text-white/80 text-xs font-mono">{log}</div>
-                        ))}
-                        <div ref={(el) => { el?.scrollIntoView({ behavior: 'smooth' }) }} />
-                    </div>
-                </div>
-            )}
-
-            {/* Waiting Room Overlay */}
-            {gameState.status === 'waiting' && (
-                <div className="absolute inset-0 z-20 bg-black/80 flex items-center justify-center backdrop-blur-sm">
-                    <div className="bg-zinc-900 p-8 rounded-2xl border border-white/10 max-w-md w-full text-center">
-                        <h2 className="text-2xl font-bold text-white mb-6">Waiting Room</h2>
-                        <div className="space-y-2 mb-8 text-left">
-                            {gameState.players.map((p) => (
-                                <div key={p.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
-                                    <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold">
-                                        {p.name.charAt(0).toUpperCase()}
-                                    </div>
-                                    <span className="text-white">{p.name} {p.id === socket.id ? '(You)' : ''}</span>
-                                </div>
-                            ))}
-                        </div>
-                        {gameState.players.length >= 2 ? (
-                            <button
-                                onClick={handleStartGame}
-                                className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-colors"
+                {/* Winner Screen */}
+                {G.status === 'finished' && (
+                    <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-50">
+                        <motion.div 
+                            initial={{ scale: 0.5, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="text-6xl font-bold text-yellow-400 mb-8 tracking-widest text-center"
+                        >
+                            {G.winner === myPlayer?.name ? 'YOU WON!' : `${G.winner} WON!`}
+                        </motion.div>
+                        {onLeave && (
+                            <button 
+                                onClick={onLeave}
+                                className="px-8 py-3 bg-white text-black font-bold rounded-full hover:bg-white/90 transition-colors"
                             >
-                                Start Game
+                                Back to Lobby
                             </button>
-                        ) : (
-                            <div className="text-white/50">Waiting for more players... (Min 2)</div>
                         )}
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Color Picker Modal */}
-            <AnimatePresence>
-                {showColorPicker && (
-                    <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute inset-0 z-30 bg-black/80 backdrop-blur-sm flex items-center justify-center"
-                    >
+                {/* Color Picker Modal */}
+                <AnimatePresence>
+                    {showColorPicker && (
                         <motion.div 
-                            initial={{ scale: 0.8, y: 50 }}
-                            animate={{ scale: 1, y: 0 }}
-                            exit={{ scale: 0.8, y: 50 }}
-                            className="bg-zinc-900 p-8 rounded-3xl border border-white/10 shadow-2xl flex flex-col items-center gap-6"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/80 flex items-center justify-center z-50"
                         >
-                            <h2 className="text-2xl font-bold text-white uppercase tracking-widest">Choose Color</h2>
-                            <div className="grid grid-cols-2 gap-4">
-                                {(gameState.isDarkSide ? ['Pink', 'Teal', 'Purple', 'Orange'] : ['Red', 'Blue', 'Green', 'Yellow']).map(color => {
-                                    const darkColors: { [key: string]: string } = {
-                                        'Purple': '#7e22ce',
-                                        'Orange': '#f97316',
-                                        'Pink': '#ec4899',
-                                        'Teal': '#14b8a6'
-                                    };
-                                    const bgColor = gameState.isDarkSide ? darkColors[color] : color.toLowerCase();
-                                    return (
+                            <motion.div 
+                                initial={{ scale: 0.9 }}
+                                animate={{ scale: 1 }}
+                                exit={{ scale: 0.9 }}
+                                className="bg-zinc-900 p-8 rounded-2xl border border-white/10 flex flex-col items-center"
+                            >
+                                <h3 className="text-xl font-bold mb-6">Choose Color</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {(isDark ? ['Pink', 'Teal', 'Purple', 'Orange'] : ['Red', 'Yellow', 'Green', 'Blue']).map(color => (
                                         <button
                                             key={color}
                                             onClick={() => handleColorChosen(color)}
-                                            className="w-24 h-24 rounded-2xl shadow-lg transition-transform hover:scale-110 active:scale-95 flex items-center justify-center"
-                                            style={{ backgroundColor: bgColor }}
-                                        >
-                                            <div className="w-16 h-16 rounded-full border-4 border-white/30"></div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                                            className="w-24 h-24 rounded-xl shadow-lg border-2 border-white/20 hover:scale-105 transition-transform"
+                                            style={{ backgroundColor: color.toLowerCase() }}
+                                        />
+                                    ))}
+                                </div>
+                            </motion.div>
                         </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Winner Overlay */}
-            {gameState.status === 'finished' && (
-                <div className="absolute inset-0 z-40 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center">
-                    <motion.div
-                        initial={{ scale: 0, rotate: -180 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        transition={{ type: "spring", bounce: 0.5 }}
-                        className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-yellow-200 to-yellow-500 mb-8 drop-shadow-[0_0_30px_rgba(250,204,21,0.5)]"
-                    >
-                        {gameState.winner} WINS!
-                    </motion.div>
-                    <button
-                        onClick={onLeave}
-                        className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl transition-all hover:scale-105"
-                    >
-                        Back to Lobby
-                    </button>
-                </div>
-            )}
+                    )}
+                </AnimatePresence>
+            </div>
         </div>
     );
 };
