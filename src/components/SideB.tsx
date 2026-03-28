@@ -16,6 +16,7 @@ import { StorageManager } from '../utils/StorageManager';
 import { CryptoUtils } from '../utils/crypto';
 import { UnoClient } from './UnoClient';
 import { Game41Client } from './Game41Client';
+import { LoadingScreen } from './LoadingScreen';
 import { Leaderboard } from './Leaderboard';
 
 // --- CONSTANTS & UTILS ---
@@ -587,9 +588,12 @@ export default function SideB({ onBack }: { onBack: () => void }) {
         return () => { newSocket.close(); };
     }, []);
 
+    const [isConnectingGame, setIsConnectingGame] = useState(false);
+
     useEffect(() => {
         if (!socket) return;
         const handleGameCreated = (data: any) => {
+            setIsConnectingGame(false);
             setGameId(data.gameId);
             setBgioPlayerID(data.playerID);
             setBgioCredentials(data.credentials);
@@ -600,6 +604,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
             }
         };
         const handleGameJoined = (data: any) => {
+            setIsConnectingGame(false);
             setGameId(data.gameId);
             setBgioPlayerID(data.playerID);
             setBgioCredentials(data.credentials);
@@ -610,6 +615,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
             }
         };
         const handleGameError = (msg: string) => {
+            setIsConnectingGame(false);
             alert(msg);
             setShowUnoBoard(false);
             setShowRemiBoard(false);
@@ -630,6 +636,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
             showToast("Masukkan Game ID terlebih dahulu!", "error");
             return;
         }
+        setIsConnectingGame(true);
         socket?.emit("createGame", { gameId, gameType, playerName: username });
         setShowMenu(false);
     };
@@ -639,6 +646,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
             showToast("Masukkan Game ID terlebih dahulu!", "error");
             return;
         }
+        setIsConnectingGame(true);
         socket?.emit("joinGame", { gameId, playerName: username });
         setShowMenu(false);
     };
@@ -2516,6 +2524,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
             {showLeaderboard && (
                 <Leaderboard onClose={() => setShowLeaderboard(false)} />
             )}
+            {isConnectingGame && <LoadingScreen />}
         </motion.div>
     );
 }

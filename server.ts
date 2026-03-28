@@ -10,7 +10,6 @@ const { Server: BgioServer, SocketIO: BgioSocketIO, Origins } = pkg;
 import { UnoGame } from "./src/game/UnoGame";
 import { Game41 } from "./src/game/Game41";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -40,9 +39,9 @@ async function startServer() {
     await bgioServer.run({ port: BGIO_PORT });
 
     // Proxy boardgame.io API and WebSocket
-    app.use('/games', createProxyMiddleware({ target: `http://localhost:${BGIO_PORT}`, changeOrigin: true }));
-    const wsProxy = createProxyMiddleware({ target: `http://localhost:${BGIO_PORT}`, ws: true, changeOrigin: true });
-    app.use('/boardgameio', wsProxy);
+    app.use(createProxyMiddleware({ pathFilter: '/games', target: `http://127.0.0.1:${BGIO_PORT}`, changeOrigin: true }));
+    const wsProxy = createProxyMiddleware({ pathFilter: '/boardgameio', target: `http://127.0.0.1:${BGIO_PORT}`, ws: true, changeOrigin: true });
+    app.use(wsProxy);
     httpServer.on('upgrade', (req, socket, head) => {
         if (req.url && req.url.startsWith('/boardgameio/')) {
             wsProxy.upgrade(req, socket, head);
@@ -62,9 +61,9 @@ async function startServer() {
         });
         app.use(vite.middlewares);
     } else {
-        app.use(express.static(path.join(__dirname, "dist")));
+        app.use(express.static(path.join(process.cwd(), "dist")));
         app.get("*", (req, res) => {
-            res.sendFile(path.join(__dirname, "dist", "index.html"));
+            res.sendFile(path.join(process.cwd(), "dist", "index.html"));
         });
     }
 
@@ -81,7 +80,7 @@ async function startServer() {
             try {
                 console.log(`Creating game ${bgioGameName} with ID ${gameId}`);
                 // Create game via boardgame.io API
-                const response = await fetch(`http://localhost:${BGIO_PORT}/games/${bgioGameName}/create`, {
+                const response = await fetch(`http://127.0.0.1:${BGIO_PORT}/games/${bgioGameName}/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -89,12 +88,17 @@ async function startServer() {
                         setupData: { playerNames: { '0': playerName || 'Player 1' } }
                     })
                 });
+                if (!response.ok) {
+                    const text = await response.text();
+                    require('fs').appendFileSync('error.log', `Create game failed: ${response.status} ${text}\n`);
+                    throw new Error(`Create game failed: ${response.status} ${text}`);
+                }
                 const result = await response.json();
                 console.log("Create game result:", result);
                 const matchID = result.matchID;
                 
                 // Join the game
-                const joinResponse = await fetch(`http://localhost:${BGIO_PORT}/games/${bgioGameName}/${matchID}/join`, {
+                const joinResponse = await fetch(`http://127.0.0.1:${BGIO_PORT}/games/${bgioGameName}/${matchID}/join`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -109,6 +113,7 @@ async function startServer() {
                 console.log(`User ${socket.id} created ${gameType} game ${matchID}`);
             } catch (error) {
                 console.error("Error creating game:", error);
+                require('fs').appendFileSync('error.log', `Error creating game: ${error}\n`);
                 socket.emit("gameError", "Failed to create game.");
             }
         });
@@ -122,14 +127,14 @@ async function startServer() {
             try {
                 if (!gameType) {
                     // Try UNO first
-                    let response = await fetch(`http://localhost:${BGIO_PORT}/games/uno/${gameId}`);
+                    let response = await fetch(`http://127.0.0.1:${BGIO_PORT}/games/uno/${gameId}`);
                     if (response.ok) {
                         gameType = 'UNO';
                         bgioGameName = 'uno';
                         matchData = await response.json();
                     } else {
                         // Try REMI41
-                        response = await fetch(`http://localhost:${BGIO_PORT}/games/remi41/${gameId}`);
+                        response = await fetch(`http://127.0.0.1:${BGIO_PORT}/games/remi41/${gameId}`);
                         if (response.ok) {
                             gameType = 'REMI41';
                             bgioGameName = 'remi41';
@@ -138,7 +143,7 @@ async function startServer() {
                     }
                 } else {
                     bgioGameName = gameType === 'UNO' ? 'uno' : 'remi41';
-                    const response = await fetch(`http://localhost:${BGIO_PORT}/games/${bgioGameName}/${gameId}`);
+                    const response = await fetch(`http://127.0.0.1:${BGIO_PORT}/games/${bgioGameName}/${gameId}`);
                     if (response.ok) {
                         matchData = await response.json();
                     }
@@ -167,7 +172,7 @@ async function startServer() {
                 const playerID = emptySeatID.toString();
                 
                 // Join the game
-                const joinResponse = await fetch(`http://localhost:${BGIO_PORT}/games/${bgioGameName}/${gameId}/join`, {
+                const joinResponse = await fetch(`http://127.0.0.1:${BGIO_PORT}/games/${bgioGameName}/${gameId}/join`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -223,7 +228,7 @@ async function startServer() {
             const bgioGameName = gameType === 'UNO' ? 'uno' : 'remi41';
             
             try {
-                await fetch(`http://localhost:${BGIO_PORT}/games/${bgioGameName}/${gameId}/leave`, {
+                await fetch(`http://127.0.0.1:${BGIO_PORT}/games/${bgioGameName}/${gameId}/leave`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
