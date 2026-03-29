@@ -7,7 +7,10 @@ import { LoadingScreen } from './LoadingScreen';
 export const Game41Client = Client({
   game: Game41,
   board: ReactRemiBoard,
-  multiplayer: SocketIO({ socketOpts: { path: '/boardgameio/' } }),
+  multiplayer: SocketIO({ 
+    server: import.meta.env.VITE_APP_URL || undefined,
+    socketOpts: { path: '/boardgameio/', transports: ['websocket'] } 
+  }),
   debug: false,
   loading: LoadingScreen
 });

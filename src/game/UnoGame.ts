@@ -3,6 +3,8 @@ import { UnoEngine, UnoGameState } from '../utils/UnoEngine';
 
 export const UnoGame: Game<UnoGameState> = {
   name: 'uno',
+  minPlayers: 2,
+  maxPlayers: 7,
   setup: ({ ctx }, setupData) => {
     const playerNames = setupData?.playerNames || ctx.playOrder.map(id => `Player ${id}`);
     const engine = new UnoEngine(ctx.playOrder, playerNames);

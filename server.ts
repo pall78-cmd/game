@@ -11,6 +11,7 @@ import { UnoGame } from "./src/game/UnoGame";
 import { Game41 } from "./src/game/Game41";
 
 const app = express();
+const customRoomMap = new Map<string, string>();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: { origin: "*" },
@@ -37,6 +38,17 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 async function startServer() {
     // Start boardgame.io server
     await bgioServer.run({ port: BGIO_PORT });
+    
+    // Add logging to socket.io
+    if (bgioServer.app.context.io && bgioServer.app.context.io.socket) {
+        const io = bgioServer.app.context.io.socket;
+        io.of('/uno').on('connection', (socket: any) => {
+            console.log(`[bgioServer] /uno connected: ${socket.id}`);
+        });
+        io.of('/remi41').on('connection', (socket: any) => {
+            console.log(`[bgioServer] /remi41 connected: ${socket.id}`);
+        });
+    }
 
     // Proxy boardgame.io API and WebSocket
     app.use(createProxyMiddleware({ pathFilter: '/games', target: `http://127.0.0.1:${BGIO_PORT}`, changeOrigin: true }));
@@ -62,7 +74,7 @@ async function startServer() {
         app.use(vite.middlewares);
     } else {
         app.use(express.static(path.join(process.cwd(), "dist")));
-        app.get("*", (req, res) => {
+        app.get("*all", (req, res) => {
             res.sendFile(path.join(process.cwd(), "dist", "index.html"));
         });
     }
@@ -75,27 +87,32 @@ async function startServer() {
         const playerRooms = new Map<string, string>(); // socket.id -> gameId
 
         socket.on("createGame", async (data) => {
-            const { gameId, gameType, playerName } = data;
+            const { gameId, gameType, playerName, numPlayers } = data;
             const bgioGameName = gameType === 'UNO' ? 'uno' : 'remi41';
+            const playersCount = numPlayers || 4;
             try {
-                console.log(`Creating game ${bgioGameName} with ID ${gameId}`);
+                console.log(`Creating game ${bgioGameName} with ID ${gameId} for ${playersCount} players`);
                 // Create game via boardgame.io API
                 const response = await fetch(`http://127.0.0.1:${BGIO_PORT}/games/${bgioGameName}/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        numPlayers: 4, // Default to 4 players max
+                        numPlayers: playersCount,
                         setupData: { playerNames: { '0': playerName || 'Player 1' } }
                     })
                 });
                 if (!response.ok) {
                     const text = await response.text();
-                    require('fs').appendFileSync('error.log', `Create game failed: ${response.status} ${text}\n`);
+                    console.error(`Create game failed: ${response.status} ${text}`);
                     throw new Error(`Create game failed: ${response.status} ${text}`);
                 }
                 const result = await response.json();
                 console.log("Create game result:", result);
                 const matchID = result.matchID;
+                
+                if (gameId) {
+                    customRoomMap.set(gameId, matchID);
+                }
                 
                 // Join the game
                 const joinResponse = await fetch(`http://127.0.0.1:${BGIO_PORT}/games/${bgioGameName}/${matchID}/join`, {
@@ -109,20 +126,25 @@ async function startServer() {
                 const joinResult = await joinResponse.json();
                 console.log("Join game result:", joinResult);
                 
-                socket.emit("gameCreated", { gameId: matchID, playerID: '0', credentials: joinResult.playerCredentials, gameType });
-                console.log(`User ${socket.id} created ${gameType} game ${matchID}`);
+                socket.emit("gameCreated", { gameId: gameId || matchID, actualMatchId: matchID, playerID: '0', credentials: joinResult.playerCredentials, gameType });
+                console.log(`User ${socket.id} created ${gameType} game ${matchID} (custom ID: ${gameId})`);
             } catch (error) {
                 console.error("Error creating game:", error);
-                require('fs').appendFileSync('error.log', `Error creating game: ${error}\n`);
                 socket.emit("gameError", "Failed to create game.");
             }
         });
 
         socket.on("joinGame", async (data) => {
-            const { gameId, playerName } = data;
+            let { gameId, playerName } = data;
+            const customGameId = gameId;
             let gameType = data.gameType;
             let bgioGameName = '';
             let matchData = null;
+            
+            // Resolve custom gameId if it exists
+            if (customRoomMap.has(gameId)) {
+                gameId = customRoomMap.get(gameId);
+            }
             
             try {
                 if (!gameType) {
@@ -188,7 +210,7 @@ async function startServer() {
                 
                 const joinResult = await joinResponse.json();
                 
-                socket.emit("gameJoined", { gameId, playerID, credentials: joinResult.playerCredentials, gameType });
+                socket.emit("gameJoined", { gameId: customGameId, actualMatchId: gameId, playerID, credentials: joinResult.playerCredentials, gameType });
                 console.log(`User ${socket.id} joined game ${gameId} as player ${playerID}`);
             } catch (error) {
                 console.error("Error joining game:", error);

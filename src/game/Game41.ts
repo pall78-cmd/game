@@ -3,6 +3,8 @@ import { Game41Engine, Game41State } from '../utils/Game41Engine';
 
 export const Game41: Game<Game41State> = {
   name: 'remi41',
+  minPlayers: 2,
+  maxPlayers: 7,
   setup: ({ ctx }, setupData) => {
     const playerNames = setupData?.playerNames || ctx.playOrder.map(id => `Player ${id}`);
     const engine = new Game41Engine(ctx.playOrder, playerNames);

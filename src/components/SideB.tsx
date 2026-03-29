@@ -576,6 +576,8 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
 export default function SideB({ onBack }: { onBack: () => void }) {
     const [socket, setSocket] = useState<Socket | null>(null);
     const [gameId, setGameId] = useState('');
+    const [actualMatchId, setActualMatchId] = useState('');
+    const [numPlayers, setNumPlayers] = useState(4);
     const [showUnoBoard, setShowUnoBoard] = useState(false);
     const [showRemiBoard, setShowRemiBoard] = useState(false);
     const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -583,7 +585,8 @@ export default function SideB({ onBack }: { onBack: () => void }) {
     const [bgioCredentials, setBgioCredentials] = useState<string>('');
 
     useEffect(() => {
-        const newSocket = io();
+        const socketUrl = import.meta.env.VITE_APP_URL || '';
+        const newSocket = io(socketUrl, { transports: ['websocket'] });
         setSocket(newSocket);
         return () => { newSocket.close(); };
     }, []);
@@ -595,6 +598,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
         const handleGameCreated = (data: any) => {
             setIsConnectingGame(false);
             setGameId(data.gameId);
+            setActualMatchId(data.actualMatchId || data.gameId);
             setBgioPlayerID(data.playerID);
             setBgioCredentials(data.credentials);
             if (data.gameType === 'UNO') {
@@ -606,6 +610,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
         const handleGameJoined = (data: any) => {
             setIsConnectingGame(false);
             setGameId(data.gameId);
+            setActualMatchId(data.actualMatchId || data.gameId);
             setBgioPlayerID(data.playerID);
             setBgioCredentials(data.credentials);
             if (data.gameType === 'UNO') {
@@ -631,13 +636,25 @@ export default function SideB({ onBack }: { onBack: () => void }) {
         };
     }, [socket, showUnoBoard, showRemiBoard]);
 
+    useEffect(() => {
+        const handleCancelGame = () => {
+            setIsConnectingGame(false);
+            setShowUnoBoard(false);
+            setShowRemiBoard(false);
+            setGameId('');
+            setActualMatchId('');
+        };
+        window.addEventListener('cancelGameConnection', handleCancelGame);
+        return () => window.removeEventListener('cancelGameConnection', handleCancelGame);
+    }, []);
+
     const createGame = (gameType: 'UNO' | 'REMI41' = 'REMI41') => {
         if (!gameId) {
             showToast("Masukkan Game ID terlebih dahulu!", "error");
             return;
         }
         setIsConnectingGame(true);
-        socket?.emit("createGame", { gameId, gameType, playerName: username });
+        socket?.emit("createGame", { gameId, gameType, playerName: username, numPlayers });
         setShowMenu(false);
     };
 
@@ -2395,6 +2412,18 @@ export default function SideB({ onBack }: { onBack: () => void }) {
                                     placeholder="Enter Game ID (e.g., room123)" 
                                     className="p-3 rounded-lg bg-black/50 border border-white/10 outline-none focus:border-gold/50"
                                 />
+                                <div className="flex items-center gap-2 mt-2">
+                                    <label className="text-sm text-white/70">Jumlah Pemain:</label>
+                                    <select 
+                                        value={numPlayers} 
+                                        onChange={(e) => setNumPlayers(Number(e.target.value))}
+                                        className="p-2 rounded-lg bg-black/50 border border-white/10 outline-none focus:border-gold/50 text-white"
+                                    >
+                                        {[2, 3, 4, 5, 6, 7].map(num => (
+                                            <option key={num} value={num}>{num} Pemain</option>
+                                        ))}
+                                    </select>
+                                </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
                                     <button onClick={() => createGame('UNO')} className="p-3 bg-red-600/80 hover:bg-red-500 rounded-lg font-bold transition-colors shadow-lg">Create UNO</button>
                                     <button onClick={() => createGame('REMI41')} className="p-3 bg-emerald-600/80 hover:bg-emerald-500 rounded-lg font-bold transition-colors shadow-lg">Create REMI 41</button>
@@ -2489,34 +2518,38 @@ export default function SideB({ onBack }: { onBack: () => void }) {
 
             {showUnoBoard && socket && (
                 <UnoClient 
-                    matchID={gameId} 
+                    matchID={actualMatchId} 
+                    displayGameId={gameId}
                     playerID={bgioPlayerID}
                     credentials={bgioCredentials}
                     onLeave={() => {
-                        socket.emit("leaveGame", { gameId, playerID: bgioPlayerID, credentials: bgioCredentials, gameType: 'UNO' });
+                        socket.emit("leaveGame", { gameId: actualMatchId, playerID: bgioPlayerID, credentials: bgioCredentials, gameType: 'UNO' });
                         setShowUnoBoard(false);
                         setGameId('');
+                        setActualMatchId('');
                     }}
                     onGameEnd={(winner, players) => {
                         if (bgioPlayerID === '0') {
-                            socket.emit("gameFinished", { gameId, gameType: 'UNO', winner, players });
+                            socket.emit("gameFinished", { gameId: actualMatchId, gameType: 'UNO', winner, players });
                         }
                     }}
                 />
             )}
             {showRemiBoard && socket && (
                 <Game41Client 
-                    matchID={gameId} 
+                    matchID={actualMatchId} 
+                    displayGameId={gameId}
                     playerID={bgioPlayerID}
                     credentials={bgioCredentials}
                     onLeave={() => {
-                        socket.emit("leaveGame", { gameId, playerID: bgioPlayerID, credentials: bgioCredentials, gameType: 'REMI41' });
+                        socket.emit("leaveGame", { gameId: actualMatchId, playerID: bgioPlayerID, credentials: bgioCredentials, gameType: 'REMI41' });
                         setShowRemiBoard(false);
                         setGameId('');
+                        setActualMatchId('');
                     }}
                     onGameEnd={(winner, players) => {
                         if (bgioPlayerID === '0') {
-                            socket.emit("gameFinished", { gameId, gameType: 'REMI41', winner, players });
+                            socket.emit("gameFinished", { gameId: actualMatchId, gameType: 'REMI41', winner, players });
                         }
                     }}
                 />
@@ -2524,7 +2557,17 @@ export default function SideB({ onBack }: { onBack: () => void }) {
             {showLeaderboard && (
                 <Leaderboard onClose={() => setShowLeaderboard(false)} />
             )}
-            {isConnectingGame && <LoadingScreen />}
+            {isConnectingGame && (
+                <div className="fixed inset-0 z-50">
+                    <LoadingScreen />
+                    <button 
+                        onClick={() => setIsConnectingGame(false)}
+                        className="absolute top-4 right-4 text-white/50 hover:text-white z-50"
+                    >
+                        Batal
+                    </button>
+                </div>
+            )}
         </motion.div>
     );
 }

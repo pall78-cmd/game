@@ -9,14 +9,16 @@ interface UnoBoardProps {
     moves: any;
     playerID: string | null;
     matchID: string;
+    displayGameId?: string;
     username?: string;
     onLeave?: () => void;
     onGameEnd?: (winner: string, players: string[]) => void;
 }
 
-export const ReactUnoBoard: React.FC<UnoBoardProps> = ({ G, ctx, moves, playerID, matchID, username, onLeave, onGameEnd }) => {
+export const ReactUnoBoard: React.FC<UnoBoardProps> = ({ G, ctx, moves, playerID, matchID, displayGameId, username, onLeave, onGameEnd }) => {
     const [showColorPicker, setShowColorPicker] = useState(false);
     const [pendingWildCardIndex, setPendingWildCardIndex] = useState<number | null>(null);
+    const displayId = displayGameId || matchID;
 
     React.useEffect(() => {
         if (G && G.status === 'finished' && G.winner) {
@@ -101,7 +103,7 @@ export const ReactUnoBoard: React.FC<UnoBoardProps> = ({ G, ctx, moves, playerID
                         <div className="bg-zinc-900 p-8 rounded-2xl border border-white/10 text-center max-w-md w-full">
                             <h2 className="text-2xl font-bold mb-4">Waiting for players...</h2>
                             <p className="text-white/50 mb-8">
-                                Share the Game ID: <span className="text-white font-mono bg-white/10 px-2 py-1 rounded">{matchID}</span>
+                                Share the Game ID: <span className="text-white font-mono bg-white/10 px-2 py-1 rounded">{displayId}</span>
                             </p>
                             <button
                                 onClick={() => moves.startGame()}
@@ -114,7 +116,7 @@ export const ReactUnoBoard: React.FC<UnoBoardProps> = ({ G, ctx, moves, playerID
                 )}
 
                 {/* Opponents */}
-                <div className="absolute top-8 left-0 right-0 flex justify-center gap-8 px-8">
+                <div className="absolute top-8 left-0 right-0 flex flex-wrap justify-center gap-4 px-8">
                     {opponents.map((opp, i) => (
                         <div key={opp.id} className={`flex flex-col items-center p-4 rounded-xl bg-white/5 border ${G.players[G.currentPlayerIndex]?.id === opp.id ? 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)]' : 'border-white/10'}`}>
                             <div className="w-12 h-12 rounded-full bg-indigo-500 flex items-center justify-center font-bold text-xl mb-2">
