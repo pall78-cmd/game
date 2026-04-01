@@ -585,7 +585,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
     const [bgioCredentials, setBgioCredentials] = useState<string>('');
 
     useEffect(() => {
-        const socketUrl = import.meta.env.VITE_APP_URL || '';
+        const socketUrl = import.meta.env.VITE_APP_URL || 'https://game-production-a33c.up.railway.app';
         const newSocket = io(socketUrl, { transports: ['websocket'] });
         setSocket(newSocket);
         return () => { newSocket.close(); };

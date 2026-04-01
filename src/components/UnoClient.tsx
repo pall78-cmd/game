@@ -8,7 +8,7 @@ export const UnoClient = Client({
   game: UnoGame,
   board: ReactUnoBoard,
   multiplayer: SocketIO({ 
-    server: import.meta.env.VITE_APP_URL || undefined,
+    server: import.meta.env.VITE_APP_URL || 'https://game-production-a33c.up.railway.app',
     socketOpts: { path: '/boardgameio/', transports: ['websocket'] } 
   }),
   debug: false,
