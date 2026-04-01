@@ -583,7 +583,7 @@ function App() {
     const [showLeaderboard, setShowLeaderboard] = useState(false);
 
     useEffect(() => {
-        const socketUrl = import.meta.env.VITE_APP_URL || 'https://game-production-a33c.up.railway.app';
+        const socketUrl = import.meta.env.VITE_APP_URL || 'https://game-production-bb96.up.railway.app';
         const newSocket = io(socketUrl, { transports: ['websocket'] });
         setSocket(newSocket);
         return () => { newSocket.close(); };

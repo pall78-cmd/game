@@ -8,7 +8,7 @@ export const Game41Client = Client({
   game: Game41,
   board: ReactRemiBoard,
   multiplayer: SocketIO({ 
-    server: import.meta.env.VITE_APP_URL || 'https://game-production-a33c.up.railway.app',
+    server: import.meta.env.VITE_APP_URL || 'https://game-production-bb96.up.railway.app',
     socketOpts: { path: '/boardgameio/', transports: ['websocket'] } 
   }),
   debug: false,
