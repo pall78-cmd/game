@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build",
+    "railway-build": "rm -rf node_modules package-lock.json && npm install && vite build",
     "start": "tsx server.ts",
     "vercel-build": "vite build",
     "preview": "vite preview",
