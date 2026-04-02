@@ -4,9 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "tsx server.ts",
     "build": "vite build",
-    "start": "vite preview --port 3000 --host 0.0.0.0",
+    "start": "tsx server.ts",
     "vercel-build": "vite build",
     "preview": "vite preview",
     "lint": "echo 'Linter skipped due to unconventional project structure'"
