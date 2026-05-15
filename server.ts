@@ -19,7 +19,7 @@ const io = new Server(httpServer, {
 });
 
 const PORT = 3000;
-const BGIO_PORT = 3001;
+const BGIO_PORT = 3002;
 
 const bgioServer = BgioServer({
     games: [UnoGame, TebakKataGame],

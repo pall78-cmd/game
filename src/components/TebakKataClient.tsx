@@ -8,7 +8,7 @@ export const TebakKataClient = Client({
   game: TebakKataGame,
   board: ReactTebakKataBoard,
   multiplayer: SocketIO({ 
-    server: import.meta.env.VITE_APP_URL || 'https://game-production-bb96.up.railway.app',
+    server: window.location.origin,
     socketOpts: { path: '/boardgameio/', transports: ['websocket'] } 
   }),
   debug: false,

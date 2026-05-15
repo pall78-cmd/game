@@ -30,18 +30,28 @@ export class ConnectionManager {
     /**
      * Initialize the realtime channel subscription with monitoring.
      */
-    subscribe(channelName: string, onPayload: (event: any) => void) {
+    async subscribe(channelName: string, onPayload: (event: any) => void) {
         this.currentChannelName = channelName;
         this.currentOnPayload = onPayload;
 
         if (this.channel) {
-            this.supabase.removeChannel(this.channel);
+            await this.supabase.removeChannel(this.channel);
+            this.channel = null;
+        }
+
+        // Clean up any lingering channel with the same name in the Supabase client
+        const existingChannels = this.supabase.getChannels();
+        const existingList = existingChannels.filter(c => c.topic === `realtime:${channelName}`);
+        for (const existing of existingList) {
+            await this.supabase.removeChannel(existing);
         }
 
         console.log(`[ConnectionManager] Subscribing to ${channelName}...`);
         this.onStatusChange('CONNECTING');
 
-        this.channel = this.supabase.channel(channelName)
+        const newChannel = this.supabase.channel(channelName);
+
+        newChannel
             .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'Pesan' }, payload => {
                 this.lastHeartbeat = Date.now();
                 onPayload({ type: 'INSERT', payload });
@@ -57,8 +67,10 @@ export class ConnectionManager {
             .on('broadcast', { event: 'read' }, payload => {
                 this.lastHeartbeat = Date.now();
                 onPayload({ type: 'READ', payload });
-            })
-            .subscribe(this.handleStatus);
+            });
+        
+        await newChannel.subscribe(this.handleStatus);
+        this.channel = newChannel;
 
         this.startHeartbeat();
     }
@@ -128,7 +140,7 @@ export class ConnectionManager {
         
         // Re-subscribe using stored details
         if (this.currentChannelName && this.currentOnPayload) {
-            this.subscribe(this.currentChannelName, this.currentOnPayload);
+            await this.subscribe(this.currentChannelName, this.currentOnPayload);
         } else {
             this.onStatusChange('FAILED');
         }

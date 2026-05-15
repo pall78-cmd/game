@@ -35,12 +35,12 @@ export const Lobby: React.FC<LobbyProps> = ({ onJoinGame, onCreateGame, currentA
         fetchLobbies();
         fetchPreferences();
 
-        const channel = supabase
-            .channel('public:game_lobbies')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'game_lobbies' }, payload => {
+            const channelName = 'game_lobbies_' + Math.random().toString(36).substring(7);
+            const channel = supabase.channel(channelName);
+            channel.on('postgres_changes', { event: '*', schema: 'public', table: 'game_lobbies' }, payload => {
                 fetchLobbies();
-            })
-            .subscribe();
+            });
+            channel.subscribe();
 
         return () => {
             supabase.removeChannel(channel);
@@ -189,7 +189,7 @@ export const Lobby: React.FC<LobbyProps> = ({ onJoinGame, onCreateGame, currentA
             </div>
 
             {showCreateModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[600] p-4">
                     <motion.div 
                         initial={{ scale: 0.9, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}

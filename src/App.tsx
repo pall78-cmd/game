@@ -532,8 +532,8 @@ function App() {
     const [showLeaderboard, setShowLeaderboard] = useState(false);
 
     useEffect(() => {
-        const socketUrl = import.meta.env.VITE_APP_URL || 'https://game-production-bb96.up.railway.app';
-        const newSocket = io(socketUrl, { transports: ['websocket'] });
+        // Connect to the local server
+        const newSocket = io({ transports: ['websocket'] });
         setSocket(newSocket);
         return () => { newSocket.close(); };
     }, []);
@@ -804,7 +804,7 @@ function App() {
             if (data) setMessages(data);
 
             connManagerRef.current = new ConnectionManager(supabaseClient, setConnStatus);
-            connManagerRef.current.subscribe('msgs', (event: any) => {
+            await connManagerRef.current.subscribe('chat_room', (event: any) => {
                 if (event.type === 'INSERT') {
                     const newMsg = event.payload.new;
                     const isRoomB = newMsg.nama.startsWith('ROOM_B|');
