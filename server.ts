@@ -3,15 +3,17 @@ import { createServer } from "http";
 import { Server } from "socket.io";
 import { fileURLToPath } from "url";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import pkg from "boardgame.io/dist/cjs/server.js";
 const { Server: BgioServer, SocketIO: BgioSocketIO, Origins } = pkg;
 import { UnoGame } from "./src/game/UnoGame";
 import { TebakKataGame } from "./src/game/TebakKataGame";
+import { SupabaseAdapter } from "./src/game/SupabaseAdapter";
 
 const app = express();
-const customRoomMap = new Map<string, string>();
+
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
     cors: { origin: "*" },
@@ -23,6 +25,7 @@ const BGIO_PORT = 3002;
 
 const bgioServer = BgioServer({
     games: [UnoGame, TebakKataGame],
+    db: new SupabaseAdapter(supabase, 'boardgame_state'),
     origins: [Origins.LOCALHOST, '*'],
     transport: new BgioSocketIO({
         socketOpts: { path: '/boardgameio/' }
@@ -110,8 +113,29 @@ async function startServer() {
                 console.log("Create game result:", result);
                 const matchID = result.matchID;
                 
+                // We update game_lobbies immediately here (backend) to avoid race conditions completely!
                 if (gameId) {
-                    customRoomMap.set(gameId, matchID);
+                    try {
+                        const { data: lobbies } = await supabase.from('game_lobbies').select('settings, id').eq('match_id', gameId);
+                        if (lobbies && lobbies.length > 0) {
+                            const lobby = lobbies[0];
+                            await supabase.from('game_lobbies').update({
+                                settings: { ...lobby.settings, actualMatchId: matchID }
+                            }).eq('id', lobby.id);
+                        } else {
+                            // If lobby hasn't been created yet, try again after a small delay
+                            setTimeout(async () => {
+                                const { data: l } = await supabase.from('game_lobbies').select('settings, id').eq('match_id', gameId);
+                                if (l && l.length > 0) {
+                                    await supabase.from('game_lobbies').update({
+                                        settings: { ...l[0].settings, actualMatchId: matchID }
+                                    }).eq('id', l[0].id);
+                                }
+                            }, 2000);
+                        }
+                    } catch (e) {
+                        console.error('Failed to update game_lobbies on supabase', e);
+                    }
                 }
                 
                 // Join the game
@@ -130,7 +154,7 @@ async function startServer() {
                 console.log(`User ${socket.id} created ${gameType} game ${matchID} (custom ID: ${gameId})`);
             } catch (error) {
                 console.error("Error creating game:", error);
-                socket.emit("gameError", "Failed to create game.");
+                socket.emit("gameError", "Failed to create game");
             }
         });
 
@@ -141,9 +165,17 @@ async function startServer() {
             let bgioGameName = '';
             let matchData = null;
             
-            // Resolve custom gameId if it exists
-            if (customRoomMap.has(gameId)) {
-                gameId = customRoomMap.get(gameId);
+            // Resolve custom gameId via Supabase game_lobbies
+            if (gameId && gameId.length <= 6) { // It's probably a custom short code
+                try {
+                    const { data: lobbies } = await supabase.from('game_lobbies').select('settings').eq('match_id', gameId);
+                    if (lobbies && lobbies.length > 0 && lobbies[0].settings && lobbies[0].settings.actualMatchId) {
+                        gameId = lobbies[0].settings.actualMatchId;
+                        console.log(`Resolved custom game ID ${customGameId} -> ${gameId} from Supabase`);
+                    }
+                } catch (e) {
+                    console.error('Failed to resolve custom ID from Supabase', e);
+                }
             }
             
             try {
