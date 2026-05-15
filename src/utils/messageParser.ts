@@ -151,12 +151,7 @@ export const MessageParser = {
                  if (type === 'UNO_FLIP') {
                      return `🃏 UNO: ${parts[2]} ${parts[3]} ${parts[4]}`;
                  } else if (type === 'UNO') {
-                     return `🃏 UNO: ${parts[2]} ${parts[3]}`;
-                 } else if (type === 'REMI') {
-                     return `🃏 Remi: ${parts[2]} ${parts[3]}`;
-                 } else if (type === 'REMI41') {
-                     return `🃏 Remi 41`;
-                 }
+                     return `🃏 UNO: ${parts[2]} ${parts[3]}`;}
              }
              return "🃏 Board Game Card";
         }
@@ -244,12 +239,7 @@ export const MessageParser = {
                      const colorStr = parts[3] === 'Black' ? '' : `${parts[3]} `;
                      currentText = `🃏 UNO: ${parts[2]} ${colorStr}${parts[4]}`;
                  } else if (type === 'UNO') {
-                     currentText = `🃏 UNO: ${parts[2]} ${parts[3]}`;
-                 } else if (type === 'REMI') {
-                     currentText = `🃏 Remi: ${parts[2]} ${parts[3]}`;
-                 } else if (type === 'REMI41') {
-                     currentText = `🃏 Remi 41`;
-                 }
+                     currentText = `🃏 UNO: ${parts[2]} ${parts[3]}`;}
              } else {
                  currentText = "🃏 Board Game Card";
              }

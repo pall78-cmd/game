@@ -2,20 +2,21 @@ import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reply, Check, CheckCheck, Copy } from 'lucide-react';
 import { io, Socket } from "socket.io-client";
-import { UNO_CARD_SVG, REMI_CARD_SVG } from '../constants/boardGameDeck';
+import { UNO_CARD_SVG } from '../constants/boardGameDeck';
 
 import { ConnectionManager } from '../utils/ConnectionManager';
 import { supabaseClient } from '../../supabase';
 import { ORACLE_CONFIG } from '../config';
 import { GAME_DECK } from '../constants/deck';
-import { drawUnoFlipCard, drawRemiCard } from '../constants/boardGames';
+import { drawUnoFlipCard } from '../constants/boardGames';
 import { MessageParser } from '../utils/messageParser';
 import { AudioManager } from '../utils/audioManager';
 import { bgmManager, AVAILABLE_BGMS } from '../utils/bgmManager';
 import { StorageManager } from '../utils/StorageManager';
 import { CryptoUtils } from '../utils/crypto';
 import { UnoClient } from './UnoClient';
-import { Game41Client } from './Game41Client';
+import { TebakKataClient } from './TebakKataClient';
+import { Lobby } from './Lobby';
 import { LoadingScreen } from './LoadingScreen';
 import { Leaderboard } from './Leaderboard';
 
@@ -207,56 +208,6 @@ const BoardGameCardDisplay = ({ raw, invokerName }: { raw: string, invokerName?:
                         {invoker ? `Ditarik oleh ${invoker} ` : ''}({side} Side)
                     </div>
                 </motion.div>
-            );
-        } else if (gameType === 'REMI') {
-            return (
-                <motion.div 
-                    initial={{ rotateY: 90, opacity: 0, scale: 0.8 }}
-                    animate={{ rotateY: 0, opacity: 1, scale: 1 }}
-                    transition={{ type: 'spring', damping: 12, stiffness: 100 }}
-                    className="w-40 h-60 relative shadow-lg mx-auto mb-6"
-                >
-                    <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: REMI_CARD_SVG(cardColorOrSuit, cardValue) }} />
-                    {invoker && (
-                        <div className="absolute -bottom-6 left-0 right-0 text-[8px] opacity-60 uppercase tracking-widest text-white whitespace-nowrap text-center">
-                            Ditarik oleh {invoker}
-                        </div>
-                    )}
-                </motion.div>
-            );
-        } else if (gameType === 'REMI41') {
-            if (parts.length < 10) return null;
-            const cards = [
-                { suit: parts[2], value: parts[3] },
-                { suit: parts[4], value: parts[5] },
-                { suit: parts[6], value: parts[7] },
-                { suit: parts[8], value: parts[9] }
-            ];
-
-            return (
-                <div className="flex flex-col items-center gap-6">
-                    <div className="flex justify-center relative">
-                        {cards.map((card, idx) => (
-                            <motion.div 
-                                key={idx}
-                                initial={{ rotateY: 90, opacity: 0, x: -50 }}
-                                animate={{ rotateY: 0, opacity: 1, x: 0 }}
-                                transition={{ type: 'spring', damping: 12, stiffness: 100, delay: idx * 0.1 }}
-                                className="w-24 h-36 sm:w-32 sm:h-48 relative shadow-md hover:z-20 hover:-translate-y-4 transition-transform"
-                                style={{ 
-                                    zIndex: idx,
-                                    marginLeft: idx === 0 ? 0 : '-40px',
-                                    transform: `rotate(${idx * 5 - 10}deg)`
-                                }}
-                            >
-                                <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: REMI_CARD_SVG(card.suit, card.value) }} />
-                            </motion.div>
-                        ))}
-                    </div>
-                    <div className="text-[10px] opacity-60 uppercase tracking-widest text-white whitespace-nowrap">
-                        Ditarik oleh {invoker}
-                    </div>
-                </div>
             );
         }
         return null;
@@ -579,7 +530,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
     const [actualMatchId, setActualMatchId] = useState('');
     const [numPlayers, setNumPlayers] = useState(4);
     const [showUnoBoard, setShowUnoBoard] = useState(false);
-    const [showRemiBoard, setShowRemiBoard] = useState(false);
+    const [showTebakKataBoard, setShowTebakKataBoard] = useState(false);
     const [showLeaderboard, setShowLeaderboard] = useState(false);
     const [bgioPlayerID, setBgioPlayerID] = useState<string>('');
     const [bgioCredentials, setBgioCredentials] = useState<string>('');
@@ -604,7 +555,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
             if (data.gameType === 'UNO') {
                 setShowUnoBoard(true);
             } else {
-                setShowRemiBoard(true);
+                setShowTebakKataBoard(true);
             }
         };
         const handleGameJoined = (data: any) => {
@@ -616,14 +567,14 @@ export default function SideB({ onBack }: { onBack: () => void }) {
             if (data.gameType === 'UNO') {
                 setShowUnoBoard(true);
             } else {
-                setShowRemiBoard(true);
+                setShowTebakKataBoard(true);
             }
         };
         const handleGameError = (msg: string) => {
             setIsConnectingGame(false);
             alert(msg);
             setShowUnoBoard(false);
-            setShowRemiBoard(false);
+            setShowTebakKataBoard(false);
             setGameId('');
         };
         socket.on("gameCreated", handleGameCreated);
@@ -634,13 +585,13 @@ export default function SideB({ onBack }: { onBack: () => void }) {
             socket.off("gameJoined", handleGameJoined);
             socket.off("gameError", handleGameError);
         };
-    }, [socket, showUnoBoard, showRemiBoard]);
+    }, [socket, showUnoBoard, showTebakKataBoard]);
 
     useEffect(() => {
         const handleCancelGame = () => {
             setIsConnectingGame(false);
             setShowUnoBoard(false);
-            setShowRemiBoard(false);
+            setShowTebakKataBoard(false);
             setGameId('');
             setActualMatchId('');
         };
@@ -648,7 +599,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
         return () => window.removeEventListener('cancelGameConnection', handleCancelGame);
     }, []);
 
-    const createGame = (gameType: 'UNO' | 'REMI41' = 'REMI41') => {
+    const createGame = (gameType: 'UNO' | 'TEBAKKATA' = 'TEBAKKATA') => {
         if (!gameId) {
             showToast("Masukkan Game ID terlebih dahulu!", "error");
             return;
@@ -1244,12 +1195,6 @@ export default function SideB({ onBack }: { onBack: () => void }) {
         } else if (game === 'UNO_DARK') {
             const card = drawUnoFlipCard('Dark');
             contentStr = `BOARDGAME:UNO_FLIP:${card.side}:${card.color}:${card.value}`;
-        } else if (game === 'REMI') {
-            const card = drawRemiCard();
-            contentStr = `BOARDGAME:REMI:${card.suit}:${card.value}`;
-        } else if (game === 'REMI41') {
-            const cards = [drawRemiCard(), drawRemiCard(), drawRemiCard(), drawRemiCard()];
-            contentStr = `BOARDGAME:REMI41:${cards.map(c => `${c.suit}:${c.value}`).join(':')}`;
         }
         
         try {
@@ -1404,7 +1349,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
         setFateMode(false);
     };
 
-    const handleDrawBoardGame = async (game: 'UNO' | 'UNO_DARK' | 'REMI BESAR' | 'REMI 41') => {
+    const handleDrawBoardGame = async (game: 'UNO' | 'UNO_DARK') => {
         bgmManager.onFateCardDraw();
         
         let contentStr = '';
@@ -1414,12 +1359,6 @@ export default function SideB({ onBack }: { onBack: () => void }) {
         } else if (game === 'UNO_DARK') {
             const card = drawUnoFlipCard('Dark');
             contentStr = `BOARDGAME:UNO_FLIP:${card.side}:${card.color}:${card.value}`;
-        } else if (game === 'REMI BESAR') {
-            const card = drawRemiCard();
-            contentStr = `BOARDGAME:REMI:${card.suit}:${card.value}`;
-        } else if (game === 'REMI 41') {
-            const cards = [drawRemiCard(), drawRemiCard(), drawRemiCard(), drawRemiCard()];
-            contentStr = `BOARDGAME:REMI41:${cards.map(c => `${c.suit}:${c.value}`).join(':')}`;
         }
 
         const payload = JSON.stringify({
@@ -1898,8 +1837,6 @@ export default function SideB({ onBack }: { onBack: () => void }) {
                                 <div className="absolute bottom-14 left-0 bg-zinc-900 border border-white/10 rounded-xl p-2 flex flex-col gap-2 z-50 w-32">
                                     <button onClick={() => { handleSendBoardGame('UNO'); setBoardGameMenuOpen(false); }} className="px-4 py-2 hover:bg-white/10 rounded-lg text-sm">UNO</button>
                                     <button onClick={() => { handleSendBoardGame('UNO_DARK'); setBoardGameMenuOpen(false); }} className="px-4 py-2 hover:bg-white/10 rounded-lg text-sm">UNO (Dark)</button>
-                                    <button onClick={() => { handleSendBoardGame('REMI'); setBoardGameMenuOpen(false); }} className="px-4 py-2 hover:bg-white/10 rounded-lg text-sm">REMI</button>
-                                    <button onClick={() => { handleSendBoardGame('REMI41'); setBoardGameMenuOpen(false); }} className="px-4 py-2 hover:bg-white/10 rounded-lg text-sm">REMI 41</button>
                                 </div>
                             )}
                         </div>
@@ -2390,10 +2327,9 @@ export default function SideB({ onBack }: { onBack: () => void }) {
                             </div>
                         </section>
 
-                        {/* GAME UI */}
-                        <div className="p-4 bg-zinc-900 text-white rounded-xl mb-4 border border-white/10">
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-xl font-bold text-gold">Multiplayer Game</h2>
+                        {/* GAME LOBBY */}
+                        <div className="mb-4 bg-zinc-900 border border-white/10 rounded-xl p-4">
+                            <div className="flex flex-row-reverse mb-2">
                                 <button 
                                     onClick={() => {
                                         setShowMenu(false);
@@ -2404,32 +2340,23 @@ export default function SideB({ onBack }: { onBack: () => void }) {
                                     🏆 Leaderboard
                                 </button>
                             </div>
-                            <div className="flex flex-col gap-2 mb-4">
-                                <input 
-                                    type="text" 
-                                    value={gameId} 
-                                    onChange={(e) => setGameId(e.target.value)} 
-                                    placeholder="Enter Game ID (e.g., room123)" 
-                                    className="p-3 rounded-lg bg-black/50 border border-white/10 outline-none focus:border-gold/50"
-                                />
-                                <div className="flex items-center gap-2 mt-2">
-                                    <label className="text-sm text-white/70">Jumlah Pemain:</label>
-                                    <select 
-                                        value={numPlayers} 
-                                        onChange={(e) => setNumPlayers(Number(e.target.value))}
-                                        className="p-2 rounded-lg bg-black/50 border border-white/10 outline-none focus:border-gold/50 text-white"
-                                    >
-                                        {[2, 3, 4, 5, 6, 7].map(num => (
-                                            <option key={num} value={num}>{num} Pemain</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
-                                    <button onClick={() => createGame('UNO')} className="p-3 bg-red-600/80 hover:bg-red-500 rounded-lg font-bold transition-colors shadow-lg">Create UNO</button>
-                                    <button onClick={() => createGame('REMI41')} className="p-3 bg-emerald-600/80 hover:bg-emerald-500 rounded-lg font-bold transition-colors shadow-lg">Create REMI 41</button>
-                                    <button onClick={joinGame} className="p-3 bg-blue-600/80 hover:bg-blue-500 rounded-lg font-bold transition-colors shadow-lg">Join Game</button>
-                                </div>
-                            </div>
+                            <Lobby 
+                                onJoinGame={(matchId, gameType) => {
+                                    setGameId(matchId);
+                                    setIsConnectingGame(true);
+                                    socket?.emit("joinGame", { gameId: matchId, playerName: username });
+                                    setShowMenu(false);
+                                }}
+                                onCreateGame={(gameType, numPlayers, settings, matchId) => {
+                                    setGameId(matchId);
+                                    setNumPlayers(numPlayers);
+                                    setIsConnectingGame(true);
+                                    socket?.emit("createGame", { gameId: matchId, gameType, playerName: username, numPlayers });
+                                    setShowMenu(false);
+                                }}
+                                currentAlias={username || ''}
+                                deviceId={bgioPlayerID || username || 'anon_device'}
+                            />
                         </div>
 
                         {/* SISTEM & MAINTENANCE */}
@@ -2535,25 +2462,27 @@ export default function SideB({ onBack }: { onBack: () => void }) {
                     }}
                 />
             )}
-            {showRemiBoard && socket && (
-                <Game41Client 
+            
+            {showTebakKataBoard && socket && (
+                <TebakKataClient 
                     matchID={actualMatchId} 
                     displayGameId={gameId}
                     playerID={bgioPlayerID}
                     credentials={bgioCredentials}
                     onLeave={() => {
-                        socket.emit("leaveGame", { gameId: actualMatchId, playerID: bgioPlayerID, credentials: bgioCredentials, gameType: 'REMI41' });
-                        setShowRemiBoard(false);
+                        socket.emit("leaveGame", { gameId: actualMatchId, playerID: bgioPlayerID, credentials: bgioCredentials, gameType: 'TEBAKKATA' });
+                        setShowTebakKataBoard(false);
                         setGameId('');
                         setActualMatchId('');
                     }}
                     onGameEnd={(winner, players) => {
                         if (bgioPlayerID === '0') {
-                            socket.emit("gameFinished", { gameId: actualMatchId, gameType: 'REMI41', winner, players });
+                            socket.emit("gameFinished", { gameId: actualMatchId, gameType: 'TEBAKKATA', winner, players });
                         }
                     }}
                 />
             )}
+            
             {showLeaderboard && (
                 <Leaderboard onClose={() => setShowLeaderboard(false)} />
             )}

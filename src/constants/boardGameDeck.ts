@@ -66,17 +66,3 @@ export const UNO_CARD_SVG = (side: 'Light' | 'Dark', color: string, value: strin
 `;
 };
 
-export const REMI_CARD_SVG = (suit: string, value: string) => {
-    const color = (suit === '♥' || suit === '♦') ? 'red' : 'black';
-    return `
-<svg width="100%" height="100%" viewBox="0 0 200 300" xmlns="http://www.w3.org/2000/svg">
-  <rect width="200" height="300" rx="10" fill="white" />
-  <rect width="200" height="300" rx="10" fill="none" stroke="#ccc" stroke-width="2" />
-  <text x="20" y="40" font-family="Arial" font-size="30" font-weight="bold" fill="${color}">${value}</text>
-  <text x="20" y="70" font-family="Arial" font-size="30" fill="${color}">${suit}</text>
-  <text x="100" y="150" font-family="Arial" font-size="80" fill="${color}" text-anchor="middle" dominant-baseline="middle">${suit}</text>
-  <text x="180" y="270" font-family="Arial" font-size="30" font-weight="bold" fill="${color}" text-anchor="end" transform="rotate(180 180 270)">${value}</text>
-  <text x="180" y="240" font-family="Arial" font-size="30" fill="${color}" text-anchor="end" transform="rotate(180 180 240)">${suit}</text>
-</svg>
-`;
-};

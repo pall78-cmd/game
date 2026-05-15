@@ -8,7 +8,7 @@ import { createProxyMiddleware } from "http-proxy-middleware";
 import pkg from "boardgame.io/dist/cjs/server.js";
 const { Server: BgioServer, SocketIO: BgioSocketIO, Origins } = pkg;
 import { UnoGame } from "./src/game/UnoGame";
-import { Game41 } from "./src/game/Game41";
+import { TebakKataGame } from "./src/game/TebakKataGame";
 
 const app = express();
 const customRoomMap = new Map<string, string>();
@@ -22,7 +22,7 @@ const PORT = 3000;
 const BGIO_PORT = 3001;
 
 const bgioServer = BgioServer({
-    games: [UnoGame, Game41],
+    games: [UnoGame, TebakKataGame],
     origins: [Origins.LOCALHOST, '*'],
     transport: new BgioSocketIO({
         socketOpts: { path: '/boardgameio/' }
@@ -45,8 +45,8 @@ async function startServer() {
         io.of('/uno').on('connection', (socket: any) => {
             console.log(`[bgioServer] /uno connected: ${socket.id}`);
         });
-        io.of('/remi41').on('connection', (socket: any) => {
-            console.log(`[bgioServer] /remi41 connected: ${socket.id}`);
+        io.of('/tebakkata').on('connection', (socket: any) => {
+            console.log(`[bgioServer] /tebakkata connected: ${socket.id}`);
         });
     }
 
@@ -88,7 +88,7 @@ async function startServer() {
 
         socket.on("createGame", async (data) => {
             const { gameId, gameType, playerName, numPlayers } = data;
-            const bgioGameName = gameType === 'UNO' ? 'uno' : 'remi41';
+            const bgioGameName = gameType === 'UNO' ? 'uno' : 'tebakkata';
             const playersCount = numPlayers || 4;
             try {
                 console.log(`Creating game ${bgioGameName} with ID ${gameId} for ${playersCount} players`);
@@ -155,16 +155,16 @@ async function startServer() {
                         bgioGameName = 'uno';
                         matchData = await response.json();
                     } else {
-                        // Try REMI41
-                        response = await fetch(`http://127.0.0.1:${BGIO_PORT}/games/remi41/${gameId}`);
+                        // Try TEBAKKATA
+                        response = await fetch(`http://127.0.0.1:${BGIO_PORT}/games/tebakkata/${gameId}`);
                         if (response.ok) {
-                            gameType = 'REMI41';
-                            bgioGameName = 'remi41';
+                            gameType = 'TEBAKKATA';
+                            bgioGameName = 'tebakkata';
                             matchData = await response.json();
                         }
                     }
                 } else {
-                    bgioGameName = gameType === 'UNO' ? 'uno' : 'remi41';
+                    bgioGameName = gameType === 'UNO' ? 'uno' : 'tebakkata';
                     const response = await fetch(`http://127.0.0.1:${BGIO_PORT}/games/${bgioGameName}/${gameId}`);
                     if (response.ok) {
                         matchData = await response.json();
@@ -247,7 +247,7 @@ async function startServer() {
             if (!data) return;
             const { gameId, playerID, credentials, gameType } = data;
             console.log(`User ${socket.id} leaving game ${gameId}`);
-            const bgioGameName = gameType === 'UNO' ? 'uno' : 'remi41';
+            const bgioGameName = gameType === 'UNO' ? 'uno' : 'tebakkata';
             
             try {
                 await fetch(`http://127.0.0.1:${BGIO_PORT}/games/${bgioGameName}/${gameId}/leave`, {

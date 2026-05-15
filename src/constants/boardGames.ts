@@ -21,16 +21,3 @@ export const drawUnoFlipCard = (side: 'Light' | 'Dark') => {
     return { game: 'UNO_FLIP', side, color, value };
 };
 
-export const REMI_SUITS = ['♠', '♥', '♦', '♣'];
-export const REMI_VALUES = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-
-export const drawUnoCard = () => {
-    // Default to Light side
-    return drawUnoFlipCard('Light');
-};
-
-export const drawRemiCard = () => {
-    const suit = REMI_SUITS[Math.floor(Math.random() * REMI_SUITS.length)];
-    const value = REMI_VALUES[Math.floor(Math.random() * REMI_VALUES.length)];
-    return { game: 'REMI', suit, value };
-};

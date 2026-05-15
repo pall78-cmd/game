@@ -2,20 +2,18 @@ import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reply, Check, CheckCheck, Copy } from 'lucide-react';
 import { io, Socket } from "socket.io-client";
-import { UNO_CARD_SVG, REMI_CARD_SVG } from '../constants/boardGameDeck';
+import { UNO_CARD_SVG } from '../constants/boardGameDeck';
 
 import { ConnectionManager } from '../utils/ConnectionManager';
 import { supabaseClient } from '../../supabase';
 import { ORACLE_CONFIG } from '../config';
 import { GAME_DECK } from '../constants/deck';
-import { drawUnoFlipCard, drawRemiCard } from '../constants/boardGames';
+import { drawUnoFlipCard } from '../constants/boardGames';
 import { MessageParser } from '../utils/messageParser';
 import { AudioManager } from '../utils/audioManager';
 import { bgmManager, AVAILABLE_BGMS } from '../utils/bgmManager';
 import { StorageManager } from '../utils/StorageManager';
 import { CryptoUtils } from '../utils/crypto';
-import { ReactUnoBoard } from './ReactUnoBoard';
-import { ReactRemiBoard } from './ReactRemiBoard';
 import { Leaderboard } from './Leaderboard';
 
 // --- CONSTANTS & UTILS ---
@@ -206,56 +204,6 @@ const BoardGameCardDisplay = ({ raw, invokerName }: { raw: string, invokerName?:
                         {invoker ? `Ditarik oleh ${invoker} ` : ''}({side} Side)
                     </div>
                 </motion.div>
-            );
-        } else if (gameType === 'REMI') {
-            return (
-                <motion.div 
-                    initial={{ rotateY: 90, opacity: 0, scale: 0.8 }}
-                    animate={{ rotateY: 0, opacity: 1, scale: 1 }}
-                    transition={{ type: 'spring', damping: 12, stiffness: 100 }}
-                    className="w-40 h-60 relative shadow-lg mx-auto mb-6"
-                >
-                    <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: REMI_CARD_SVG(cardColorOrSuit, cardValue) }} />
-                    {invoker && (
-                        <div className="absolute -bottom-6 left-0 right-0 text-[8px] opacity-60 uppercase tracking-widest text-white whitespace-nowrap text-center">
-                            Ditarik oleh {invoker}
-                        </div>
-                    )}
-                </motion.div>
-            );
-        } else if (gameType === 'REMI41') {
-            if (parts.length < 10) return null;
-            const cards = [
-                { suit: parts[2], value: parts[3] },
-                { suit: parts[4], value: parts[5] },
-                { suit: parts[6], value: parts[7] },
-                { suit: parts[8], value: parts[9] }
-            ];
-
-            return (
-                <div className="flex flex-col items-center gap-6">
-                    <div className="flex justify-center relative">
-                        {cards.map((card, idx) => (
-                            <motion.div 
-                                key={idx}
-                                initial={{ rotateY: 90, opacity: 0, x: -50 }}
-                                animate={{ rotateY: 0, opacity: 1, x: 0 }}
-                                transition={{ type: 'spring', damping: 12, stiffness: 100, delay: idx * 0.1 }}
-                                className="w-24 h-36 sm:w-32 sm:h-48 relative shadow-md hover:z-20 hover:-translate-y-4 transition-transform"
-                                style={{ 
-                                    zIndex: idx,
-                                    marginLeft: idx === 0 ? 0 : '-40px',
-                                    transform: `rotate(${idx * 5 - 10}deg)`
-                                }}
-                            >
-                                <div className="w-full h-full" dangerouslySetInnerHTML={{ __html: REMI_CARD_SVG(card.suit, card.value) }} />
-                            </motion.div>
-                        ))}
-                    </div>
-                    <div className="text-[10px] opacity-60 uppercase tracking-widest text-white whitespace-nowrap">
-                        Ditarik oleh {invoker}
-                    </div>
-                </div>
             );
         }
         return null;
@@ -577,7 +525,7 @@ export default function SideA({ onBack }: { onBack: () => void }) {
     const [gameState, setGameState] = useState<any>(null);
     const [gameId, setGameId] = useState('');
     const [showUnoBoard, setShowUnoBoard] = useState(false);
-    const [showRemiBoard, setShowRemiBoard] = useState(false);
+    const [showTebakKataBoard, setShowTebakKataBoard] = useState(false);
     const [showLeaderboard, setShowLeaderboard] = useState(false);
 
     useEffect(() => {
@@ -593,11 +541,11 @@ export default function SideA({ onBack }: { onBack: () => void }) {
             if (data.type === "STATE_UPDATE") {
                 setGameState(data.state);
                 // If we joined a game but don't have a board open, open the correct one
-                if (!showUnoBoard && !showRemiBoard && data.state.players.length > 0) {
+                if (!showUnoBoard && !showTebakKataBoard && data.state.players.length > 0) {
                     if ('hasCalledUno' in data.state.players[0]) {
                         setShowUnoBoard(true);
                     } else {
-                        setShowRemiBoard(true);
+                        setShowTebakKataBoard(true);
                     }
                 }
             }
@@ -605,7 +553,7 @@ export default function SideA({ onBack }: { onBack: () => void }) {
         const handleGameError = (msg: string) => {
             alert(msg);
             setShowUnoBoard(false);
-            setShowRemiBoard(false);
+            setShowTebakKataBoard(false);
             setGameId('');
         };
         socket.on("gameUpdate", handleGameUpdate);
@@ -614,9 +562,9 @@ export default function SideA({ onBack }: { onBack: () => void }) {
             socket.off("gameUpdate", handleGameUpdate); 
             socket.off("gameError", handleGameError);
         };
-    }, [socket, showUnoBoard, showRemiBoard]);
+    }, [socket, showUnoBoard, showTebakKataBoard]);
 
-    const createGame = (gameType: 'UNO' | 'REMI41' = 'REMI41') => {
+    const createGame = (gameType: 'UNO' | 'TEBAKKATA' = 'TEBAKKATA') => {
         if (!gameId) {
             showToast("Masukkan Game ID terlebih dahulu!", "error");
             return;
@@ -1221,179 +1169,6 @@ export default function SideA({ onBack }: { onBack: () => void }) {
         } else if (game === 'REMI') {
             const card = drawRemiCard();
             contentStr = `BOARDGAME:REMI:${card.suit}:${card.value}`;
-        } else if (game === 'REMI41') {
-            const cards = [drawRemiCard(), drawRemiCard(), drawRemiCard(), drawRemiCard()];
-            contentStr = `BOARDGAME:REMI41:${cards.map(c => `${c.suit}:${c.value}`).join(':')}`;
-        }
-        
-        try {
-            const nama = `${username}|${avatar}|${userColor}`;
-            const encKey = getEncKey();
-            const finalTeks = CryptoUtils.encrypt(contentStr, encKey);
-            const encryptedNama = CryptoUtils.encrypt(nama, encKey);
-            const finalNama = currentRoomRef.current === 'B' ? `ROOM_B|${encryptedNama}` : `ROOM_A|${encryptedNama}`;
-            forceScrollRef.current = true;
-            await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
-        } catch (err: any) {
-            showToast(`Gagal mengirim: ${err.message}`, "error");
-        }
-    };
-
-    const isRecordingRef = useRef(false);
-    const isStartingRef = useRef(false);
-
-    const startRecording = async (e?: React.SyntheticEvent) => {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        if (isRecordingRef.current || isStartingRef.current) return;
-        
-        isStartingRef.current = true;
-        try {
-            const started = await audioManagerRef.current.startRecording();
-            if (started) {
-                isRecordingRef.current = true;
-                setIsRecording(true);
-                bgmManager.onVoiceNoteStart();
-            }
-        } catch (e: any) {
-            showToast("Gagal akses mic", "error");
-        } finally {
-            isStartingRef.current = false;
-        }
-    };
-
-    const stopRecording = async (e?: React.SyntheticEvent) => {
-        if (e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        if (!isRecordingRef.current) return;
-
-        isRecordingRef.current = false;
-        setIsRecording(false);
-        
-        const result = await audioManagerRef.current.stopRecording();
-        bgmManager.onVoiceNoteStop();
-        
-        if (result && result.blob && storageManagerRef.current) {
-            const { blob, ext } = result;
-            setIsUploading(true);
-            try {
-                const publicUrl = await storageManagerRef.current.uploadVoiceNote(blob, ext);
-                const nama = `${username}|${avatar}|${userColor}`;
-                const encKey = getEncKey();
-                
-                let teks = `[VN]${publicUrl}`;
-                if (replyingTo) {
-                    const context = MessageParser.createReplyContext(replyingTo, getEncKey());
-                    teks = `[REPLY:${JSON.stringify(context)}]${teks}`;
-                }
-                if (isViewOnce) teks = `[VO]${teks}`;
-
-                const finalTeks = CryptoUtils.encrypt(teks, encKey);
-                const encryptedNama = CryptoUtils.encrypt(nama, encKey);
-                const finalNama = currentRoomRef.current === 'B' ? `ROOM_B|${encryptedNama}` : `ROOM_A|${encryptedNama}`;
-                forceScrollRef.current = true;
-                await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
-                setReplyingTo(null);
-                setIsViewOnce(false);
-            } catch (e: any) { 
-                console.error("Upload VN Error:", e);
-                showToast(`Gagal kirim VN: ${e.message || 'Unknown error'}`, "error"); 
-            }
-            finally { setIsUploading(false); }
-        }
-    };
-
-    const clearSelectedFile = () => {
-        setSelectedFile(null);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
-    };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            setSelectedFile(file);
-        } else {
-            clearSelectedFile();
-        }
-    };
-
-    const handleStartEdit = useCallback((msg: any) => {
-        const parsed = MessageParser.parse(msg.teks, getEncKey());
-        if (parsed.content.startsWith('🔒')) {
-            showToast("Tidak dapat mengedit pesan yang gagal didekripsi.", "error");
-            return;
-        }
-        // If it's an image, we only edit the caption part
-        let editContent = parsed.content;
-        if (parsed.type === 'img') {
-            const parts = parsed.content.split('\n');
-            editContent = parts.slice(1).join('\n');
-        }
-        
-        setInputText(editContent);
-        setEditingMsg(msg);
-        setIsViewOnce(parsed.isVO);
-        setReplyingTo(null); // Cancel reply if editing
-        
-        // Adjust textarea height
-        setTimeout(() => {
-            if (textareaRef.current) {
-                textareaRef.current.style.height = '48px';
-                textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 120) + 'px';
-            }
-        }, 0);
-    }, []);
-
-    const handleDrawFate = async (category: string, skipPin = false) => {
-        if (category === 'chaos' && !skipPin && !isChaosUnlocked) {
-            setShowChaosPinModal(true);
-            return;
-        }
-
-        bgmManager.onFateCardDraw();
-
-        const deck = (GAME_DECK as any)[category];
-        const isWildcard = Math.random() < deck.wildcardChance;
-        const type = isWildcard ? 'wildcard' : (Math.random() < 0.5 ? 'truth' : 'dare');
-        const pool = deck[type];
-        const content = pool[Math.floor(Math.random() * pool.length)];
-        
-        const payload = JSON.stringify({
-            content: `${category.toUpperCase()} ${type.toUpperCase()}: ${content}`,
-            invoker: username
-        });
-
-        const encKey = getEncKey();
-        const finalTeks = CryptoUtils.encrypt(payload, encKey);
-        const encryptedNama = CryptoUtils.encrypt('ORACLE', encKey);
-        const finalNama = currentRoomRef.current === 'B' ? `ROOM_B|${encryptedNama}` : `ROOM_A|${encryptedNama}`;
-
-        await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
-        setFateMode(false);
-    };
-
-    const handleDrawBoardGame = async (game: 'UNO' | 'UNO_DARK' | 'REMI BESAR' | 'REMI 41') => {
-        bgmManager.onFateCardDraw();
-        
-        let contentStr = '';
-        if (game === 'UNO') {
-            const card = drawUnoFlipCard('Light');
-            contentStr = `BOARDGAME:UNO_FLIP:${card.side}:${card.color}:${card.value}`;
-        } else if (game === 'UNO_DARK') {
-            const card = drawUnoFlipCard('Dark');
-            contentStr = `BOARDGAME:UNO_FLIP:${card.side}:${card.color}:${card.value}`;
-        } else if (game === 'REMI BESAR') {
-            const card = drawRemiCard();
-            contentStr = `BOARDGAME:REMI:${card.suit}:${card.value}`;
-        } else if (game === 'REMI 41') {
-            const cards = [drawRemiCard(), drawRemiCard(), drawRemiCard(), drawRemiCard()];
-            contentStr = `BOARDGAME:REMI41:${cards.map(c => `${c.suit}:${c.value}`).join(':')}`;
         }
 
         const payload = JSON.stringify({
@@ -1872,9 +1647,7 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                                 <div className="absolute bottom-14 left-0 bg-zinc-900 border border-white/10 rounded-xl p-2 flex flex-col gap-2 z-50 w-32">
                                     <button onClick={() => { handleSendBoardGame('UNO'); setBoardGameMenuOpen(false); }} className="px-4 py-2 hover:bg-white/10 rounded-lg text-sm">UNO</button>
                                     <button onClick={() => { handleSendBoardGame('UNO_DARK'); setBoardGameMenuOpen(false); }} className="px-4 py-2 hover:bg-white/10 rounded-lg text-sm">UNO (Dark)</button>
-                                    <button onClick={() => { handleSendBoardGame('REMI'); setBoardGameMenuOpen(false); }} className="px-4 py-2 hover:bg-white/10 rounded-lg text-sm">REMI</button>
-                                    <button onClick={() => { handleSendBoardGame('REMI41'); setBoardGameMenuOpen(false); }} className="px-4 py-2 hover:bg-white/10 rounded-lg text-sm">REMI 41</button>
-                                </div>
+                                                                                                        </div>
                             )}
                         </div>
                     ) : (
@@ -2388,7 +2161,7 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                                 />
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
                                     <button onClick={() => createGame('UNO')} className="p-3 bg-red-600/80 hover:bg-red-500 rounded-lg font-bold transition-colors shadow-lg">Create UNO</button>
-                                    <button onClick={() => createGame('REMI41')} className="p-3 bg-emerald-600/80 hover:bg-emerald-500 rounded-lg font-bold transition-colors shadow-lg">Create REMI 41</button>
+                                    <button onClick={() => createGame('TEBAKKATA')} className="p-3 bg-purple-600/80 hover:bg-purple-500 rounded-lg font-bold transition-colors shadow-lg">Create TEBAK KATA</button>
                                     <button onClick={joinGame} className="p-3 bg-blue-600/80 hover:bg-blue-500 rounded-lg font-bold transition-colors shadow-lg">Join Game</button>
                                 </div>
                             </div>
@@ -2491,19 +2264,7 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                     initialGameState={gameState as any}
                 />
             )}
-            {showRemiBoard && socket && (
-                <ReactRemiBoard 
-                    socket={socket} 
-                    gameId={gameId} 
-                    username={username} 
-                    onLeave={() => {
-                        socket.emit("leaveGame");
-                        setShowRemiBoard(false);
-                        setGameId('');
-                    }} 
-                    initialGameState={gameState as any}
-                />
-            )}
+            
             {showLeaderboard && (
                 <Leaderboard onClose={() => setShowLeaderboard(false)} />
             )}
