@@ -59,7 +59,9 @@ export const SupabaseMultiplayerWrapper: React.FC<Props> = ({ gameId, gameType, 
             startGame: () => sendAction('start'),
             playCard: (index: number, chosenColor?: any) => sendAction('playCard', playerID, index, chosenColor),
             drawCard: () => sendAction('drawCard', playerID),
-            callUno: () => sendAction('callUno', playerID)
+            callUno: () => sendAction('callUno', playerID),
+            catchUno: (targetId: string) => sendAction('catchUno', playerID, targetId),
+            sendChatMessage: (msg: string) => sendAction('sendChatMessage', playerID, playerName, msg)
         };
 
         return (

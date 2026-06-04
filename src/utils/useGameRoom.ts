@@ -12,6 +12,12 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
     const engineRef = useRef<UnoEngine | TebakKataEngine | null>(null);
     const channelRef = useRef<any>(null);
 
+    // Keep isHost state synced in a ref for callbacks to avoid re-subscribing the channel
+    const isHostRef = useRef(isHost);
+    useEffect(() => {
+        isHostRef.current = isHost;
+    }, [isHost]);
+
     useEffect(() => {
         if (!gameId) return;
 
@@ -42,12 +48,12 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
                 });
                 
                 setPlayers(currentPlayers);
-                if (firstPres === playerID && !isHost) {
+                if (firstPres === playerID && !isHostRef.current) {
                     setIsHost(true);
                 }
             })
             .on('broadcast', { event: 'game_action' }, ({ payload }) => {
-                if (isHost && engineRef.current) {
+                if (isHostRef.current && engineRef.current) {
                     const { action, args } = payload;
                     const engine = engineRef.current as any;
                     if (typeof engine[action] === 'function') {
@@ -67,7 +73,7 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
             })
             .on('broadcast', { event: 'state_update' }, ({ payload }) => {
                 setGameState(payload.state);
-                if (isHost && engineRef.current) {
+                if (isHostRef.current && engineRef.current) {
                      engineRef.current.state = payload.state;
                 }
             })
@@ -83,7 +89,7 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
             });
 
         channel.on('broadcast', { event: 'request_state' }, ({ payload }) => {
-             if (isHost && engineRef.current) {
+             if (isHostRef.current && engineRef.current) {
                  channel.send({
                      type: 'broadcast',
                      event: 'state_update',
@@ -95,7 +101,7 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
         return () => {
              channel.unsubscribe();
         };
-    }, [gameId, playerID, isHost]);
+    }, [gameId, playerID]);
 
     useEffect(() => {
         if (isHost && !engineRef.current && players.length > 0) {

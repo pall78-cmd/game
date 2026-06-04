@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BoardProps } from 'boardgame.io/react';
 import { TebakKataState } from '../game/TebakKataGame';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Trophy, HelpCircle, LogOut, Check, Sparkles } from 'lucide-react';
 
 export const ReactTebakKataBoard: React.FC<BoardProps<TebakKataState> & { onLeave?: () => void, onGameEnd?: (winner: string, players: string[]) => void }> = ({ G, ctx, moves, playerID, onLeave, onGameEnd }) => {
     const isPlayerTurn = playerID === ctx.currentPlayer;
@@ -22,58 +23,89 @@ export const ReactTebakKataBoard: React.FC<BoardProps<TebakKataState> & { onLeav
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
     return (
-        <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 via-black to-zinc-900 z-[1000] flex flex-col items-center p-6 text-white overflow-y-auto">
-            <div className="flex justify-between w-full max-w-4xl mb-12 relative items-center header-glow">
-                {onLeave && (
-                    <button onClick={onLeave} className="text-white/50 hover:text-gold transition-colors text-sm tracking-widest uppercase font-header">
-                        ← Kembali
+        <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black z-[1000] flex flex-col items-center p-3 sm:p-6 text-white overflow-y-auto no-scrollbar">
+            {/* Header Block */}
+            <div className="flex-shrink-0 flex justify-between items-center w-full max-w-4xl mb-4 sm:mb-8 relative py-2 border-b border-white/5">
+                {onLeave ? (
+                    <button 
+                        onClick={onLeave} 
+                        className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 active:scale-95 text-white/80 px-2.5 py-1.5 rounded-lg text-xs font-black transition-all border border-white/10"
+                    >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Keluar</span>
                     </button>
+                ) : (
+                    <div className="w-16" />
                 )}
-                <h2 className="text-3xl font-header tracking-[10px] text-gold absolute left-1/2 -translate-x-1/2 shadow-gold drop-shadow-xl text-center">
-                    DIVINASI KATA
-                </h2>
-                <div className="w-20"></div> {/* Spacer for symmetry */}
+                
+                <div className="text-center">
+                    <h2 className="text-sm sm:text-lg font-black tracking-[4px] sm:tracking-[8px] bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-500 bg-clip-text text-transparent uppercase drop-shadow-md">
+                        TEBAK KATA
+                    </h2>
+                    <span className="text-[8px] sm:text-[9px] text-zinc-500 font-bold uppercase tracking-widest block">Divinasi Suku Kata</span>
+                </div>
+
+                <div className="w-16 sm:w-20" /> {/* Spacer for symmetry */}
             </div>
             
-            <div className="flex space-x-6 mb-12 w-full max-w-4xl overflow-x-auto justify-center scrollbar-hide py-4">
-                {Object.entries(G.scores).map(([pId, score]) => (
-                    <motion.div 
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        key={pId} 
-                        className={`flex flex-col items-center justify-center p-6 rounded-2xl border ${pId === ctx.currentPlayer ? 'border-gold shadow-[0_0_20px_rgba(212,175,55,0.3)] bg-gold/5' : 'border-white/10 bg-black/40'} min-w-[140px] transition-all backdrop-blur-sm relative overflow-hidden`}
-                    >
-                        {pId === ctx.currentPlayer && (
-                            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.15)_0%,transparent_70%)] animate-pulse-slow"></div>
-                        )}
-                        <div className="text-xs text-white/50 font-header tracking-[4px] uppercase mb-2">Player {parseInt(pId) + 1} {pId === playerID ? '(You)' : ''}</div>
-                        <div className="text-3xl font-mystic text-white">{score} <span className="text-sm text-gold/60 ml-1 font-sans">pts</span></div>
-                    </motion.div>
-                ))}
+            {/* Players Status Core (Compact & Neat for mobile) */}
+            <div className="flex space-x-3 mb-4 sm:mb-6 w-full max-w-xl overflow-x-auto justify-center scrollbar-hide py-1">
+                {Object.entries(G.scores).map(([pId, score]) => {
+                    const isCurrent = pId === ctx.currentPlayer;
+                    const isMe = pId === playerID;
+                    return (
+                        <motion.div 
+                            initial={{ opacity: 0, y: 15 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            key={pId} 
+                            className={`flex flex-col items-center justify-center py-2 px-4 rounded-xl border transition-all duration-250 min-w-[100px] max-w-[140px] relative overflow-hidden shrink-0 ${
+                                isCurrent 
+                                    ? 'border-yellow-400 shadow-[0_0_12px_rgba(234,179,8,0.25)] bg-yellow-500/10' 
+                                    : 'border-white/5 bg-zinc-900/60'
+                            }`}
+                        >
+                            {isCurrent && (
+                                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(234,179,8,0.1)_0%,transparent_70%)] animate-pulse" />
+                            )}
+                            <div className="text-[8px] md:text-[9px] text-white/40 uppercase tracking-widest font-black leading-none mb-1 text-center">
+                                {isMe ? 'Pemain (Anda)' : `Player ${parseInt(pId) + 1}`}
+                            </div>
+                            <div className="text-lg md:text-xl font-bold text-white flex items-center gap-1">
+                                <span>{score}</span>
+                                <span className="text-[10px] text-yellow-400/75 uppercase font-medium">pts</span>
+                            </div>
+                        </motion.div>
+                    );
+                })}
             </div>
 
-            <div className="flex flex-wrap justify-center gap-3 mb-16 max-w-4xl px-4">
+            {/* Word Display Area Container (Scales very nicely to avoid overflow width-wise on standard screen widths) */}
+            <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2.5 mb-6 sm:mb-10 max-w-full px-4 overflow-x-hidden">
                 <AnimatePresence>
                     {G.word.split('').map((char, index) => {
                         const isRevealed = G.guessedLetters.includes(char) || char === ' ' || ctx.gameover;
                         return (
                             <motion.div 
                                 key={`${index}-${char}`}
-                                initial={{ opacity: 0, scale: 0.8 }}
+                                initial={{ opacity: 0, scale: 0.85 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                className={`w-14 h-20 md:w-16 md:h-24 flex items-center justify-center text-4xl font-mystic rounded-xl ${char === ' ' ? 'bg-transparent' : 'bg-black/60 border border-gold/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)]'} transition-all relative overflow-hidden`}
+                                className={`w-9 h-12 sm:w-12 sm:h-16 md:w-14 md:h-20 flex items-center justify-center text-xl sm:text-2xl md:text-3xl font-black rounded-lg ${
+                                    char === ' ' 
+                                        ? 'bg-transparent w-4' 
+                                        : 'bg-zinc-900/90 border border-yellow-400/20 shadow-lg'
+                                } transition-all relative overflow-hidden`}
                             >
                                 {isRevealed && char !== ' ' ? (
                                     <motion.span 
                                         initial={{ opacity: 0, scale: 0, rotateY: 90 }}
                                         animate={{ opacity: 1, scale: 1, rotateY: 0 }}
                                         transition={{ type: "spring", stiffness: 200, damping: 20 }}
-                                        className="text-gold shadow-gold relative z-10 drop-shadow-md"
+                                        className="text-yellow-400 font-extrabold tracking-normal relative z-10 drop-shadow-md"
                                     >
                                         {char}
                                     </motion.span>
                                 ) : char !== ' ' && (
-                                    <div className="absolute inset-x-2 bottom-2 h-[2px] bg-white/20 rounded-full"></div>
+                                    <div className="absolute inset-x-1.5 bottom-1.5 h-1 bg-white/20 rounded-full" />
                                 )}
                             </motion.div>
                         );
@@ -81,43 +113,54 @@ export const ReactTebakKataBoard: React.FC<BoardProps<TebakKataState> & { onLeav
                 </AnimatePresence>
             </div>
 
+            {/* GameOver or Game Control Center Block */}
             {ctx.gameover ? (
                 <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 15 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="text-center p-10 bg-gold/5 rounded-3xl border border-gold/40 shadow-[0_0_40px_rgba(212,175,55,0.2)] backdrop-blur-md relative overflow-hidden max-w-lg w-full"
+                    className="text-center p-6 bg-zinc-900/90 rounded-2xl border border-yellow-400/30 shadow-[0_15px_35px_rgba(0,0,0,0.6)] backdrop-blur-md relative overflow-hidden max-w-sm w-full mx-auto"
                 >
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.2)_0%,transparent_100%)] animate-pulse-slow"></div>
-                    <h3 className="text-sm font-header tracking-[8px] text-gold/80 mb-4 uppercase inline-block border-b border-gold/30 pb-2 relative z-10">Realita Terungkap</h3>
-                    <div className="text-4xl font-mystic text-white my-6 drop-shadow-lg relative z-10">Pemain {parseInt(ctx.gameover.winner) + 1} Berhasil!</div>
-                    <div className="text-lg font-sans text-white/70 mt-2 relative z-10">Kata: <span className="text-gold font-bold tracking-widest">{G.word}</span></div>
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(234,179,8,0.1)_0%,transparent_100%)]" />
+                    <Sparkles className="w-10 h-10 text-yellow-400 mx-auto mb-3 animate-bounce" />
+                    <h3 className="text-[10px] font-black tracking-[4px] text-yellow-500/80 mb-1 uppercase">Pertandingan Selesai</h3>
+                    <div className="text-xl font-black text-white my-3 drop-shadow">Pemain {parseInt(ctx.gameover.winner) + 1} Menang!</div>
+                    <div className="text-xs text-white/70">Kata: <span className="text-yellow-400 font-black tracking-widest uppercase">{G.word}</span></div>
                     {onLeave && (
-                        <button onClick={onLeave} className="mt-8 px-8 py-3 bg-gold text-black font-bold tracking-widest uppercase rounded-full hover:bg-yellow-400 transition-colors shadow-lg shadow-gold/20 relative z-10 w-full active:scale-95">
+                        <button 
+                            onClick={onLeave} 
+                            className="mt-5 px-6 py-2.5 bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-black tracking-wider uppercase text-xs rounded-xl hover:from-yellow-300 hover:to-amber-400 transition-all shadow-md relative z-10 w-full active:scale-95"
+                        >
                             Kembali ke Lobi
                         </button>
                     )}
                 </motion.div>
             ) : (
-                <div className="w-full max-w-3xl text-center flex flex-col items-center">
+                <div className="w-full max-w-md text-center flex flex-col items-center mt-auto pb-4">
+                    {/* Status turn message */}
                     <motion.div 
-                        animate={{ opacity: [0.5, 1, 0.5] }} 
+                        animate={{ opacity: [0.65, 1, 0.65] }} 
                         transition={{ duration: 2, repeat: Infinity }}
-                        className={`text-sm font-header tracking-[5px] mb-8 uppercase px-6 py-2 rounded-full border ${isPlayerTurn ? 'border-gold/50 text-gold bg-gold/5 shadow-[0_0_15px_rgba(212,175,55,0.2)]' : 'border-white/10 text-white/40 bg-black/40'}`}
+                        className={`text-[9px] sm:text-[10px] font-black tracking-[3px] mb-4 sm:mb-6 uppercase px-4 py-1.5 rounded-full border ${
+                            isPlayerTurn 
+                                ? 'border-yellow-400/30 text-yellow-400 bg-yellow-500/10 shadow-[0_0_10px_rgba(234,179,8,0.15)]' 
+                                : 'border-white/5 text-white/40 bg-zinc-900/40'
+                        }`}
                     >
-                        {isPlayerTurn ? 'Takdir di Tanganmu' : `Menunggu P${parseInt(ctx.currentPlayer) + 1}...`}
+                        {isPlayerTurn ? 'TAKDIR DI TANGANMU' : `MENUNGGU PEMAIN ${parseInt(ctx.currentPlayer) + 1}...`}
                     </motion.div>
                     
-                    <div className="flex flex-wrap justify-center gap-3 w-full">
+                    {/* Alphabet layout optimized for compact touch targets on mobile */}
+                    <div className="flex flex-wrap justify-center gap-1 sm:gap-1.5 w-full px-1">
                         {alphabet.map(letter => {
                             const isGuessed = G.guessedLetters.includes(letter);
                             const isCorrect = isGuessed && G.word.includes(letter);
                             const isWrong = isGuessed && !G.word.includes(letter);
                             
-                            let btnClass = "w-12 h-12 sm:w-14 sm:h-14 rounded-xl font-bold text-lg sm:text-xl transition-all font-sans relative overflow-hidden ";
-                            if (isCorrect) btnClass += "bg-gold/20 text-gold border border-gold/50 cursor-not-allowed opacity-60";
-                            else if (isWrong) btnClass += "bg-red-900/30 text-white/20 border border-red-900/50 cursor-not-allowed opacity-30";
-                            else if (isPlayerTurn) btnClass += "bg-white/5 border border-white/20 hover:border-gold hover:bg-gold/10 text-white cursor-pointer active:scale-90 shadow-md hover:shadow-[0_0_15px_rgba(212,175,55,0.3)]";
-                            else btnClass += "bg-black/40 text-white/30 border border-white/5 cursor-not-allowed";
+                            let btnClass = "w-[33px] h-[36px] sm:w-[44px] sm:h-[48px] rounded-lg font-black text-xs sm:text-sm transition-all font-sans relative overflow-hidden flex items-center justify-center ";
+                            if (isCorrect) btnClass += "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30 cursor-not-allowed opacity-50";
+                            else if (isWrong) btnClass += "bg-red-950/20 text-white/20 border border-red-900/30 cursor-not-allowed opacity-30";
+                            else if (isPlayerTurn) btnClass += "bg-zinc-900/80 hover:bg-zinc-800 border border-white/10 text-white cursor-pointer active:scale-90 shadow-md hover:border-yellow-400/40 dynamic-hover";
+                            else btnClass += "bg-black/20 text-white/25 border border-white/5 cursor-not-allowed opacity-40";
 
                             return (
                                 <button
@@ -125,8 +168,9 @@ export const ReactTebakKataBoard: React.FC<BoardProps<TebakKataState> & { onLeav
                                     disabled={!isPlayerTurn || isGuessed}
                                     className={btnClass}
                                     onClick={() => handleGuess(letter)}
+                                    title={letter}
                                 >
-                                    <span className="relative z-10">{letter}</span>
+                                    <span className="relative z-10 leading-none">{letter}</span>
                                 </button>
                             );
                         })}

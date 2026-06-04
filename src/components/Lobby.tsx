@@ -47,7 +47,21 @@ export const Lobby: React.FC<LobbyProps> = ({ onJoinGame, onCreateGame, currentA
         };
     }, []);
 
+    const cleanExpiredLobbies = async () => {
+        try {
+            // Hapus room lama yang berumur > 1 jam (60 menit) agar hemat storage Supabase
+            const expirationTime = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+            await supabase
+                .from('game_lobbies')
+                .delete()
+                .lt('created_at', expirationTime);
+        } catch (e) {
+            console.error('Error auto-cleaning up lobbies:', e);
+        }
+    };
+
     const fetchLobbies = async () => {
+        await cleanExpiredLobbies();
         // Show all waiting games plus finished games briefly (if needed)
         const { data, error } = await supabase
             .from('game_lobbies')
@@ -59,6 +73,18 @@ export const Lobby: React.FC<LobbyProps> = ({ onJoinGame, onCreateGame, currentA
             setLobbies(data);
         }
         setLoading(false);
+    };
+
+    const handleDeleteLobby = async (lobbyId: string) => {
+        try {
+            await supabase
+                .from('game_lobbies')
+                .delete()
+                .eq('id', lobbyId);
+            fetchLobbies();
+        } catch (err) {
+            console.error('Failed to delete lobby manually', err);
+        }
     };
 
     const fetchPreferences = async () => {
@@ -176,12 +202,26 @@ export const Lobby: React.FC<LobbyProps> = ({ onJoinGame, onCreateGame, currentA
                                 <div className="text-xs text-gray-500 mb-4 line-clamp-1">
                                     Room ID: {lobby.match_id || lobby.id}
                                 </div>
-                                <button 
-                                    onClick={() => handleJoin(lobby)}
-                                    className="w-full py-2 bg-purple-600/80 hover:bg-purple-500 rounded-lg font-bold transition-all group-hover:shadow-lg group-hover:shadow-purple-500/30"
-                                >
-                                    Gabung ke Room
-                                </button>
+                                <div className="flex gap-2">
+                                    <button 
+                                        onClick={() => handleJoin(lobby)}
+                                        className="flex-1 py-2 bg-purple-600/80 hover:bg-purple-500 rounded-lg font-bold transition-all group-hover:shadow-lg group-hover:shadow-purple-500/30 text-white text-sm"
+                                    >
+                                        Gabung ke Room
+                                    </button>
+                                    {lobby.host_id === deviceId && (
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteLobby(lobby.id);
+                                            }}
+                                            className="px-3 py-2 bg-red-600/20 hover:bg-red-600 hover:text-white text-red-400 border border-red-500/30 rounded-xl font-bold transition-all text-xs"
+                                            title="Hapus Room"
+                                        >
+                                            Hapus
+                                        </button>
+                                    )}
+                                </div>
                             </motion.div>
                         ))}
                     </div>

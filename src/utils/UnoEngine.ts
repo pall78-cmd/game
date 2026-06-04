@@ -16,6 +16,14 @@ export interface UnoPlayer extends Player {
     name: string;
 }
 
+export interface ChatMessage {
+    id: string;
+    senderId: string;
+    senderName: string;
+    message: string;
+    timestamp: string;
+}
+
 export interface UnoGameState extends GameState {
     deck: UnoCard[];
     discardPile: UnoCard[];
@@ -26,6 +34,8 @@ export interface UnoGameState extends GameState {
     isDarkSide: boolean;
     drawColorTarget: 'Pink' | 'Teal' | 'Purple' | 'Orange' | null;
     actionLog: string[];
+    pendingDrawCount: number;
+    chatMessages: ChatMessage[];
 }
 
 export class UnoEngine extends BaseGameEngine {
@@ -44,7 +54,9 @@ export class UnoEngine extends BaseGameEngine {
             status: 'waiting',
             isDarkSide: false,
             drawColorTarget: null,
-            actionLog: []
+            actionLog: [],
+            pendingDrawCount: 0,
+            chatMessages: []
         };
     }
 
@@ -74,6 +86,9 @@ export class UnoEngine extends BaseGameEngine {
             lightDeck.push({ color: 'Black', value: 'Wild' });
             lightDeck.push({ color: 'Black', value: 'Wild Draw 2' });
         }
+        for (let i = 0; i < 2; i++) {
+            lightDeck.push({ color: 'Black', value: 'Wild Reverse' });
+        }
 
         const darkColors: ('Pink' | 'Teal' | 'Purple' | 'Orange')[] = ['Pink', 'Teal', 'Purple', 'Orange'];
         const darkValues = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'Skip Everyone', 'Reverse', '+5', 'Flip'];
@@ -88,6 +103,9 @@ export class UnoEngine extends BaseGameEngine {
         for (let i = 0; i < 4; i++) {
             darkDeck.push({ color: 'Black', value: 'Wild' });
             darkDeck.push({ color: 'Black', value: 'Wild Draw Color' });
+        }
+        for (let i = 0; i < 2; i++) {
+            darkDeck.push({ color: 'Black', value: 'Wild Reverse' });
         }
 
         // Shuffle both and zip
@@ -137,6 +155,23 @@ export class UnoEngine extends BaseGameEngine {
         const playerIndex = this.state.players.findIndex(p => p.id === playerId);
         if (playerIndex !== this.state.currentPlayerIndex) return;
 
+        // If there's a pending draw penalty, the player takes it when drawing
+        if (this.state.pendingDrawCount > 0) {
+            const currentPenalty = this.state.pendingDrawCount;
+            this.state.pendingDrawCount = 0;
+            this.log(`${this.state.players[playerIndex].name} took penalty and drew ${currentPenalty} cards!`);
+            
+            for (let i = 0; i < currentPenalty; i++) {
+                if (this.state.deck.length === 0) this.reshuffleDiscardPile();
+                const card = this.state.deck.pop();
+                if (card) this.state.players[playerIndex].hand.push(card);
+            }
+            this.state.players[playerIndex].hasCalledUno = false;
+            this.nextTurn();
+            return;
+        }
+
+        // Standard draw card
         if (this.state.deck.length === 0) {
             this.reshuffleDiscardPile();
         }
@@ -183,13 +218,7 @@ export class UnoEngine extends BaseGameEngine {
 
             this.log(`${player.name} played ${side.color} ${side.value}.`);
 
-            if (player.hand.length === 1 && !player.hasCalledUno) {
-                // Penalty for not calling UNO
-                const penalty = this.state.isDarkSide ? 5 : 2;
-                this.log(`${player.name} forgot to call UNO! Penalty: draw ${penalty} cards.`);
-                this.drawCardsForCurrentPlayer(penalty);
-            }
-
+            // Apply card effects (including stacking)
             this.applyCardEffect(card);
         }
     }
@@ -197,6 +226,19 @@ export class UnoEngine extends BaseGameEngine {
     isValidPlay(card: UnoCard, topCard: UnoCard): boolean {
         const side = this.state.isDarkSide ? card.dark : card.light;
         const topSide = this.state.isDarkSide ? topCard.dark : topCard.light;
+
+        const isPlusCard = side.value.includes('+') || side.value.includes('Draw') || side.value === 'Wild Reverse';
+
+        if (this.state.pendingDrawCount > 0) {
+            // Stacking rule: You can ONLY play a draw-type card or a Wild Reverse card to counter the draw penalty
+            if (!isPlusCard) return false;
+
+            // Must still match valid wild color/regular colors
+            if (side.color === 'Black') return true;
+            if (side.color === this.state.currentColor) return true;
+            if (side.value === topSide.value) return true;
+            return false;
+        }
 
         if (side.color === 'Black') return true;
         if (side.color === this.state.currentColor) return true;
@@ -206,6 +248,33 @@ export class UnoEngine extends BaseGameEngine {
 
     applyCardEffect(card: UnoCard) {
         const side = this.state.isDarkSide ? card.dark : card.light;
+
+        // Custom stack helper
+        const getDrawValue = (val: string): number => {
+            if (val === '+1') return 1;
+            if (val === '+5') return 5;
+            if (val === 'Wild Draw 2') return 2;
+            return 0; // Wild Draw Color will be treated as special or 0 for stack
+        };
+
+        const drawAmount = getDrawValue(side.value);
+
+        if (drawAmount > 0) {
+            this.state.pendingDrawCount += drawAmount;
+            this.log(`Draw Stacking! Under protection: +${this.state.pendingDrawCount} cards. Opponent must counter or draw!`);
+            this.nextTurn();
+            return;
+        }
+
+        if (side.value === 'Wild Reverse') {
+            this.state.direction *= -1;
+            this.log(`Wild Reverse! Game direction reversed.`);
+            if (this.state.pendingDrawCount > 0) {
+                this.log(`COUNTER ATTACK! Penalty of +${this.state.pendingDrawCount} cards reversed back to previous player!`);
+            }
+            this.nextTurn();
+            return;
+        }
 
         if (side.value === 'Reverse') {
             this.state.direction *= -1;
@@ -224,25 +293,10 @@ export class UnoEngine extends BaseGameEngine {
             this.log(`Everyone was skipped!`);
             // Skips everyone, so it's the current player's turn again
             // Do not call nextTurn()
-        } else if (side.value === '+1') {
-            this.nextTurn();
-            this.log(`${this.state.players[this.state.currentPlayerIndex].name} must draw 1 card!`);
-            this.drawCardsForCurrentPlayer(1);
-            this.nextTurn();
-        } else if (side.value === '+5') {
-            this.nextTurn();
-            this.log(`${this.state.players[this.state.currentPlayerIndex].name} must draw 5 cards!`);
-            this.drawCardsForCurrentPlayer(5);
-            this.nextTurn();
-        } else if (side.value === 'Wild Draw 2') {
-            this.nextTurn();
-            this.log(`${this.state.players[this.state.currentPlayerIndex].name} must draw 2 cards!`);
-            this.drawCardsForCurrentPlayer(2);
-            this.nextTurn();
         } else if (side.value === 'Wild Draw Color') {
+            // Dark special Wild Card - forces draw until they get the chosen color
             this.nextTurn();
             this.log(`${this.state.players[this.state.currentPlayerIndex].name} must draw until they get ${this.state.currentColor}!`);
-            // Draw until they get the chosen color
             const targetColor = this.state.currentColor;
             if (targetColor) {
                 let drawnColor = null;
@@ -257,7 +311,7 @@ export class UnoEngine extends BaseGameEngine {
                         drawnColor = this.state.isDarkSide ? drawnCard.dark.color : drawnCard.light.color;
                         drawCount++;
                     } else {
-                        break; // Deck empty and discard pile empty
+                        break; 
                     }
                 }
                 this.log(`${this.state.players[this.state.currentPlayerIndex].name} drew ${drawCount} cards.`);
@@ -267,7 +321,6 @@ export class UnoEngine extends BaseGameEngine {
         } else if (side.value === 'Flip') {
             this.state.isDarkSide = !this.state.isDarkSide;
             this.log(`FLIP! The deck is now on the ${this.state.isDarkSide ? 'DARK' : 'LIGHT'} side.`);
-            // Update current color to match the new side of the top card
             const newTopSide = this.state.isDarkSide ? card.dark : card.light;
             this.state.currentColor = newTopSide.color === 'Black' ? (this.state.isDarkSide ? 'Pink' : 'Red') : newTopSide.color;
             this.nextTurn();
@@ -295,19 +348,45 @@ export class UnoEngine extends BaseGameEngine {
         const topCard = this.state.discardPile.pop()!;
         this.state.deck = this.shuffle(this.state.discardPile) as UnoCard[];
         this.state.discardPile = [topCard];
-        this.log(`Discard pile reshuffled into deck.`);
+        this.log(`🚨 BOT (Bandar) mengocok kembali sisa kartu buangan secara adil!`);
     }
 
     callUno(playerId: string) {
         const player = this.state.players.find(p => p.id === playerId);
-        if (player && (player.hand.length === 1 || player.hand.length === 2)) {
+        if (player && player.hand.length === 1) {
             player.hasCalledUno = true;
-            this.log(`${player.name} called UNO!`);
+            this.log(`${player.name} berteriak UNO!`);
         }
     }
 
+    catchUno(catcherId: string, targetId: string) {
+        const catcher = this.state.players.find(p => p.id === catcherId);
+        const target = this.state.players.find(p => p.id === targetId);
+        if (catcher && target && target.hand.length === 1 && !target.hasCalledUno) {
+            this.log(`${catcher.name} caught ${target.name} for forgetting to call UNO! Penalty: +2 cards.`);
+            for (let i = 0; i < 2; i++) {
+                if (this.state.deck.length === 0) this.reshuffleDiscardPile();
+                const card = this.state.deck.pop();
+                if (card) target.hand.push(card);
+            }
+            target.hasCalledUno = false;
+        }
+    }
+
+    sendChatMessage(senderId: string, senderName: string, message: string) {
+        if (!message || message.trim() === '') return;
+        const chatMsgs = this.state.chatMessages || [];
+        const newMsg: ChatMessage = {
+            id: Math.random().toString(36).substring(2, 9),
+            senderId,
+            senderName,
+            message: message.trim(),
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        this.state.chatMessages = [...chatMsgs, newMsg].slice(-80); // limit to last 80 messages for sync lightweightness
+    }
+
     discardCard(playerId: string, cardIndex: number): void {
-        // Not used in standard UNO, but required by BaseGameEngine
+        // Not used in standard UNO
     }
 }
-

@@ -2244,6 +2244,9 @@ const { data } = await query;
                     playerID={bgioPlayerID}
                     playerName={username}
                     onLeave={() => {
+                        if (actualMatchId) {
+                            supabaseClient.from('game_lobbies').delete().eq('match_id', actualMatchId).then(() => {});
+                        }
                         setShowUnoBoard(false);
                         setGameId('');
                         setActualMatchId('');
@@ -2266,6 +2269,9 @@ const { data } = await query;
                     playerID={bgioPlayerID}
                     playerName={username}
                     onLeave={() => {
+                        if (actualMatchId) {
+                            supabaseClient.from('game_lobbies').delete().eq('match_id', actualMatchId).then(() => {});
+                        }
                         setShowTebakKataBoard(false);
                         setGameId('');
                         setActualMatchId('');
