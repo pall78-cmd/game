@@ -523,17 +523,68 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
 // --- MAIN APP ---
 
 export default function SideB({ onBack }: { onBack: () => void }) {
-    const [gameId, setGameId] = useState('');
-    const [actualMatchId, setActualMatchId] = useState('');
+    const [gameId, setGameId] = useState(() => {
+        try { return localStorage.getItem('sideb_game_id') || ''; } catch { return ''; }
+    });
+    const [actualMatchId, setActualMatchId] = useState(() => {
+        try { return localStorage.getItem('sideb_actual_match_id') || ''; } catch { return ''; }
+    });
     const [numPlayers, setNumPlayers] = useState(4);
-    const [showUnoBoard, setShowUnoBoard] = useState(false);
-    const [showTebakKataBoard, setShowTebakKataBoard] = useState(false);
+    const [showUnoBoard, setShowUnoBoard] = useState(() => {
+        try { return localStorage.getItem('sideb_show_uno_board') === 'true'; } catch { return false; }
+    });
+    const [showTebakKataBoard, setShowTebakKataBoard] = useState(() => {
+        try { return localStorage.getItem('sideb_show_tebak_kata_board') === 'true'; } catch { return false; }
+    });
     const [showLeaderboard, setShowLeaderboard] = useState(false);
-    const [bgioPlayerID, setBgioPlayerID] = useState<string>('');
+    const [bgioPlayerID, setBgioPlayerID] = useState<string>(() => {
+        try { return localStorage.getItem('sideb_bgio_player_id') || ''; } catch { return ''; }
+    });
     const [bgioCredentials, setBgioCredentials] = useState<string>('');
-    const [gameType, setGameType] = useState<'UNO' | 'TEBAKKATA'>('UNO');
+    const [gameType, setGameType] = useState<'UNO' | 'TEBAKKATA'>(() => {
+        try { return (localStorage.getItem('sideb_game_type') as 'UNO' | 'TEBAKKATA') || 'UNO'; } catch { return 'UNO'; }
+    });
 
     const [isConnectingGame, setIsConnectingGame] = useState(false);
+
+    useEffect(() => {
+        try {
+            if (gameId) localStorage.setItem('sideb_game_id', gameId);
+            else localStorage.removeItem('sideb_game_id');
+        } catch {}
+    }, [gameId]);
+
+    useEffect(() => {
+        try {
+            if (actualMatchId) localStorage.setItem('sideb_actual_match_id', actualMatchId);
+            else localStorage.removeItem('sideb_actual_match_id');
+        } catch {}
+    }, [actualMatchId]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('sideb_show_uno_board', String(showUnoBoard));
+        } catch {}
+    }, [showUnoBoard]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('sideb_show_tebak_kata_board', String(showTebakKataBoard));
+        } catch {}
+    }, [showTebakKataBoard]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('sideb_game_type', gameType);
+        } catch {}
+    }, [gameType]);
+
+    useEffect(() => {
+        try {
+            if (bgioPlayerID) localStorage.setItem('sideb_bgio_player_id', bgioPlayerID);
+            else localStorage.removeItem('sideb_bgio_player_id');
+        } catch {}
+    }, [bgioPlayerID]);
 
     useEffect(() => {
         const handleCancelGame = () => {
@@ -542,6 +593,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
             setShowTebakKataBoard(false);
             setGameId('');
             setActualMatchId('');
+            setBgioPlayerID('');
         };
         window.addEventListener('cancelGameConnection', handleCancelGame);
         return () => window.removeEventListener('cancelGameConnection', handleCancelGame);
@@ -793,7 +845,12 @@ export default function SideB({ onBack }: { onBack: () => void }) {
 
         const initialize = async () => {
             let query = supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
-const { data } = await query;
+            if (currentRoomRef.current === 'B') {
+                query = query.like('nama', 'ROOM_B|%');
+            } else {
+                query = query.not('nama', 'like', 'ROOM_B|%');
+            }
+            const { data } = await query;
             if (data) setMessages(data);
 
             connManagerRef.current = new ConnectionManager(supabaseClient, setConnStatus);
@@ -943,7 +1000,12 @@ const { data } = await query;
                 
                 // 1. Fetch latest messages to catch up
                 let query = supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
-const { data } = await query;
+                if (currentRoomRef.current === 'B') {
+                    query = query.like('nama', 'ROOM_B|%');
+                } else {
+                    query = query.not('nama', 'like', 'ROOM_B|%');
+                }
+                const { data } = await query;
                 if (data) setMessages(data);
 
                 // 2. Force reconnect realtime channel
@@ -968,7 +1030,11 @@ const { data } = await query;
     }, [layer, username]);
 
     const decryptedMessages = useMemo(() => {
-        return messages.map(m => {
+        const filteredByRoom = messages.filter(m => {
+            const isRoomB = m.nama.startsWith('ROOM_B|');
+            return currentRoomRef.current === 'B' ? isRoomB : !isRoomB;
+        });
+        return filteredByRoom.map(m => {
             let rawNama = m.nama;
             if (rawNama.startsWith('ROOM_B|') || rawNama.startsWith('ROOM_A|')) {
                 rawNama = rawNama.substring(7);
