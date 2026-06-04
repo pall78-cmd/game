@@ -722,7 +722,12 @@ export default function SideA({ onBack }: { onBack: () => void }) {
 
         const initialize = async () => {
             let query = supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
-const { data } = await query;
+            if (currentRoomRef.current === 'B') {
+                query = query.like('nama', 'ROOM_B|%');
+            } else {
+                query = query.not('nama', 'like', 'ROOM_B|%');
+            }
+            const { data } = await query;
             if (data) setMessages(data);
 
             connManagerRef.current = new ConnectionManager(supabaseClient, setConnStatus);
@@ -872,7 +877,12 @@ const { data } = await query;
                 
                 // 1. Fetch latest messages to catch up
                 let query = supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
-const { data } = await query;
+                if (currentRoomRef.current === 'B') {
+                    query = query.like('nama', 'ROOM_B|%');
+                } else {
+                    query = query.not('nama', 'like', 'ROOM_B|%');
+                }
+                const { data } = await query;
                 if (data) setMessages(data);
 
                 // 2. Force reconnect realtime channel
@@ -897,7 +907,11 @@ const { data } = await query;
     }, [layer, username]);
 
     const decryptedMessages = useMemo(() => {
-        return messages.map(m => {
+        const filteredByRoom = messages.filter(m => {
+            const isRoomB = m.nama.startsWith('ROOM_B|');
+            return currentRoomRef.current === 'B' ? isRoomB : !isRoomB;
+        });
+        return filteredByRoom.map(m => {
             let rawNama = m.nama;
             if (rawNama.startsWith('ROOM_B|') || rawNama.startsWith('ROOM_A|')) {
                 rawNama = rawNama.substring(7);

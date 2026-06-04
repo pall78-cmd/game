@@ -12,6 +12,8 @@ export class ConnectionManager {
     private isReconnecting: boolean = false;
     private checkInterval: any = null;
     private lastHeartbeat: number = Date.now();
+    private channelName: string | null = null;
+    private onPayload: ((event: any) => void) | null = null;
     
     constructor(supabaseClient: SupabaseClient, onStatusChange?: (status: ConnectionStatus) => void) {
         this.supabase = supabaseClient;
@@ -22,6 +24,8 @@ export class ConnectionManager {
     }
 
     async subscribe(channelName: string, onPayload: (event: any) => void) {
+        this.channelName = channelName;
+        this.onPayload = onPayload;
         if (this.channel) {
             await this.supabase.removeChannel(this.channel);
             this.channel = null;
@@ -110,7 +114,15 @@ export class ConnectionManager {
             this.channel = null;
         }
         
-        this.onStatusChange('FAILED');
+        if (this.channelName && this.onPayload) {
+            console.log(`[ConnectionManager] Reconnecting attempt ${this.reconnectAttempts} to ${this.channelName}...`);
+            this.subscribe(this.channelName, this.onPayload).catch(err => {
+                console.error('[ConnectionManager] Reconnect subscribe failed', err);
+                this.triggerReconnect();
+            });
+        } else {
+            this.onStatusChange('FAILED');
+        }
     }
 
     startHeartbeat() {
