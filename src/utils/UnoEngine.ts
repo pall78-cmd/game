@@ -22,14 +22,14 @@ export interface UnoGameState extends GameState {
     players: UnoPlayer[];
     currentColor: 'Red' | 'Yellow' | 'Green' | 'Blue' | 'Pink' | 'Teal' | 'Purple' | 'Orange' | null;
     direction: 1 | -1;
-    winner: string | null;
+    winner?: string | null;
     isDarkSide: boolean;
     drawColorTarget: 'Pink' | 'Teal' | 'Purple' | 'Orange' | null;
     actionLog: string[];
 }
 
 export class UnoEngine extends BaseGameEngine {
-    state: UnoGameState;
+    declare state: UnoGameState;
 
     constructor(playerIds: string[], playerNames: string[]) {
         super(playerIds);
@@ -91,8 +91,8 @@ export class UnoEngine extends BaseGameEngine {
         }
 
         // Shuffle both and zip
-        const shuffledLight = this.shuffle(lightDeck) as UnoFlipSide[];
-        const shuffledDark = this.shuffle(darkDeck) as UnoFlipSide[];
+        const shuffledLight = this.shuffle(lightDeck as unknown as Card[]) as unknown as UnoFlipSide[];
+        const shuffledDark = this.shuffle(darkDeck as unknown as Card[]) as unknown as UnoFlipSide[];
 
         const deck: UnoCard[] = [];
         for (let i = 0; i < shuffledLight.length; i++) {

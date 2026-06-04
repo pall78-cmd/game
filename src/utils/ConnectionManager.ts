@@ -13,33 +13,20 @@ export class ConnectionManager {
     private checkInterval: any = null;
     private lastHeartbeat: number = Date.now();
     
-    // Store subscription details for auto-reconnect
-    private currentChannelName: string = '';
-    private currentOnPayload: ((event: any) => void) | null = null;
-
     constructor(supabaseClient: SupabaseClient, onStatusChange?: (status: ConnectionStatus) => void) {
         this.supabase = supabaseClient;
         this.onStatusChange = onStatusChange || (() => {});
-        
-        // Bind methods
         this.handleStatus = this.handleStatus.bind(this);
         this.reconnect = this.reconnect.bind(this);
         this.startHeartbeat = this.startHeartbeat.bind(this);
     }
 
-    /**
-     * Initialize the realtime channel subscription with monitoring.
-     */
     async subscribe(channelName: string, onPayload: (event: any) => void) {
-        this.currentChannelName = channelName;
-        this.currentOnPayload = onPayload;
-
         if (this.channel) {
             await this.supabase.removeChannel(this.channel);
             this.channel = null;
         }
 
-        // Clean up any lingering channel with the same name in the Supabase client
         const existingChannels = this.supabase.getChannels();
         const existingList = existingChannels.filter(c => c.topic === `realtime:${channelName}`);
         for (const existing of existingList) {
@@ -75,9 +62,6 @@ export class ConnectionManager {
         this.startHeartbeat();
     }
 
-    /**
-     * Handle connection status updates from Supabase.
-     */
     handleStatus(status: string, err?: any) {
         console.log(`[ConnectionManager] Status: ${status}`, err || '');
         
@@ -96,68 +80,45 @@ export class ConnectionManager {
                     this.triggerReconnect();
                 }
                 break;
-                
-            default:
-                // CONNECTING, etc.
-                break;
         }
     }
 
-    /**
-     * Trigger the reconnection process with exponential backoff.
-     */
     triggerReconnect() {
         this.isReconnecting = true;
         
         const delay = Math.min(
             this.baseDelay * Math.pow(1.5, this.reconnectAttempts), 
-            30000 // Max 30 seconds delay
+            30000
         );
 
-        console.log(`[ConnectionManager] Reconnecting in ${delay}ms (Attempt ${this.reconnectAttempts + 1})`);
+        console.log(`[ConnectionManager] Reconnecting in ${delay}ms...`);
         this.onStatusChange('RECONNECTING');
 
         setTimeout(this.reconnect, delay);
     }
 
-    /**
-     * Execute the reconnection logic.
-     */
     async reconnect() {
         if (this.reconnectAttempts >= this.maxAttempts) {
-            console.error("[ConnectionManager] Max reconnect attempts reached. Please refresh.");
             this.onStatusChange('FAILED');
             return;
         }
 
         this.reconnectAttempts++;
 
-        // Force remove old channel
         if (this.channel) {
             await this.supabase.removeChannel(this.channel);
             this.channel = null;
         }
         
-        // Re-subscribe using stored details
-        if (this.currentChannelName && this.currentOnPayload) {
-            await this.subscribe(this.currentChannelName, this.currentOnPayload);
-        } else {
-            this.onStatusChange('FAILED');
-        }
+        this.onStatusChange('FAILED');
     }
 
-    /**
-     * A manual heartbeat check to ensure we aren't silently disconnected.
-     */
     startHeartbeat() {
         if (this.checkInterval) clearInterval(this.checkInterval);
         
         this.checkInterval = setInterval(() => {
             const now = Date.now();
-            // If we haven't received any event or status update in 60 seconds, check connection
             if (now - this.lastHeartbeat > 60000 && !this.isReconnecting) {
-                console.log("[ConnectionManager] No activity for 60s, pinging...");
-                // We can send a dummy broadcast to check connection
                 if (this.channel) {
                     this.channel.send({
                         type: 'broadcast',
@@ -167,12 +128,11 @@ export class ConnectionManager {
                         this.lastHeartbeat = Date.now();
                         this.onStatusChange('ONLINE');
                     }).catch(() => {
-                        console.warn("[ConnectionManager] Ping failed, triggering reconnect.");
                         this.handleStatus('CLOSED');
                     });
                 }
             }
-        }, 30000); // Check every 30s
+        }, 30000);
     }
 
     cleanup() {

@@ -47,6 +47,39 @@
     background: linear-gradient(-45deg, #0f172a, #1e1b4b, #020617, #172554);
     background-size: 400% 400%;
     animation: gradientBG 25s ease infinite;
+    
+    /* Perfect mobile app behaviors on iOS and Android */
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+    user-select: none;
+  }
+
+  /* Support safe-area padding for notches and home indicators in Cordova/Capacitor/WebView */
+  header, .safe-top {
+    padding-top: max(1rem, env(safe-area-inset-top)) !important;
+  }
+  
+  footer, .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Prevent text selection except on messaging textual contents and input entries */
+  input, textarea, [contenteditable="true"], .selectable, .message-text {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+  }
+
+  /* Prevent automatic iOS WebView/Safari viewport zoom on text inputs by ensuring min-size is 16px/1rem on mobile */
+  @media screen and (max-width: 768px) {
+    input, textarea, select {
+      font-size: 16px !important;
+    }
+  }
+
+  /* Fast reactive touch reactions without 300ms delay */
+  button, a, [role="button"], .interactive {
+    touch-action: manipulation;
   }
 }
 

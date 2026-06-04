@@ -1,4 +1,4 @@
-import { Game } from 'boardgame.io';
+import { INVALID_MOVE } from 'boardgame.io/core';
 
 const WORDS = [
     'ORACLE', 'HARMONY', 'RAHASIA', 'CAHAYA', 'BINTANG',
@@ -12,10 +12,10 @@ export interface TebakKataState {
     winner: string | null;
 }
 
-export const TebakKataGame: Game<TebakKataState> = {
+export const TebakKataGame: any = {
     name: 'tebakkata',
     
-    setup: (ctx) => {
+    setup: (ctx: any) => {
         let initialWord = WORDS[0];
         if (ctx.random) {
             const shuffled = ctx.random.Shuffle(WORDS);
@@ -38,22 +38,22 @@ export const TebakKataGame: Game<TebakKataState> = {
     },
 
     moves: {
-        guessLetter: (G, ctx, letter: string) => {
+        guessLetter: (G: any, ctx: any, letter: string) => {
             const upperLetter = letter.toUpperCase();
             if (G.guessedLetters.includes(upperLetter)) {
-                return; // invalid move
+                return INVALID_MOVE;
             }
             
             G.guessedLetters.push(upperLetter);
             
             if (G.word.includes(upperLetter)) {
                 // Correct guess! Calculate points: number of occurrences
-                const count = G.word.split('').filter(c => c === upperLetter).length;
+                const count = G.word.split('').filter((c: any) => c === upperLetter).length;
                 G.scores[ctx.currentPlayer] += (count * 10);
             }
             
             // Check win condition
-            const isWon = G.word.split('').every(char => G.guessedLetters.includes(char) || char === ' ');
+            const isWon = G.word.split('').every((char: any) => G.guessedLetters.includes(char) || char === ' ');
             if (isWon) {
                 G.winner = ctx.currentPlayer;
                 ctx.events?.endGame({ winner: ctx.currentPlayer, scores: G.scores });
@@ -65,10 +65,9 @@ export const TebakKataGame: Game<TebakKataState> = {
 
     turn: {
         minMoves: 1,
-        maxMoves: 1,
     },
     
-    endIf: (G, ctx) => {
+    endIf: (G: any, ctx: any) => {
         if (G.winner !== null) {
             return { winner: G.winner };
         }

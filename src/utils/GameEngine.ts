@@ -15,7 +15,7 @@ export interface GameState {
     players: Player[];
     currentPlayerIndex: number;
     status: 'waiting' | 'playing' | 'finished';
-    winner?: string;
+    winner?: string | null;
 }
 
 export abstract class BaseGameEngine {

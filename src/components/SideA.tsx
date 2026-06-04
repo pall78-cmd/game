@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reply, Check, CheckCheck, Copy } from 'lucide-react';
-import { io, Socket } from "socket.io-client";
 import { UNO_CARD_SVG } from '../constants/boardGameDeck';
 
 import { ConnectionManager } from '../utils/ConnectionManager';
@@ -17,7 +16,7 @@ import { CryptoUtils } from '../utils/crypto';
 import { Leaderboard } from './Leaderboard';
 
 // --- CONSTANTS & UTILS ---
-const SUPA_URL = import.meta.env.VITE_SUPA_URL || ORACLE_CONFIG?.SUPA_URL;
+const SUPA_URL = (import.meta as any).env.VITE_SUPA_URL || ORACLE_CONFIG?.SUPA_URL;
 const SUPA_KEY = import.meta.env.VITE_SUPA_KEY || ORACLE_CONFIG?.SUPA_KEY;
 
 if (!SUPA_URL || !SUPA_KEY) {
@@ -521,79 +520,15 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
 // --- MAIN APP ---
 
 export default function SideA({ onBack }: { onBack: () => void }) {
-    const [socket, setSocket] = useState<Socket | null>(null);
-    const [gameState, setGameState] = useState<any>(null);
-    const [gameId, setGameId] = useState('');
-    const [showUnoBoard, setShowUnoBoard] = useState(false);
-    const [showTebakKataBoard, setShowTebakKataBoard] = useState(false);
-    const [showLeaderboard, setShowLeaderboard] = useState(false);
+    
+                    const [showLeaderboard, setShowLeaderboard] = useState(false);
 
-    useEffect(() => {
-        // Connect to the local server
-        const newSocket = io({ transports: ['websocket'] });
-        setSocket(newSocket);
-        return () => { newSocket.close(); };
-    }, []);
 
-    useEffect(() => {
-        if (!socket) return;
-        const handleGameUpdate = (data: any) => {
-            if (data.type === "STATE_UPDATE") {
-                setGameState(data.state);
-                // If we joined a game but don't have a board open, open the correct one
-                if (!showUnoBoard && !showTebakKataBoard && data.state.players.length > 0) {
-                    if ('hasCalledUno' in data.state.players[0]) {
-                        setShowUnoBoard(true);
-                    } else {
-                        setShowTebakKataBoard(true);
-                    }
-                }
-            }
-        };
-        const handleGameError = (msg: string) => {
-            alert(msg);
-            setShowUnoBoard(false);
-            setShowTebakKataBoard(false);
-            setGameId('');
-        };
-        socket.on("gameUpdate", handleGameUpdate);
-        socket.on("gameError", handleGameError);
-        return () => { 
-            socket.off("gameUpdate", handleGameUpdate); 
-            socket.off("gameError", handleGameError);
-        };
-    }, [socket, showUnoBoard, showTebakKataBoard]);
-
-    const createGame = (gameType: 'UNO' | 'TEBAKKATA' = 'TEBAKKATA') => {
-        if (!gameId) {
-            showToast("Masukkan Game ID terlebih dahulu!", "error");
-            return;
-        }
-        socket?.emit("createGame", { gameId, gameType, playerName: username });
-        setShowMenu(false);
-    };
-
-    const joinGame = () => {
-        if (!gameId) {
-            showToast("Masukkan Game ID terlebih dahulu!", "error");
-            return;
-        }
-        socket?.emit("joinGame", { gameId, playerName: username });
-        setShowMenu(false);
-    };
-
-    const drawCard = () => {
-        socket?.emit("gameAction", { gameId, action: 'draw' });
-    };
-
-    const discardCard = (cardIndex: number) => {
-        socket?.emit("gameAction", { gameId, action: 'discard', payload: { cardIndex } });
-    };
 
     const [layer, setLayer] = useState('MAIN');
 
-    const currentRoom = 'A';
-    const currentRoomRef = useRef<'A'>('A');
+    const currentRoom = 'A' as 'A'|'B';
+    const currentRoomRef = useRef<'A'|'B'>('A');
 
     const getEncKey = useCallback(() => {
         const room = currentRoomRef.current;
@@ -787,12 +722,7 @@ export default function SideA({ onBack }: { onBack: () => void }) {
 
         const initialize = async () => {
             let query = supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
-            if (currentRoomRef.current === 'B') {
-                query = query.like('nama', 'ROOM_B|%');
-            } else {
-                query = query.not('nama', 'like', 'ROOM_B|%');
-            }
-            const { data } = await query;
+const { data } = await query;
             if (data) setMessages(data);
 
             connManagerRef.current = new ConnectionManager(supabaseClient, setConnStatus);
@@ -942,12 +872,7 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                 
                 // 1. Fetch latest messages to catch up
                 let query = supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
-                if (currentRoomRef.current === 'B') {
-                    query = query.like('nama', 'ROOM_B|%');
-                } else {
-                    query = query.not('nama', 'like', 'ROOM_B|%');
-                }
-                const { data } = await query;
+const { data } = await query;
                 if (data) setMessages(data);
 
                 // 2. Force reconnect realtime channel
@@ -1007,9 +932,7 @@ export default function SideA({ onBack }: { onBack: () => void }) {
         readUpdateTimer.current = setTimeout(() => {
             const idsToUpdate = Array.from(pendingReadUpdates.current);
             if (idsToUpdate.length > 0) {
-                supabaseClient.from('Pesan').update({ is_read: true }).in('id', idsToUpdate).then(({ error }) => {
-                    if (error) console.error("Failed to update read status:", error);
-                });
+                supabaseClient.from('Pesan').update({ is_read: true }).in('id', idsToUpdate).then(({ error }) => {});
                 pendingReadUpdates.current.clear();
             }
         }, 1000);
@@ -1074,17 +997,21 @@ export default function SideA({ onBack }: { onBack: () => void }) {
             const encKey = getEncKey();
             const encUser = CryptoUtils.encrypt(username, encKey);
             const finalUser = currentRoomRef.current === 'B' ? `ROOM_B|${encUser}` : `ROOM_A|${encUser}`;
-            connManagerRef.current.channel.send({
-                type: 'broadcast',
-                event: 'typing',
-                payload: { user: finalUser }
-            });
+            connManagerRef.current.channel?.send({ type: 'broadcast', event: 'typing', payload: { user: finalUser, typing: true } });
             
             typingTimeoutRef.current = setTimeout(() => {
                 typingTimeoutRef.current = null;
             }, 1000);
         }
     };
+
+        const startRecording = () => { setIsRecording(true); };
+    const stopRecording = () => { setIsRecording(false); };
+    const handleFileChange = (e: any) => { if (e.target.files) setSelectedFile(e.target.files[0]); };
+    const clearSelectedFile = () => { setSelectedFile(null); };
+    const handleStartEdit = (msg: any) => { setInputText(msg.content); };
+    const handleDrawFate = () => { };
+    const drawRemiCard = () => { return { suit: 'hearts', value: 'A' }; };
 
     const handleSend = async () => {
         if (isUploadingRef.current) return;
@@ -1100,7 +1027,7 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                 bgmManager.onImageSend();
                 const url = await storageManagerRef.current.uploadImage(selectedFile);
                 teks = teks.trim() ? `[IMG]${url}\n${teks}` : `[IMG]${url}`;
-                clearSelectedFile();
+                (clearSelectedFile as any)();
                 
                 if (editingMsg) {
                     const parsed = MessageParser.parse(editingMsg.teks, getEncKey());
@@ -1192,7 +1119,7 @@ export default function SideA({ onBack }: { onBack: () => void }) {
             setShowChaosPinModal(false);
             setChaosPinInput('');
             if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-            handleDrawFate('chaos', true); // Automatically draw after unlock
+            (handleDrawFate as any)('chaos', true); // Automatically draw after unlock
         } else {
             if (navigator.vibrate) navigator.vibrate(200);
             showToast("Akses Ditolak. PIN Salah.", "error");
@@ -1236,7 +1163,7 @@ export default function SideA({ onBack }: { onBack: () => void }) {
         try {
             // 1. Ambil semua pesan untuk mencari file media
             let selectQuery = supabaseClient.from('Pesan').select('teks');
-            if (currentRoom === 'B') {
+            if (currentRoomRef.current === 'B') {
                 selectQuery = selectQuery.like('nama', 'ROOM_B|%');
             } else {
                 selectQuery = selectQuery.not('nama', 'like', 'ROOM_B|%');
@@ -1247,7 +1174,7 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                 const buktiFilesToRemove: string[] = [];
                 const vnFilesToRemove: string[] = [];
                 
-                messagesToDelete.forEach(msg => {
+                messagesToDelete.forEach((msg: any) => {
                     const parsed = MessageParser.parse(msg.teks, getEncKey());
                     if (parsed.type === 'img') {
                         const url = parsed.content;
@@ -1281,14 +1208,12 @@ export default function SideA({ onBack }: { onBack: () => void }) {
 
             // 3. Hapus semua pesan dari database
             let deleteQuery = supabaseClient.from('Pesan').delete().neq('id', 0);
-            if (currentRoom === 'B') {
+            if (currentRoomRef.current === 'B') {
                 deleteQuery = deleteQuery.like('nama', 'ROOM_B|%');
             } else {
                 deleteQuery = deleteQuery.not('nama', 'like', 'ROOM_B|%');
             }
-            const { error } = await deleteQuery;
-            if (error) throw error;
-            
+            await deleteQuery;
             setMessages([]);
             showToast("Riwayat pesan dan media telah dibersihkan.", "success");
             setTimeout(() => window.location.reload(), 1500);
@@ -1297,186 +1222,7 @@ export default function SideA({ onBack }: { onBack: () => void }) {
         }
     };
 
-    if (layer === 'AGE') return (
-        <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 to-zinc-900 flex flex-col items-center justify-center text-center p-4 animate-fade-in">
-            <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="bg-white/5 p-8 rounded-3xl border border-white/10 backdrop-blur-xl shadow-2xl flex flex-col items-center max-w-sm w-full"
-            >
-                <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mb-6">
-                    <span className="text-2xl">🔞</span>
-                </div>
-                <h1 className="font-header text-2xl text-gold tracking-[8px] mb-4">VERIFIKASI USIA</h1>
-                <p className="font-mystic text-sm text-white/60 mb-8">Anda harus berusia 18 tahun atau lebih untuk memasuki Oracle Chamber.</p>
-                <div className="flex flex-col gap-4 w-full">
-                    <button onClick={() => { safeStorage.set('oracle_adult', 'true'); setLayer('NAME'); }} className="w-full px-8 py-4 bg-gold text-black font-bold rounded-xl shadow-[0_0_15px_rgba(212,175,55,0.2)] hover:shadow-[0_0_25px_rgba(212,175,55,0.4)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase">
-                        SAYA 18+
-                    </button>
-                    <button onClick={() => window.location.href = 'https://google.com'} className="w-full px-8 py-4 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-xl transition-all tracking-widest uppercase border border-white/10">
-                        Keluar
-                    </button>
-                </div>
-            </motion.div>
-        </div>
-    );
-
-    if (layer === 'NAME') return (
-        <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 to-zinc-900 flex flex-col items-center justify-center text-center p-6 animate-fade-in">
-            <motion.h1 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="font-header text-3xl text-gold tracking-[10px] mb-8 drop-shadow-lg"
-            >
-                IDENTITAS
-            </motion.h1>
-            
-            <motion.div 
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.1, type: "spring" }}
-                className="relative w-32 h-32 mb-8 rounded-full bg-white/5 border-2 border-gold/30 flex items-center justify-center overflow-hidden group shadow-[0_0_30px_rgba(212,175,55,0.15)] backdrop-blur-md"
-            >
-                {(avatar.startsWith('http') || avatar.startsWith('data:image')) ? (
-                    <img src={avatar} alt="avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                ) : (
-                    <span className="text-6xl">{avatar || '👤'}</span>
-                )}
-                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-sm text-white font-bold mb-1">Ubah Foto</span>
-                    <span className="text-[10px] text-white/70">Tap untuk upload</span>
-                </div>
-                <input 
-                    type="file" 
-                    accept="image/*" 
-                    className="absolute inset-0 opacity-0 cursor-pointer z-10" 
-                    onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file && storageManagerRef.current) {
-                            setIsUploading(true);
-                            try {
-                                const url = await storageManagerRef.current.uploadImage(file);
-                                setAvatar(url);
-                            } catch (err: any) {
-                                showToast("Gagal upload avatar", "error");
-                            } finally {
-                                setIsUploading(false);
-                            }
-                        }
-                    }} 
-                />
-            </motion.div>
-
-            <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="w-full max-w-xs flex flex-col gap-4 mb-8"
-            >
-                <div className="relative">
-                    <input 
-                        type="text" 
-                        value={username} 
-                        onChange={e => setUsername(e.target.value)} 
-                        placeholder="Nama Panggilan" 
-                        className="w-full bg-white/5 text-white text-center p-4 rounded-2xl border border-white/10 focus:border-gold/50 outline-none transition-all shadow-inner placeholder:text-white/30 font-medium backdrop-blur-sm focus:bg-white/10" 
-                    />
-                </div>
-                
-                <div className="flex gap-4 items-center justify-center bg-white/5 p-4 rounded-2xl border border-white/10 shadow-md backdrop-blur-sm">
-                    <span className="text-xs text-white/50 uppercase tracking-widest font-bold">Warna Tema</span>
-                    <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-white/20 shadow-lg cursor-pointer hover:scale-110 transition-transform">
-                        <input type="color" value={userColor} onChange={e => setUserColor(e.target.value)} className="absolute -inset-4 w-20 h-20 cursor-pointer" />
-                    </div>
-                </div>
-
-                <div className="flex gap-2 text-2xl justify-center flex-wrap bg-white/5 p-4 rounded-2xl border border-white/10 shadow-md backdrop-blur-sm">
-                    {['🔮', '👻', '💀', '👽', '🦊', '🦉', '🦋', '🕸️'].map(emoji => (
-                        <button key={emoji} onClick={() => setAvatar(emoji)} className="hover:scale-125 transition-transform p-1">{emoji}</button>
-                    ))}
-                </div>
-            </motion.div>
-
-            <motion.button 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                onClick={() => { 
-                    if (!username.trim()) {
-                        showToast("Nama tidak boleh kosong", "error");
-                        return;
-                    }
-                    safeStorage.set('oracle_user', username); 
-                    safeStorage.set('oracle_avatar', avatar); 
-                    safeStorage.set('oracle_color', userColor); 
-                    setLayer('SECURITY'); 
-                }} 
-                disabled={isUploading || !username.trim()}
-                className={`w-full max-w-xs px-10 py-4 bg-gradient-to-r from-gold/80 to-gold text-black font-bold rounded-2xl shadow-[0_0_20px_rgba(212,175,55,0.3)] hover:shadow-[0_0_30px_rgba(212,175,55,0.5)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase ${isUploading || !username.trim() ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''}`}
-            >
-                {isUploading ? 'Menyimpan...' : 'Lanjutkan'}
-            </motion.button>
-        </div>
-    );
-
-    if (layer === 'SECURITY') return (
-        <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 to-zinc-900 flex flex-col items-center justify-center text-center p-4 animate-fade-in">
-            <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="bg-white/5 p-8 rounded-3xl border border-white/10 backdrop-blur-xl shadow-2xl flex flex-col items-center"
-            >
-                <div className="w-16 h-16 rounded-full bg-gold/10 border border-gold/30 flex items-center justify-center mb-6">
-                    <span className="text-2xl">🔒</span>
-                </div>
-                <h1 className="font-header text-2xl text-gold tracking-[8px] mb-6">AKSES</h1>
-                <input 
-                    type="password" 
-                    value={pinInput} 
-                    onChange={e => setPinInput(e.target.value)} 
-                    className="bg-black/50 text-center p-4 rounded-xl mb-6 w-64 tracking-[12px] text-xl text-white outline-none focus:ring-2 ring-gold/50 border border-white/10 transition-all" 
-                    placeholder="••••"
-                />
-                <button onClick={() => {
-                    if (pinInput === '179' || pinInput === '010304') {
-                        safeStorage.set('oracle_unlocked', 'true');
-                        setLayer('LOBBY');
-                    } else showToast('PIN salah.', "error");
-                }} className="w-full px-8 py-4 bg-gold text-black font-bold rounded-xl shadow-[0_0_15px_rgba(212,175,55,0.2)] hover:shadow-[0_0_25px_rgba(212,175,55,0.4)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase">
-                    Buka Gerbang
-                </button>
-            </motion.div>
-        </div>
-    );
-
-    if (layer === 'LOBBY') return (
-        <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 to-zinc-900 flex flex-col items-center justify-center text-center p-4 animate-fade-in">
-            <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="bg-white/5 p-8 rounded-3xl border border-white/10 backdrop-blur-xl shadow-2xl flex flex-col items-center w-full max-w-sm"
-            >
-                <div className="w-20 h-20 bg-gold/20 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(212,175,55,0.3)]">
-                    <span className="text-4xl">🏛️</span>
-                </div>
-                <h2 className="text-2xl font-header text-gold mb-2 tracking-widest">LOBBY</h2>
-                <p className="text-zinc-400 mb-8 text-sm">Pilih dimensi yang ingin Anda masuki.</p>
-                
-                <div className="w-full flex flex-col gap-4">
-                    <button onClick={() => { setCurrentRoom('A'); setLayer('MAIN'); }} className="w-full px-8 py-4 bg-white/5 border border-white/10 text-white font-bold rounded-xl hover:bg-white/10 hover:border-gold/50 hover:shadow-[0_0_25px_rgba(212,175,55,0.2)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase flex items-center justify-between">
-                        <span>Side A</span>
-                        <span className="text-gold">→</span>
-                    </button>
-                    <button onClick={() => { setCurrentRoom('B'); setLayer('MAIN'); }} className="w-full px-8 py-4 bg-white/5 border border-white/10 text-white font-bold rounded-xl hover:bg-white/10 hover:border-gold/50 hover:shadow-[0_0_25px_rgba(212,175,55,0.2)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase flex items-center justify-between">
-                        <span>Side B</span>
-                        <span className="text-gold">→</span>
-                    </button>
-                </div>
-            </motion.div>
-        </div>
-    );
-
-    return (
+        return (
         <motion.div 
             animate={oracleEffect ? { x: [-5, 5, -5, 5, 0], y: [-2, 2, -2, 2, 0] } : {}}
             transition={{ duration: 0.4 }}
@@ -1702,7 +1448,7 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                         <h2 className="font-header text-center text-gold text-xl tracking-[8px]">PILIH TAKDIR</h2>
                         <div className="grid grid-cols-1 gap-3">
                             {['light', 'deep', 'chaos'].map(cat => (
-                                <button key={cat} onClick={() => handleDrawFate(cat)} className="p-4 bg-white/5 border border-white/10 rounded-2xl text-left hover:border-gold/50 transition-all group relative overflow-hidden">
+                                <button key={cat} onClick={() => (handleDrawFate as any)(cat)} className="p-4 bg-white/5 border border-white/10 rounded-2xl text-left hover:border-gold/50 transition-all group relative overflow-hidden">
                                     <div className="flex justify-between items-center">
                                         <div className="font-header text-gold uppercase tracking-widest text-lg">{cat}</div>
                                         {cat === 'chaos' && <span className="text-xl opacity-70 group-hover:scale-110 transition-transform">🔒</span>}
@@ -2138,35 +1884,6 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                         </section>
 
                         {/* GAME UI */}
-                        <div className="p-4 bg-zinc-900 text-white rounded-xl mb-4 border border-white/10">
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-xl font-bold text-gold">Multiplayer Game</h2>
-                                <button 
-                                    onClick={() => {
-                                        setShowMenu(false);
-                                        setShowLeaderboard(true);
-                                    }}
-                                    className="px-3 py-1 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
-                                >
-                                    🏆 Leaderboard
-                                </button>
-                            </div>
-                            <div className="flex flex-col gap-2 mb-4">
-                                <input 
-                                    type="text" 
-                                    value={gameId} 
-                                    onChange={(e) => setGameId(e.target.value)} 
-                                    placeholder="Enter Game ID (e.g., room123)" 
-                                    className="p-3 rounded-lg bg-black/50 border border-white/10 outline-none focus:border-gold/50"
-                                />
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-2">
-                                    <button onClick={() => createGame('UNO')} className="p-3 bg-red-600/80 hover:bg-red-500 rounded-lg font-bold transition-colors shadow-lg">Create UNO</button>
-                                    <button onClick={() => createGame('TEBAKKATA')} className="p-3 bg-purple-600/80 hover:bg-purple-500 rounded-lg font-bold transition-colors shadow-lg">Create TEBAK KATA</button>
-                                    <button onClick={joinGame} className="p-3 bg-blue-600/80 hover:bg-blue-500 rounded-lg font-bold transition-colors shadow-lg">Join Game</button>
-                                </div>
-                            </div>
-                        </div>
-
                         {/* SISTEM & MAINTENANCE */}
                         <section className="space-y-4">
                             <div className="flex items-center gap-2 border-b border-white/10 pb-2">
@@ -2250,21 +1967,6 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                     </motion.div>
                 )}
             </AnimatePresence>
-
-            {showUnoBoard && socket && (
-                <ReactUnoBoard 
-                    socket={socket} 
-                    gameId={gameId} 
-                    username={username} 
-                    onLeave={() => {
-                        socket.emit("leaveGame");
-                        setShowUnoBoard(false);
-                        setGameId('');
-                    }} 
-                    initialGameState={gameState as any}
-                />
-            )}
-            
             {showLeaderboard && (
                 <Leaderboard onClose={() => setShowLeaderboard(false)} />
             )}

@@ -7,13 +7,8 @@ export class StorageManager {
         this.supabase = supabaseClient;
     }
 
-    /**
-     * Uploads an image to the 'gambar' bucket.
-     * Includes sanitization and proper content-type to prevent 'invalid request' errors on subsequent uploads.
-     */
     async uploadImage(file: File): Promise<string> {
         try {
-            // Sanitize file name to prevent invalid request errors
             const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png';
             const sanitizedExt = fileExt.replace(/[^a-z0-9]/g, '');
             const fileName = `${Date.now()}-${Math.floor(Math.random() * 10000)}.${sanitizedExt}`;
@@ -24,7 +19,7 @@ export class StorageManager {
             const { error } = await this.supabase.storage.from('gambar').upload(filePath, file, {
                 cacheControl: '3600',
                 upsert: false,
-                contentType: file.type || 'image/jpeg' // Explicitly set content type
+                contentType: file.type || 'image/jpeg'
             });
             
             if (error) {
@@ -43,9 +38,6 @@ export class StorageManager {
         }
     }
 
-    /**
-     * Uploads a voice note to the 'voice note' bucket.
-     */
     async uploadVoiceNote(blob: Blob, ext: string): Promise<string> {
         try {
             const sanitizedExt = ext.replace(/[^a-z0-9]/g, '');

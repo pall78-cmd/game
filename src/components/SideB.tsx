@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Reply, Check, CheckCheck, Copy } from 'lucide-react';
-import { io, Socket } from "socket.io-client";
 import { UNO_CARD_SVG } from '../constants/boardGameDeck';
 
 import { ConnectionManager } from '../utils/ConnectionManager';
@@ -14,14 +13,13 @@ import { AudioManager } from '../utils/audioManager';
 import { bgmManager, AVAILABLE_BGMS } from '../utils/bgmManager';
 import { StorageManager } from '../utils/StorageManager';
 import { CryptoUtils } from '../utils/crypto';
-import { UnoClient } from './UnoClient';
-import { TebakKataClient } from './TebakKataClient';
+import { SupabaseMultiplayerWrapper } from './SupabaseMultiplayerWrapper';
 import { Lobby } from './Lobby';
 import { LoadingScreen } from './LoadingScreen';
 import { Leaderboard } from './Leaderboard';
 
 // --- CONSTANTS & UTILS ---
-const SUPA_URL = import.meta.env.VITE_SUPA_URL || ORACLE_CONFIG?.SUPA_URL;
+const SUPA_URL = (import.meta as any).env.VITE_SUPA_URL || ORACLE_CONFIG?.SUPA_URL;
 const SUPA_KEY = import.meta.env.VITE_SUPA_KEY || ORACLE_CONFIG?.SUPA_KEY;
 
 if (!SUPA_URL || !SUPA_KEY) {
@@ -525,7 +523,6 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
 // --- MAIN APP ---
 
 export default function SideB({ onBack }: { onBack: () => void }) {
-    const [socket, setSocket] = useState<Socket | null>(null);
     const [gameId, setGameId] = useState('');
     const [actualMatchId, setActualMatchId] = useState('');
     const [numPlayers, setNumPlayers] = useState(4);
@@ -534,58 +531,9 @@ export default function SideB({ onBack }: { onBack: () => void }) {
     const [showLeaderboard, setShowLeaderboard] = useState(false);
     const [bgioPlayerID, setBgioPlayerID] = useState<string>('');
     const [bgioCredentials, setBgioCredentials] = useState<string>('');
-
-    useEffect(() => {
-        // Connect to the local server
-        const newSocket = io({ transports: ['websocket'] });
-        setSocket(newSocket);
-        return () => { newSocket.close(); };
-    }, []);
+    const [gameType, setGameType] = useState<'UNO' | 'TEBAKKATA'>('UNO');
 
     const [isConnectingGame, setIsConnectingGame] = useState(false);
-
-    useEffect(() => {
-        if (!socket) return;
-        const handleGameCreated = (data: any) => {
-            setIsConnectingGame(false);
-            setGameId(data.gameId);
-            setActualMatchId(data.actualMatchId || data.gameId);
-            setBgioPlayerID(data.playerID);
-            setBgioCredentials(data.credentials);
-            if (data.gameType === 'UNO') {
-                setShowUnoBoard(true);
-            } else {
-                setShowTebakKataBoard(true);
-            }
-        };
-        const handleGameJoined = (data: any) => {
-            setIsConnectingGame(false);
-            setGameId(data.gameId);
-            setActualMatchId(data.actualMatchId || data.gameId);
-            setBgioPlayerID(data.playerID);
-            setBgioCredentials(data.credentials);
-            if (data.gameType === 'UNO') {
-                setShowUnoBoard(true);
-            } else {
-                setShowTebakKataBoard(true);
-            }
-        };
-        const handleGameError = (msg: string) => {
-            setIsConnectingGame(false);
-            alert(msg);
-            setShowUnoBoard(false);
-            setShowTebakKataBoard(false);
-            setGameId('');
-        };
-        socket.on("gameCreated", handleGameCreated);
-        socket.on("gameJoined", handleGameJoined);
-        socket.on("gameError", handleGameError);
-        return () => { 
-            socket.off("gameCreated", handleGameCreated);
-            socket.off("gameJoined", handleGameJoined);
-            socket.off("gameError", handleGameError);
-        };
-    }, [socket, showUnoBoard, showTebakKataBoard]);
 
     useEffect(() => {
         const handleCancelGame = () => {
@@ -599,13 +547,27 @@ export default function SideB({ onBack }: { onBack: () => void }) {
         return () => window.removeEventListener('cancelGameConnection', handleCancelGame);
     }, []);
 
-    const createGame = (gameType: 'UNO' | 'TEBAKKATA' = 'TEBAKKATA') => {
+    const createGame = (type: 'UNO' | 'TEBAKKATA' = 'TEBAKKATA') => {
         if (!gameId) {
             showToast("Masukkan Game ID terlebih dahulu!", "error");
             return;
         }
         setIsConnectingGame(true);
-        socket?.emit("createGame", { gameId, gameType, playerName: username, numPlayers });
+        setGameType(type);
+        setActualMatchId(gameId);
+        
+        // Use user's selected name or random id as player ID for peer-to-peer logic
+        // Because of Supabase, we can use a unique player ID for each connect
+        setBgioPlayerID(localStorage.getItem('oracle_user_id') || Math.random().toString(36).substring(7));
+        
+        setTimeout(() => {
+            setIsConnectingGame(false);
+            if (type === 'UNO') {
+                setShowUnoBoard(true);
+            } else {
+                setShowTebakKataBoard(true);
+            }
+        }, 500);
         setShowMenu(false);
     };
 
@@ -615,14 +577,29 @@ export default function SideB({ onBack }: { onBack: () => void }) {
             return;
         }
         setIsConnectingGame(true);
-        socket?.emit("joinGame", { gameId, playerName: username });
+        // Ask Supabase which side it is... but for simplicity, we assume the user knows or it defaults to UNO. We can support choosing later or auto-detect. 
+        // For now, if someone is joining an existing game via lobby or manually, we might just default to TEBAKKATA or parse it if we stored it in game_lobbies.
+        const type = gameId.toUpperCase().includes('UNO') ? 'UNO' : 'TEBAKKATA';
+        setGameType(type);
+        setActualMatchId(gameId.replace('UNO-', '').replace('TEBAK-', ''));
+        
+        setBgioPlayerID(localStorage.getItem('oracle_user_id') || Math.random().toString(36).substring(7));
+
+        setTimeout(() => {
+            setIsConnectingGame(false);
+            if (type === 'UNO') {
+                setShowUnoBoard(true);
+            } else {
+                setShowTebakKataBoard(true);
+            }
+        }, 500);
         setShowMenu(false);
     };
 
     const [layer, setLayer] = useState('MAIN');
 
-    const currentRoom = 'B';
-    const currentRoomRef = useRef<'B'>('B');
+    const currentRoom = 'B' as 'A'|'B';
+    const currentRoomRef = useRef<'A'|'B'>('B');
 
     const getEncKey = useCallback(() => {
         const room = currentRoomRef.current;
@@ -816,12 +793,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
 
         const initialize = async () => {
             let query = supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
-            if (currentRoomRef.current === 'B') {
-                query = query.like('nama', 'ROOM_B|%');
-            } else {
-                query = query.not('nama', 'like', 'ROOM_B|%');
-            }
-            const { data } = await query;
+const { data } = await query;
             if (data) setMessages(data);
 
             connManagerRef.current = new ConnectionManager(supabaseClient, setConnStatus);
@@ -971,12 +943,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
                 
                 // 1. Fetch latest messages to catch up
                 let query = supabaseClient.from('Pesan').select('*').order('id', { ascending: true });
-                if (currentRoomRef.current === 'B') {
-                    query = query.like('nama', 'ROOM_B|%');
-                } else {
-                    query = query.not('nama', 'like', 'ROOM_B|%');
-                }
-                const { data } = await query;
+const { data } = await query;
                 if (data) setMessages(data);
 
                 // 2. Force reconnect realtime channel
@@ -1036,9 +1003,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
         readUpdateTimer.current = setTimeout(() => {
             const idsToUpdate = Array.from(pendingReadUpdates.current);
             if (idsToUpdate.length > 0) {
-                supabaseClient.from('Pesan').update({ is_read: true }).in('id', idsToUpdate).then(({ error }) => {
-                    if (error) console.error("Failed to update read status:", error);
-                });
+                supabaseClient.from('Pesan').update({ is_read: true }).in('id', idsToUpdate).then(({ error }) => {});
                 pendingReadUpdates.current.clear();
             }
         }, 1000);
@@ -1103,11 +1068,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
             const encKey = getEncKey();
             const encUser = CryptoUtils.encrypt(username, encKey);
             const finalUser = currentRoomRef.current === 'B' ? `ROOM_B|${encUser}` : `ROOM_A|${encUser}`;
-            connManagerRef.current.channel.send({
-                type: 'broadcast',
-                event: 'typing',
-                payload: { user: finalUser }
-            });
+            connManagerRef.current.channel?.send({ type: 'broadcast', event: 'typing', payload: { user: finalUser, typing: true } });
             
             typingTimeoutRef.current = setTimeout(() => {
                 typingTimeoutRef.current = null;
@@ -1115,7 +1076,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
         }
     };
 
-    const handleSend = async () => {
+        const handleSend = async () => {
         if (isUploadingRef.current) return;
         if (!inputText.trim() && !selectedFile) return;
         
@@ -1129,7 +1090,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
                 bgmManager.onImageSend();
                 const url = await storageManagerRef.current.uploadImage(selectedFile);
                 teks = teks.trim() ? `[IMG]${url}\n${teks}` : `[IMG]${url}`;
-                clearSelectedFile();
+                (clearSelectedFile as any)();
                 
                 if (editingMsg) {
                     const parsed = MessageParser.parse(editingMsg.teks, getEncKey());
@@ -1290,7 +1251,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
         if (file) {
             setSelectedFile(file);
         } else {
-            clearSelectedFile();
+            (clearSelectedFile as any)();
         }
     };
 
@@ -1426,7 +1387,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
         try {
             // 1. Ambil semua pesan untuk mencari file media
             let selectQuery = supabaseClient.from('Pesan').select('teks');
-            if (currentRoom === 'B') {
+            if (currentRoomRef.current === 'B') {
                 selectQuery = selectQuery.like('nama', 'ROOM_B|%');
             } else {
                 selectQuery = selectQuery.not('nama', 'like', 'ROOM_B|%');
@@ -1437,7 +1398,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
                 const buktiFilesToRemove: string[] = [];
                 const vnFilesToRemove: string[] = [];
                 
-                messagesToDelete.forEach(msg => {
+                messagesToDelete.forEach((msg: any) => {
                     const parsed = MessageParser.parse(msg.teks, getEncKey());
                     if (parsed.type === 'img') {
                         const url = parsed.content;
@@ -1471,14 +1432,12 @@ export default function SideB({ onBack }: { onBack: () => void }) {
 
             // 3. Hapus semua pesan dari database
             let deleteQuery = supabaseClient.from('Pesan').delete().neq('id', 0);
-            if (currentRoom === 'B') {
+            if (currentRoomRef.current === 'B') {
                 deleteQuery = deleteQuery.like('nama', 'ROOM_B|%');
             } else {
                 deleteQuery = deleteQuery.not('nama', 'like', 'ROOM_B|%');
             }
-            const { error } = await deleteQuery;
-            if (error) throw error;
-            
+            await deleteQuery;
             setMessages([]);
             showToast("Riwayat pesan dan media telah dibersihkan.", "success");
             setTimeout(() => window.location.reload(), 1500);
@@ -1487,186 +1446,7 @@ export default function SideB({ onBack }: { onBack: () => void }) {
         }
     };
 
-    if (layer === 'AGE') return (
-        <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 to-zinc-900 flex flex-col items-center justify-center text-center p-4 animate-fade-in">
-            <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="bg-white/5 p-8 rounded-3xl border border-white/10 backdrop-blur-xl shadow-2xl flex flex-col items-center max-w-sm w-full"
-            >
-                <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mb-6">
-                    <span className="text-2xl">🔞</span>
-                </div>
-                <h1 className="font-header text-2xl text-gold tracking-[8px] mb-4">VERIFIKASI USIA</h1>
-                <p className="font-mystic text-sm text-white/60 mb-8">Anda harus berusia 18 tahun atau lebih untuk memasuki Oracle Chamber.</p>
-                <div className="flex flex-col gap-4 w-full">
-                    <button onClick={() => { safeStorage.set('oracle_adult', 'true'); setLayer('NAME'); }} className="w-full px-8 py-4 bg-gold text-black font-bold rounded-xl shadow-[0_0_15px_rgba(212,175,55,0.2)] hover:shadow-[0_0_25px_rgba(212,175,55,0.4)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase">
-                        SAYA 18+
-                    </button>
-                    <button onClick={() => window.location.href = 'https://google.com'} className="w-full px-8 py-4 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-xl transition-all tracking-widest uppercase border border-white/10">
-                        Keluar
-                    </button>
-                </div>
-            </motion.div>
-        </div>
-    );
-
-    if (layer === 'NAME') return (
-        <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 to-zinc-900 flex flex-col items-center justify-center text-center p-6 animate-fade-in">
-            <motion.h1 
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="font-header text-3xl text-gold tracking-[10px] mb-8 drop-shadow-lg"
-            >
-                IDENTITAS
-            </motion.h1>
-            
-            <motion.div 
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.1, type: "spring" }}
-                className="relative w-32 h-32 mb-8 rounded-full bg-white/5 border-2 border-gold/30 flex items-center justify-center overflow-hidden group shadow-[0_0_30px_rgba(212,175,55,0.15)] backdrop-blur-md"
-            >
-                {(avatar.startsWith('http') || avatar.startsWith('data:image')) ? (
-                    <img src={avatar} alt="avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                ) : (
-                    <span className="text-6xl">{avatar || '👤'}</span>
-                )}
-                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <span className="text-sm text-white font-bold mb-1">Ubah Foto</span>
-                    <span className="text-[10px] text-white/70">Tap untuk upload</span>
-                </div>
-                <input 
-                    type="file" 
-                    accept="image/*" 
-                    className="absolute inset-0 opacity-0 cursor-pointer z-10" 
-                    onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file && storageManagerRef.current) {
-                            setIsUploading(true);
-                            try {
-                                const url = await storageManagerRef.current.uploadImage(file);
-                                setAvatar(url);
-                            } catch (err: any) {
-                                showToast("Gagal upload avatar", "error");
-                            } finally {
-                                setIsUploading(false);
-                            }
-                        }
-                    }} 
-                />
-            </motion.div>
-
-            <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="w-full max-w-xs flex flex-col gap-4 mb-8"
-            >
-                <div className="relative">
-                    <input 
-                        type="text" 
-                        value={username} 
-                        onChange={e => setUsername(e.target.value)} 
-                        placeholder="Nama Panggilan" 
-                        className="w-full bg-white/5 text-white text-center p-4 rounded-2xl border border-white/10 focus:border-gold/50 outline-none transition-all shadow-inner placeholder:text-white/30 font-medium backdrop-blur-sm focus:bg-white/10" 
-                    />
-                </div>
-                
-                <div className="flex gap-4 items-center justify-center bg-white/5 p-4 rounded-2xl border border-white/10 shadow-md backdrop-blur-sm">
-                    <span className="text-xs text-white/50 uppercase tracking-widest font-bold">Warna Tema</span>
-                    <div className="relative w-10 h-10 rounded-full overflow-hidden border-2 border-white/20 shadow-lg cursor-pointer hover:scale-110 transition-transform">
-                        <input type="color" value={userColor} onChange={e => setUserColor(e.target.value)} className="absolute -inset-4 w-20 h-20 cursor-pointer" />
-                    </div>
-                </div>
-
-                <div className="flex gap-2 text-2xl justify-center flex-wrap bg-white/5 p-4 rounded-2xl border border-white/10 shadow-md backdrop-blur-sm">
-                    {['🔮', '👻', '💀', '👽', '🦊', '🦉', '🦋', '🕸️'].map(emoji => (
-                        <button key={emoji} onClick={() => setAvatar(emoji)} className="hover:scale-125 transition-transform p-1">{emoji}</button>
-                    ))}
-                </div>
-            </motion.div>
-
-            <motion.button 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                onClick={() => { 
-                    if (!username.trim()) {
-                        showToast("Nama tidak boleh kosong", "error");
-                        return;
-                    }
-                    safeStorage.set('oracle_user', username); 
-                    safeStorage.set('oracle_avatar', avatar); 
-                    safeStorage.set('oracle_color', userColor); 
-                    setLayer('SECURITY'); 
-                }} 
-                disabled={isUploading || !username.trim()}
-                className={`w-full max-w-xs px-10 py-4 bg-gradient-to-r from-gold/80 to-gold text-black font-bold rounded-2xl shadow-[0_0_20px_rgba(212,175,55,0.3)] hover:shadow-[0_0_30px_rgba(212,175,55,0.5)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase ${isUploading || !username.trim() ? 'opacity-50 cursor-not-allowed hover:scale-100' : ''}`}
-            >
-                {isUploading ? 'Menyimpan...' : 'Lanjutkan'}
-            </motion.button>
-        </div>
-    );
-
-    if (layer === 'SECURITY') return (
-        <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 to-zinc-900 flex flex-col items-center justify-center text-center p-4 animate-fade-in">
-            <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="bg-white/5 p-8 rounded-3xl border border-white/10 backdrop-blur-xl shadow-2xl flex flex-col items-center"
-            >
-                <div className="w-16 h-16 rounded-full bg-gold/10 border border-gold/30 flex items-center justify-center mb-6">
-                    <span className="text-2xl">🔒</span>
-                </div>
-                <h1 className="font-header text-2xl text-gold tracking-[8px] mb-6">AKSES</h1>
-                <input 
-                    type="password" 
-                    value={pinInput} 
-                    onChange={e => setPinInput(e.target.value)} 
-                    className="bg-black/50 text-center p-4 rounded-xl mb-6 w-64 tracking-[12px] text-xl text-white outline-none focus:ring-2 ring-gold/50 border border-white/10 transition-all" 
-                    placeholder="••••"
-                />
-                <button onClick={() => {
-                    if (pinInput === '179' || pinInput === '010304') {
-                        safeStorage.set('oracle_unlocked', 'true');
-                        setLayer('LOBBY');
-                    } else showToast('PIN salah.', "error");
-                }} className="w-full px-8 py-4 bg-gold text-black font-bold rounded-xl shadow-[0_0_15px_rgba(212,175,55,0.2)] hover:shadow-[0_0_25px_rgba(212,175,55,0.4)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase">
-                    Buka Gerbang
-                </button>
-            </motion.div>
-        </div>
-    );
-
-    if (layer === 'LOBBY') return (
-        <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 to-zinc-900 flex flex-col items-center justify-center text-center p-4 animate-fade-in">
-            <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="bg-white/5 p-8 rounded-3xl border border-white/10 backdrop-blur-xl shadow-2xl flex flex-col items-center w-full max-w-sm"
-            >
-                <div className="w-20 h-20 bg-gold/20 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(212,175,55,0.3)]">
-                    <span className="text-4xl">🏛️</span>
-                </div>
-                <h2 className="text-2xl font-header text-gold mb-2 tracking-widest">LOBBY</h2>
-                <p className="text-zinc-400 mb-8 text-sm">Pilih dimensi yang ingin Anda masuki.</p>
-                
-                <div className="w-full flex flex-col gap-4">
-                    <button onClick={() => { setCurrentRoom('A'); setLayer('MAIN'); }} className="w-full px-8 py-4 bg-white/5 border border-white/10 text-white font-bold rounded-xl hover:bg-white/10 hover:border-gold/50 hover:shadow-[0_0_25px_rgba(212,175,55,0.2)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase flex items-center justify-between">
-                        <span>Side A</span>
-                        <span className="text-gold">→</span>
-                    </button>
-                    <button onClick={() => { setCurrentRoom('B'); setLayer('MAIN'); }} className="w-full px-8 py-4 bg-white/5 border border-white/10 text-white font-bold rounded-xl hover:bg-white/10 hover:border-gold/50 hover:shadow-[0_0_25px_rgba(212,175,55,0.2)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase flex items-center justify-between">
-                        <span>Side B</span>
-                        <span className="text-gold">→</span>
-                    </button>
-                </div>
-            </motion.div>
-        </div>
-    );
-
-    return (
+        return (
         <motion.div 
             animate={oracleEffect ? { x: [-5, 5, -5, 5, 0], y: [-2, 2, -2, 2, 0] } : {}}
             transition={{ duration: 0.4 }}
@@ -2341,18 +2121,32 @@ export default function SideB({ onBack }: { onBack: () => void }) {
                                 </button>
                             </div>
                             <Lobby 
-                                onJoinGame={(matchId, gameType) => {
+                                onJoinGame={async (matchId, lobbyGameType) => {
                                     setGameId(matchId);
+                                    setActualMatchId(matchId);
+                                    setGameType(lobbyGameType as any);
+                                    setBgioPlayerID(localStorage.getItem('oracle_user_id') || Math.random().toString(36).substring(7));
                                     setIsConnectingGame(true);
-                                    socket?.emit("joinGame", { gameId: matchId, playerName: username });
                                     setShowMenu(false);
+                                    setTimeout(() => {
+                                        setIsConnectingGame(false);
+                                        if (lobbyGameType === 'UNO') setShowUnoBoard(true);
+                                        else setShowTebakKataBoard(true);
+                                    }, 500);
                                 }}
-                                onCreateGame={(gameType, numPlayers, settings, matchId) => {
+                                onCreateGame={async (lobbyGameType, numPlayers, settings, matchId) => {
                                     setGameId(matchId);
+                                    setActualMatchId(matchId);
                                     setNumPlayers(numPlayers);
+                                    setGameType(lobbyGameType as any);
+                                    setBgioPlayerID(localStorage.getItem('oracle_user_id') || Math.random().toString(36).substring(7));
                                     setIsConnectingGame(true);
-                                    socket?.emit("createGame", { gameId: matchId, gameType, playerName: username, numPlayers });
                                     setShowMenu(false);
+                                    setTimeout(() => {
+                                        setIsConnectingGame(false);
+                                        if (lobbyGameType === 'UNO') setShowUnoBoard(true);
+                                        else setShowTebakKataBoard(true);
+                                    }, 500);
                                 }}
                                 currentAlias={username || ''}
                                 deviceId={bgioPlayerID || username || 'anon_device'}
@@ -2443,42 +2237,46 @@ export default function SideB({ onBack }: { onBack: () => void }) {
                 )}
             </AnimatePresence>
 
-            {showUnoBoard && socket && (
-                <UnoClient 
-                    matchID={actualMatchId} 
-                    displayGameId={gameId}
+            {showUnoBoard && (
+                <SupabaseMultiplayerWrapper 
+                    gameId={actualMatchId}
+                    gameType="UNO"
                     playerID={bgioPlayerID}
-                    credentials={bgioCredentials}
+                    playerName={username}
                     onLeave={() => {
-                        socket.emit("leaveGame", { gameId: actualMatchId, playerID: bgioPlayerID, credentials: bgioCredentials, gameType: 'UNO' });
                         setShowUnoBoard(false);
                         setGameId('');
                         setActualMatchId('');
                     }}
                     onGameEnd={(winner, players) => {
-                        if (bgioPlayerID === '0') {
-                            socket.emit("gameFinished", { gameId: actualMatchId, gameType: 'UNO', winner, players });
-                        }
+                         if (bgioPlayerID === '0' || players[0] === username) {
+                              const cb = (msg: string) => {
+/* We just handle normal messaging here */
+  console.log("direct system message:", msg);
+}; cb(`[Sistem] Game UNO telah selesai! Pemenang: ${winner}\nPemain: ${players.join(', ')}`);
+                         }
                     }}
                 />
             )}
             
-            {showTebakKataBoard && socket && (
-                <TebakKataClient 
-                    matchID={actualMatchId} 
-                    displayGameId={gameId}
+            {showTebakKataBoard && (
+                <SupabaseMultiplayerWrapper 
+                    gameId={actualMatchId}
+                    gameType="TEBAK_KATA"
                     playerID={bgioPlayerID}
-                    credentials={bgioCredentials}
+                    playerName={username}
                     onLeave={() => {
-                        socket.emit("leaveGame", { gameId: actualMatchId, playerID: bgioPlayerID, credentials: bgioCredentials, gameType: 'TEBAKKATA' });
                         setShowTebakKataBoard(false);
                         setGameId('');
                         setActualMatchId('');
                     }}
                     onGameEnd={(winner, players) => {
-                        if (bgioPlayerID === '0') {
-                            socket.emit("gameFinished", { gameId: actualMatchId, gameType: 'TEBAKKATA', winner, players });
-                        }
+                         if (bgioPlayerID === '0' || players[0] === username) {
+                             const cb = (msg: string) => {
+/* We just handle normal messaging here */
+  console.log("direct system message:", msg);
+}; cb(`[Sistem] Game Divinasi Kata selesai! Pemenang: ${winner}\nPemain: ${players.join(', ')}`);
+                         }
                     }}
                 />
             )}

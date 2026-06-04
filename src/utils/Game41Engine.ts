@@ -10,7 +10,7 @@ export interface Game41State extends GameState {
 }
 
 export class Game41Engine extends BaseGameEngine {
-    state: Game41State;
+    declare state: Game41State;
 
     constructor(playerIds: string[], playerNames: string[]) {
         super(playerIds);
