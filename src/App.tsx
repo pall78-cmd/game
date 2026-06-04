@@ -169,6 +169,198 @@ const FateCardDisplay = ({ raw }: { raw: string }) => {
     } catch { return <div className="p-3 text-red-500 border border-red-500/20 rounded-lg text-xs italic">Takdir yang Terdistorsi</div>; }
 };
 
+const specialCardDetails: Record<string, {
+    title: string;
+    description: string;
+    gradient: string;
+    glowColor: string;
+    shimmerClass: string;
+    emoji: string;
+    animation: {
+        animate: any;
+        transition: any;
+    };
+    particleColor: string;
+}> = {
+    '+1': {
+        title: 'ATTACK +1',
+        description: 'Pemain berikutnya harus mengambil 1 kartu!',
+        gradient: 'from-amber-600/30 to-red-600/30 border-red-500',
+        glowColor: 'rgba(239, 68, 68, 0.4)',
+        shimmerClass: 'bg-red-500/10',
+        emoji: '⚔️',
+        animation: {
+            animate: {
+                scale: [0.8, 1.1, 1],
+                y: [0, -10, 0],
+            },
+            transition: {
+                type: 'spring',
+                damping: 10,
+                stiffness: 150,
+                duration: 0.6
+            }
+        },
+        particleColor: 'bg-red-500'
+    },
+    '+5': {
+        title: 'BURNING ATTACK +5',
+        description: 'Pemain berikutnya harus mengambil 5 kartu!',
+        gradient: 'from-orange-600/50 via-red-600/40 to-yellow-600/30 border-orange-500 animate-pulse',
+        glowColor: 'rgba(249, 115, 22, 0.6)',
+        shimmerClass: 'bg-orange-500/20',
+        emoji: '🔥',
+        animation: {
+            animate: {
+                scale: [0.5, 1.25, 1],
+                rotate: [0, 5, -5, 0],
+            },
+            transition: {
+                type: 'spring',
+                damping: 8,
+                stiffness: 200,
+                duration: 0.8
+            }
+        },
+        particleColor: 'bg-orange-500'
+    },
+    'Flip': {
+        title: 'DIMENSION SHIFT: FLIP!',
+        description: 'Balik sisi tumpukan kartu sekarang!',
+        gradient: 'from-indigo-600/40 via-purple-600/40 to-pink-600/30 border-purple-500',
+        glowColor: 'rgba(168, 85, 247, 0.5)',
+        shimmerClass: 'bg-purple-500/20',
+        emoji: '🌀',
+        animation: {
+            animate: {
+                rotateY: [0, 180, 360],
+                scale: [0.8, 1.1, 1],
+            },
+            transition: {
+                duration: 1.2,
+                ease: 'easeInOut',
+            }
+        },
+        particleColor: 'bg-purple-400'
+    },
+    'Skip': {
+        title: 'TURN BLOCKED: SKIP',
+        description: 'Lewati giliran pemain berikutnya!',
+        gradient: 'from-sky-600/30 to-blue-600/30 border-sky-400',
+        glowColor: 'rgba(56, 189, 248, 0.4)',
+        shimmerClass: 'bg-sky-500/10',
+        emoji: '❄️',
+        animation: {
+            animate: {
+                scale: [0.8, 1.05, 1],
+                x: [-15, 10, -5, 2, 0],
+            },
+            transition: {
+                duration: 0.7,
+                ease: 'easeOut'
+            }
+        },
+        particleColor: 'bg-sky-300'
+    },
+    'Skip Everyone': {
+        title: 'ZERO ZONE: SKIP EVERYONE',
+        description: 'Semua pemain dilewati! Giliran Anda lagi!',
+        gradient: 'from-cyan-600/40 via-sky-600/40 to-blue-800/30 border-cyan-400',
+        glowColor: 'rgba(34, 211, 238, 0.5)',
+        shimmerClass: 'bg-cyan-500/20',
+        emoji: '❄️⚔️',
+        animation: {
+            animate: {
+                scale: [0.8, 1.15, 1],
+                y: [-20, 0],
+            },
+            transition: {
+                type: 'spring',
+                damping: 10,
+                stiffness: 120,
+                duration: 0.8
+            }
+        },
+        particleColor: 'bg-cyan-400'
+    },
+    'Reverse': {
+        title: 'TEMPORAL FLUX: REVERSE',
+        description: 'Balikkan arah putaran permainan!',
+        gradient: 'from-emerald-600/30 to-teal-600/30 border-emerald-400',
+        glowColor: 'rgba(52, 211, 153, 0.4)',
+        shimmerClass: 'bg-emerald-500/10',
+        emoji: '🔄',
+        animation: {
+            animate: {
+                rotate: [0, -180, -360],
+                scale: [0.8, 1.05, 1],
+            },
+            transition: {
+                duration: 0.9,
+                ease: 'easeInOut'
+            }
+        },
+        particleColor: 'bg-emerald-400'
+    },
+    'Wild': {
+        title: 'AURORA WILDCARD',
+        description: 'Pilih warna baru yang kamu inginkan!',
+        gradient: 'from-red-500/20 via-green-500/20 to-blue-500/20 border-white',
+        glowColor: 'rgba(255, 255, 255, 0.4)',
+        shimmerClass: 'bg-gradient-to-r from-red-500/10 via-yellow-500/10 to-blue-500/10',
+        emoji: '🔮',
+        animation: {
+            animate: {
+                y: [15, -4, 0],
+                scale: [0.9, 1.05, 1],
+            },
+            transition: {
+                duration: 0.6,
+                ease: 'easeOut'
+            }
+        },
+        particleColor: 'bg-pink-400'
+    },
+    'Wild Draw 2': {
+        title: 'TEMPEST WILD DRAW 2',
+        description: 'Pilih warna & pemain berikutnya ambil 2 kartu!',
+        gradient: 'from-yellow-500/30 via-pink-500/20 to-indigo-500/30 border-yellow-400',
+        glowColor: 'rgba(250, 204, 21, 0.5)',
+        shimmerClass: 'bg-yellow-500/20 border-yellow-400',
+        emoji: '⚡',
+        animation: {
+            animate: {
+                scale: [0.8, 1.1, 1],
+                rotateZ: [-5, 5, -3, 3, 0],
+            },
+            transition: {
+                duration: 0.8,
+                ease: 'easeInOut'
+            }
+        },
+        particleColor: 'bg-amber-300'
+    },
+    'Wild Draw Color': {
+        title: 'COSMIC WILD DRAW COLOR',
+        description: 'Tarik kartu sampai warna pilihan cocok!',
+        gradient: 'from-purple-600/40 via-red-500/20 to-blue-600/40 border-purple-400',
+        glowColor: 'rgba(192, 132, 252, 0.5)',
+        shimmerClass: 'bg-purple-500/20',
+        emoji: '🌌',
+        animation: {
+            animate: {
+                scale: [0.8, 1.15, 1],
+                skewX: [-5, 5, 0],
+            },
+            transition: {
+                duration: 0.9,
+                ease: 'easeInOut'
+            }
+        },
+        particleColor: 'bg-fuchsia-400'
+    }
+};
+
 const BoardGameCardDisplay = ({ raw, invokerName }: { raw: string, invokerName?: string }) => {
     try {
         let contentStr = raw;
@@ -186,14 +378,99 @@ const BoardGameCardDisplay = ({ raw, invokerName }: { raw: string, invokerName?:
         if (parts.length < 3) return null;
         
         const gameType = parts[1];
-        const cardColorOrSuit = parts[2];
-        const cardValue = parts[3];
 
         if (gameType === 'UNO_FLIP') {
             const side = parts[2] as 'Light' | 'Dark';
             const color = parts[3];
             const value = parts[4];
             
+            const isSpecial = specialCardDetails[value];
+            const particles = Array.from({ length: 6 });
+
+            if (isSpecial) {
+                return (
+                    <div className="flex flex-col items-center justify-center py-4 px-2 select-none mx-auto pointer-events-none">
+                        {/* Glowing badge */}
+                        <motion.div 
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3 }}
+                            className="mb-4 px-4 py-1.5 rounded-full border border-gold/40 bg-black/80 shadow-[0_0_15px_rgba(212,175,55,0.3)] text-center flex items-center gap-2 z-20 pointer-events-none"
+                        >
+                            <span className="text-sm">{isSpecial.emoji}</span>
+                            <span className="font-header text-[11px] text-gold tracking-widest uppercase font-bold text-center">
+                                {isSpecial.title}
+                            </span>
+                            <span className="text-sm">{isSpecial.emoji}</span>
+                        </motion.div>
+
+                        {/* Card Arena with custom glow backdrops */}
+                        <div className="relative p-3.5 rounded-[24px] overflow-visible bg-zinc-950/50 border border-white/5 backdrop-blur-sm shadow-2xl pointer-events-none">
+                            {/* Pulsing Backglow */}
+                            <div 
+                                className="absolute inset-0 rounded-[24px] blur-2xl opacity-40 pointer-events-none transition-all duration-1000"
+                                style={{ 
+                                    boxShadow: `0 0 35px 15px ${isSpecial.glowColor}`,
+                                    background: `radial-gradient(circle, ${isSpecial.glowColor} 0%, transparent 70%)`
+                                }}
+                            />
+
+                            {/* Sparkle explosion particles */}
+                            {particles.map((_, i) => {
+                                const angle = (i / 6) * 2 * Math.PI;
+                                const distanceBody = 60 + Math.random() * 60;
+                                const xDest = Math.cos(angle) * distanceBody;
+                                const yDest = Math.sin(angle) * distanceBody;
+                                return (
+                                    <motion.div
+                                        key={i}
+                                        initial={{ x: 0, y: 0, opacity: 1, scale: 0.6 }}
+                                        animate={{ x: xDest, y: yDest, opacity: 0, scale: [0.6, 1.2, 0] }}
+                                        transition={{ duration: 1.2, ease: "easeOut", delay: Math.random() * 0.05 }}
+                                        className={`absolute w-1.5 h-1.5 rounded-full z-10 shadow-[0_0_8px_currentColor] text-white/55 pointer-events-none ${isSpecial.particleColor}`}
+                                        style={{ left: "50%", top: "45%", transform: "translate(-50%, -50%)" }}
+                                    />
+                                );
+                            })}
+
+                            {/* Shimmer sweeping beam */}
+                            <div className="absolute inset-0 overflow-hidden rounded-[22px] pointer-events-none z-10">
+                                <motion.div 
+                                    initial={{ x: '-150%' }}
+                                    animate={{ x: '150%' }}
+                                    transition={{ repeat: 1, duration: 1.8, ease: 'linear', repeatDelay: 1 }}
+                                    className="w-1/2 h-full bg-gradient-to-r from-transparent via-white/15 to-transparent skew-x-12 pointer-events-none"
+                                />
+                            </div>
+
+                            {/* Card Body */}
+                            <motion.div
+                                initial={{ rotateY: 90, opacity: 0, scale: 0.7 }}
+                                animate={isSpecial.animation.animate}
+                                transition={isSpecial.animation.transition}
+                                className="w-40 h-60 relative shadow-2xl z-10 pointer-events-none"
+                            >
+                                <div className="w-full h-full pointer-events-none" dangerouslySetInnerHTML={{ __html: UNO_CARD_SVG(side, color, value) }} />
+                            </motion.div>
+                        </div>
+
+                        {/* Description */}
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 0.7 }}
+                            transition={{ delay: 0.4 }}
+                            className="mt-3.5 text-[10px] uppercase tracking-wider text-center text-zinc-300 font-sans max-w-[170px] whitespace-normal leading-relaxed font-bold pointer-events-none"
+                        >
+                            {isSpecial.description}
+                        </motion.div>
+                        
+                        <div className="mt-1.5 text-[8px] opacity-40 uppercase tracking-widest text-zinc-400 whitespace-nowrap text-center pointer-events-none">
+                            {invoker ? `Ditarik oleh ${invoker} ` : ''}({side} Side)
+                        </div>
+                    </div>
+                );
+            }
+
             return (
                 <motion.div 
                     initial={{ rotateY: 90, opacity: 0, scale: 0.8 }}
@@ -1025,7 +1302,36 @@ function App() {
     const handleFileChange = (e: any) => { if (e.target.files) setSelectedFile(e.target.files[0]); };
     const clearSelectedFile = () => { setSelectedFile(null); };
     const handleStartEdit = (msg: any) => { setInputText(msg.content); };
-    const handleDrawFate = () => { };
+    const handleDrawFate = async (category: string, skipPin = false) => {
+        if (category === 'chaos' && !skipPin && !isChaosUnlocked) {
+            setShowChaosPinModal(true);
+            return;
+        }
+
+        bgmManager.onFateCardDraw();
+
+        const deck = (GAME_DECK as any)[category];
+        const isWildcard = Math.random() < deck.wildcardChance;
+        const type = isWildcard ? 'wildcard' : (Math.random() < 0.5 ? 'truth' : 'dare');
+        const pool = deck[type];
+        const content = pool[Math.floor(Math.random() * pool.length)];
+        
+        const payload = JSON.stringify({
+            content: `${category.toUpperCase()} ${type.toUpperCase()}: ${content}`,
+            invoker: username
+        });
+
+        const encKey = getEncKey();
+        const finalTeks = CryptoUtils.encrypt(payload, encKey);
+        const encryptedNama = CryptoUtils.encrypt('ORACLE', encKey);
+        const finalNama = currentRoomRef.current === 'B' ? `ROOM_B|${encryptedNama}` : `ROOM_A|${encryptedNama}`;
+
+        setFateMode(false);
+        supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]).catch(err => {
+            console.error("Gagal mengirim takdir:", err);
+            showToast("Gagal mengirim takdir ke obrolan", "error");
+        });
+    };
     const drawRemiCard = () => { return { suit: 'hearts', value: 'A' }; };
 
     const handleSend = async () => {
