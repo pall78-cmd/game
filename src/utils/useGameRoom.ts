@@ -8,9 +8,28 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
     const [players, setPlayers] = useState<{id: string, name: string}[]>([]);
     const [isHost, setIsHost] = useState(false);
     const [error, setError] = useState('');
+    const [maxPlayers, setMaxPlayers] = useState<number>(4);
     
     const engineRef = useRef<UnoEngine | TebakKataEngine | null>(null);
     const channelRef = useRef<any>(null);
+
+    useEffect(() => {
+        if (!gameId) return;
+        const fetchLobbyConfig = async () => {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('game_lobbies')
+                    .select('max_players')
+                    .eq('match_id', gameId);
+                if (!error && data && data.length > 0 && data[0].max_players) {
+                    setMaxPlayers(data[0].max_players);
+                }
+            } catch (err) {
+                console.error("Gagal mengambil konfigurasi lobby:", err);
+            }
+        };
+        fetchLobbyConfig();
+    }, [gameId]);
 
     const saveToDb = async (state: any) => {
         if (!gameId || !state) return;
@@ -185,39 +204,63 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
         const stateStatus = engineRef.current.state?.status || (gameState as any)?.status;
         if (stateStatus !== 'waiting') return;
 
+        const currentCount = players.length;
+        const isFull = currentCount >= maxPlayers;
+
         if (gameType === 'UNO') {
-            const enginePlayers = (engineRef.current.state as UnoGameState).players || [];
+            const engineState = engineRef.current.state as UnoGameState;
+            const enginePlayers = engineState.players || [];
             const presenceIds = players.map(p => p.id).join(',');
             const engineIds = enginePlayers.map(p => p.id).join(',');
             
+            let didChange = false;
             if (presenceIds !== engineIds) {
                 const updatedPlayers = players.map((p, idx) => {
                     const existing = enginePlayers.find(ep => ep.id === p.id);
+                    let hand = existing ? [...existing.hand] : [];
+                    if (hand.length === 0) {
+                        for (let k = 0; k < 7; k++) {
+                            if (engineState.deck && engineState.deck.length > 0) {
+                                const card = engineState.deck.pop();
+                                if (card) hand.push(card);
+                            }
+                        }
+                    }
                     return {
                         id: p.id,
                         name: p.name || existing?.name || `Player ${idx + 1}`,
-                        hand: existing?.hand || [],
+                        hand: hand,
                         score: existing?.score || 0,
                         hasCalledUno: existing?.hasCalledUno || false
                     };
                 });
                 
-                engineRef.current.state.players = updatedPlayers;
-                saveToDb(engineRef.current.state);
+                engineState.players = updatedPlayers;
+                didChange = true;
+            }
+
+            if (isFull) {
+                engineRef.current.start();
+                didChange = true;
+            }
+
+            if (didChange) {
+                saveToDb(engineState);
                 channelRef.current?.send({
                     type: 'broadcast',
                     event: 'state_update',
-                    payload: { state: engineRef.current.state }
+                    payload: { state: engineState }
                 });
-                setGameState({ ...engineRef.current.state });
+                setGameState({ ...engineState });
             }
         } else {
-            const enginePlayers = (engineRef.current.state as TebakKataState).players || [];
+            const state = engineRef.current.state as TebakKataState;
+            const enginePlayers = state.players || [];
             const presenceIds = players.map(p => p.id).join(',');
             const engineIds = enginePlayers.join(',');
             
+            let didChange = false;
             if (presenceIds !== engineIds) {
-                const state = engineRef.current.state as TebakKataState;
                 state.players = players.map(p => p.id);
                 
                 const newScores: Record<string, number> = {};
@@ -225,7 +268,15 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
                     newScores[p.id] = state.scores[p.id] || 0;
                 });
                 state.scores = newScores;
-                
+                didChange = true;
+            }
+
+            if (isFull) {
+                (engineRef.current as any).start();
+                didChange = true;
+            }
+
+            if (didChange) {
                 saveToDb(state);
                 channelRef.current?.send({
                     type: 'broadcast',
@@ -235,7 +286,23 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
                 setGameState({ ...state });
             }
         }
-    }, [isHost, players, gameType, gameState]);
+
+        const updateLobbyStatus = async () => {
+            try {
+                await supabaseClient
+                    .from('game_lobbies')
+                    .update({
+                        current_players: currentCount,
+                        status: isFull ? 'playing' : 'waiting'
+                    })
+                    .eq('match_id', gameId);
+            } catch (err) {
+                console.error("Gagal mengupdate status lobby di database:", err);
+            }
+        };
+        updateLobbyStatus();
+
+    }, [isHost, players, gameType, gameState, maxPlayers, gameId]);
 
     const sendAction = (action: string, ...args: any[]) => {
         if (isHost && engineRef.current) {

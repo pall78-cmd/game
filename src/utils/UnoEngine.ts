@@ -142,12 +142,19 @@ export class UnoEngine extends BaseGameEngine {
     }
 
     deal() {
-        for (let i = 0; i < 7; i++) {
-            for (const player of this.state.players) {
-                player.hand.push(this.state.deck.pop()!);
+        for (const player of this.state.players) {
+            const needed = 7 - player.hand.length;
+            for (let i = 0; i < needed; i++) {
+                if (this.state.deck.length === 0) {
+                    this.reshuffleDiscardPile();
+                }
+                const card = this.state.deck.pop();
+                if (card) {
+                    player.hand.push(card);
+                }
             }
         }
-        this.log(`Dealt 7 cards to each player.`);
+        this.log(`Dealt cards to ensure each player has 7 cards.`);
     }
 
     drawCard(playerId: string) {
