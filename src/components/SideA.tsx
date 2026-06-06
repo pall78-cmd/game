@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Reply, Check, CheckCheck, Copy } from 'lucide-react';
+import { Reply, Check, CheckCheck, Copy, Settings, X, User, Volume2, Shield, Eye, Trash2, LogOut, Sliders } from 'lucide-react';
 import { UNO_CARD_SVG } from '../constants/boardGameDeck';
 
 import { ConnectionManager } from '../utils/ConnectionManager';
@@ -14,6 +14,7 @@ import { bgmManager, AVAILABLE_BGMS } from '../utils/bgmManager';
 import { StorageManager } from '../utils/StorageManager';
 import { CryptoUtils } from '../utils/crypto';
 import { Leaderboard } from './Leaderboard';
+import { CosmicOracleModal } from './CosmicOracleModal';
 
 // --- CONSTANTS & UTILS ---
 const SUPA_URL = (import.meta as any).env.VITE_SUPA_URL || ORACLE_CONFIG?.SUPA_URL;
@@ -188,14 +189,15 @@ const specialCardDetails: Record<string, {
         emoji: '⚔️',
         animation: {
             animate: {
-                scale: [0.8, 1.1, 1],
-                y: [0, -10, 0],
+                scale: [0.8, 1.3, 0.95, 1],
+                y: [50, -35, 5, 0],
+                rotate: [0, -12, 12, 0],
             },
             transition: {
                 type: 'spring',
-                damping: 10,
-                stiffness: 150,
-                duration: 0.6
+                damping: 12,
+                stiffness: 220,
+                duration: 0.95
             }
         },
         particleColor: 'bg-red-500'
@@ -204,19 +206,20 @@ const specialCardDetails: Record<string, {
         title: 'BURNING ATTACK +5',
         description: 'Pemain berikutnya harus mengambil 5 kartu!',
         gradient: 'from-orange-600/50 via-red-600/40 to-yellow-600/30 border-orange-500 animate-pulse',
-        glowColor: 'rgba(249, 115, 22, 0.6)',
+        glowColor: 'rgba(249, 115, 22, 0.7)',
         shimmerClass: 'bg-orange-500/20',
         emoji: '🔥',
         animation: {
             animate: {
-                scale: [0.5, 1.25, 1],
-                rotate: [0, 5, -5, 0],
+                scale: [0.3, 1.45, 0.9, 1.05, 1],
+                rotate: [0, 18, -18, 8, -8, 0],
+                y: [80, -40, 10, 0],
             },
             transition: {
                 type: 'spring',
-                damping: 8,
-                stiffness: 200,
-                duration: 0.8
+                damping: 7,
+                stiffness: 240,
+                duration: 1.1
             }
         },
         particleColor: 'bg-orange-500'
@@ -225,16 +228,17 @@ const specialCardDetails: Record<string, {
         title: 'DIMENSION SHIFT: FLIP!',
         description: 'Balik sisi tumpukan kartu sekarang!',
         gradient: 'from-indigo-600/40 via-purple-600/40 to-pink-600/30 border-purple-500',
-        glowColor: 'rgba(168, 85, 247, 0.5)',
+        glowColor: 'rgba(168, 85, 247, 0.6)',
         shimmerClass: 'bg-purple-500/20',
         emoji: '🌀',
         animation: {
             animate: {
-                rotateY: [0, 180, 360],
-                scale: [0.8, 1.1, 1],
+                rotateY: [0, 180, 360, 540, 720],
+                scale: [0.8, 1.35, 0.75, 1.1, 1],
+                rotateZ: [0, 15, -15, 0]
             },
             transition: {
-                duration: 1.2,
+                duration: 1.5,
                 ease: 'easeInOut',
             }
         },
@@ -249,12 +253,13 @@ const specialCardDetails: Record<string, {
         emoji: '❄️',
         animation: {
             animate: {
-                scale: [0.8, 1.05, 1],
-                x: [-15, 10, -5, 2, 0],
+                scale: [0.8, 1.2, 0.9, 1],
+                x: [-180, 25, -8, 0],
+                skewX: [-20, 12, -4, 0]
             },
             transition: {
-                duration: 0.7,
-                ease: 'easeOut'
+                duration: 0.9,
+                ease: [0.16, 1, 0.3, 1]
             }
         },
         particleColor: 'bg-sky-300'
@@ -268,14 +273,13 @@ const specialCardDetails: Record<string, {
         emoji: '❄️⚔️',
         animation: {
             animate: {
-                scale: [0.8, 1.15, 1],
-                y: [-20, 0],
+                scale: [0.8, 1.35, 0.85, 1.1, 1],
+                y: [-120, 15, -5, 0],
+                rotateY: [0, 180, 360]
             },
             transition: {
-                type: 'spring',
-                damping: 10,
-                stiffness: 120,
-                duration: 0.8
+                duration: 1.1,
+                ease: 'easeInOut'
             }
         },
         particleColor: 'bg-cyan-400'
@@ -284,17 +288,17 @@ const specialCardDetails: Record<string, {
         title: 'TEMPORAL FLUX: REVERSE',
         description: 'Balikkan arah putaran permainan!',
         gradient: 'from-emerald-600/30 to-teal-600/30 border-emerald-400',
-        glowColor: 'rgba(52, 211, 153, 0.4)',
+        glowColor: 'rgba(52, 211, 153, 0.5)',
         shimmerClass: 'bg-emerald-500/10',
         emoji: '🔄',
         animation: {
             animate: {
-                rotate: [0, -180, -360],
-                scale: [0.8, 1.05, 1],
+                rotate: [0, -360, -720],
+                scale: [0.8, 1.25, 0.9, 1.05, 1],
             },
             transition: {
-                duration: 0.9,
-                ease: 'easeInOut'
+                duration: 1.2,
+                ease: [0.34, 1.56, 0.64, 1]
             }
         },
         particleColor: 'bg-emerald-400'
@@ -303,17 +307,18 @@ const specialCardDetails: Record<string, {
         title: 'AURORA WILDCARD',
         description: 'Pilih warna baru yang kamu inginkan!',
         gradient: 'from-red-500/20 via-green-500/20 to-blue-500/20 border-white',
-        glowColor: 'rgba(255, 255, 255, 0.4)',
+        glowColor: 'rgba(255, 255, 255, 0.5)',
         shimmerClass: 'bg-gradient-to-r from-red-500/10 via-yellow-500/10 to-blue-500/10',
         emoji: '🔮',
         animation: {
             animate: {
-                y: [15, -4, 0],
-                scale: [0.9, 1.05, 1],
+                scale: [0.6, 1.4, 0.85, 1.1, 1],
+                rotateZ: [0, 360],
+                rotateY: [0, 180, 360],
             },
             transition: {
-                duration: 0.6,
-                ease: 'easeOut'
+                duration: 1.3,
+                ease: 'easeInOut'
             }
         },
         particleColor: 'bg-pink-400'
@@ -322,16 +327,17 @@ const specialCardDetails: Record<string, {
         title: 'TEMPEST WILD DRAW 2',
         description: 'Pilih warna & pemain berikutnya ambil 2 kartu!',
         gradient: 'from-yellow-500/30 via-pink-500/20 to-indigo-500/30 border-yellow-400',
-        glowColor: 'rgba(250, 204, 21, 0.5)',
+        glowColor: 'rgba(250, 204, 21, 0.6)',
         shimmerClass: 'bg-yellow-500/20 border-yellow-400',
         emoji: '⚡',
         animation: {
             animate: {
-                scale: [0.8, 1.1, 1],
-                rotateZ: [-5, 5, -3, 3, 0],
+                scale: [0.8, 1.3, 0.9, 1.05, 1],
+                rotateZ: [-15, 15, -10, 10, -5, 5, 0],
+                y: [30, -20, 0]
             },
             transition: {
-                duration: 0.8,
+                duration: 1.0,
                 ease: 'easeInOut'
             }
         },
@@ -341,16 +347,17 @@ const specialCardDetails: Record<string, {
         title: 'COSMIC WILD DRAW COLOR',
         description: 'Tarik kartu sampai warna pilihan cocok!',
         gradient: 'from-purple-600/40 via-red-500/20 to-blue-600/40 border-purple-400',
-        glowColor: 'rgba(192, 132, 252, 0.5)',
+        glowColor: 'rgba(192, 132, 252, 0.6)',
         shimmerClass: 'bg-purple-500/20',
         emoji: '🌌',
         animation: {
             animate: {
-                scale: [0.8, 1.15, 1],
-                skewX: [-5, 5, 0],
+                scale: [0.8, 1.35, 0.85, 1.1, 1],
+                skewX: [-15, 15, -5, 5, 0],
+                rotateY: [0, 360]
             },
             transition: {
-                duration: 0.9,
+                duration: 1.4,
                 ease: 'easeInOut'
             }
         },
@@ -797,6 +804,7 @@ const Bubble = memo(({ msg, isMe, onReply, onEdit, onViewOnce, isPlayingAudio, o
 // --- MAIN APP ---
 
 export default function SideA({ onBack }: { onBack: () => void }) {
+    const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
     
                     const [showLeaderboard, setShowLeaderboard] = useState(false);
 
@@ -843,6 +851,7 @@ export default function SideA({ onBack }: { onBack: () => void }) {
     const [pinInput, setPinInput] = useState('');
     const [showChaosPinModal, setShowChaosPinModal] = useState(false);
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+    const [showOracleModal, setShowOracleModal] = useState(false);
     const [showPatchNotes, setShowPatchNotes] = useState(() => {
         try { return safeStorage.get('patch_v17_11_seen') !== 'true'; } catch { return false; }
     });
@@ -1015,7 +1024,11 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                     if (currentRoomRef.current === 'B' && !isRoomB) return;
                     if (currentRoomRef.current === 'A' && isRoomB) return;
 
-                    setMessages(prev => [...prev, newMsg]);
+                    setMessages(prev => {
+                        if (prev.some(m => m.id === newMsg.id)) return prev;
+                        const filtered = prev.filter(m => !(m.id < 0 && m.teks === newMsg.teks));
+                        return [...filtered, newMsg];
+                    });
                     
                     // Decrypt nama for notifications and effects
                     let rawNama = newMsg.nama;
@@ -1108,6 +1121,11 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                         if (currentRoomRef.current === 'B' && !isRoomB) return;
                         if (currentRoomRef.current === 'A' && isRoomB) return;
                         setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
+                    } else if (event.type === 'DELETE') {
+                        const deletedId = event.payload.old?.id;
+                        if (deletedId) {
+                            setMessages(prev => prev.filter(m => m.id !== deletedId));
+                        }
                     } else if (event.type === 'TYPING') {
                         let typer = event.payload.payload.user;
                         const isRoomB = typer.startsWith('ROOM_B|');
@@ -1141,7 +1159,10 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                             }, 3000);
                         }
                     }
+                }, (presences) => {
+                    setOnlineUsers(presences);
                 });
+                connManagerRef.current.trackUser(username, 'A');
         };
 
         const handleVisibilityChange = async () => {
@@ -1325,12 +1346,68 @@ export default function SideA({ onBack }: { onBack: () => void }) {
         const encryptedNama = CryptoUtils.encrypt('ORACLE', encKey);
         const finalNama = currentRoomRef.current === 'B' ? `ROOM_B|${encryptedNama}` : `ROOM_A|${encryptedNama}`;
 
+        const optimisticMsg = {
+            id: -Date.now(),
+            nama: finalNama,
+            teks: finalTeks,
+            created_at: new Date().toISOString(),
+            is_read: true,
+        };
+        setMessages(prev => [...prev, optimisticMsg]);
+
         setFateMode(false);
-        supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]).catch(err => {
-            console.error("Gagal mengirim takdir:", err);
-            showToast("Gagal mengirim takdir ke obrolan", "error");
+        supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]).select().then(({ data, error }) => {
+            if (error) {
+                console.error("Gagal mengirim takdir:", error);
+                setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+                showToast("Gagal mengirim takdir ke obrolan", "error");
+            } else if (data && data[0]) {
+                setMessages(prev => {
+                    if (prev.some(m => m.id === data[0].id)) return prev;
+                    const filtered = prev.filter(m => m.id !== optimisticMsg.id && !(m.id < 0 && m.teks === data[0].teks));
+                    return [...filtered, data[0]];
+                });
+            }
         });
     };
+
+    const handleSendOracleProphecy = useCallback((prophecyText: string) => {
+        bgmManager.onFateCardDraw();
+
+        const payload = JSON.stringify({
+            content: prophecyText,
+            invoker: username
+        });
+
+        const encKey = getEncKey();
+        const finalTeks = CryptoUtils.encrypt(payload, encKey);
+        const encryptedNama = CryptoUtils.encrypt('ORACLE', encKey);
+        const finalNama = currentRoomRef.current === 'B' ? `ROOM_B|${encryptedNama}` : `ROOM_A|${encryptedNama}`;
+
+        const optimisticMsg = {
+            id: -Date.now(),
+            nama: finalNama,
+            teks: finalTeks,
+            created_at: new Date().toISOString(),
+            is_read: true,
+        };
+        setMessages(prev => [...prev, optimisticMsg]);
+
+        supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]).select().then(({ data, error }) => {
+            if (error) {
+                console.error("Gagal mengirim ramalan:", error);
+                setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+                showToast("Gagal mengirim ramalan ke obrolan", "error");
+            } else if (data && data[0]) {
+                setMessages(prev => {
+                    if (prev.some(m => m.id === data[0].id)) return prev;
+                    const filtered = prev.filter(m => m.id !== optimisticMsg.id && !(m.id < 0 && m.teks === data[0].teks));
+                    return [...filtered, data[0]];
+                });
+            }
+        });
+    }, [username, getEncKey, showToast]);
+
     const drawRemiCard = () => { return { suit: 'hearts', value: 'A' }; };
 
     const handleSend = async () => {
@@ -1379,7 +1456,13 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                 }
                 const encKey = getEncKey();
                 const finalTeks = CryptoUtils.encrypt(teks, encKey);
-                await supabaseClient.from('Pesan').update({ teks: finalTeks }).eq('id', editingMsg.id);
+                supabaseClient.from('Pesan').update({ teks: finalTeks }).eq('id', editingMsg.id).select().then(({ data, error }) => {
+                    if (error) {
+                        console.error("Gagal update pesan:", error);
+                    } else if (data && data[0]) {
+                        setMessages(prev => prev.map(m => m.id === data[0].id ? data[0] : m));
+                    }
+                });
                 setEditingMsg(null);
                 showToast("Pesan diperbarui", "success");
             } else {
@@ -1388,7 +1471,58 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                 const encryptedNama = CryptoUtils.encrypt(nama, encKey);
                 const finalNama = currentRoomRef.current === 'B' ? `ROOM_B|${encryptedNama}` : `ROOM_A|${encryptedNama}`;
                 forceScrollRef.current = true;
-                await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
+
+                const optimisticMsg = {
+                    id: -Date.now(),
+                    nama: finalNama,
+                    teks: finalTeks,
+                    created_at: new Date().toISOString(),
+                    is_read: true,
+                };
+                setMessages(prev => [...prev, optimisticMsg]);
+
+                supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]).select().then(({ data, error }) => {
+                    if (error) {
+                        console.error("Gagal mengirim pesan:", error);
+                        setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+                        showToast("Gagal mengirim pesan", "error");
+                    } else if (data && data[0]) {
+                        setMessages(prev => {
+                            if (prev.some(m => m.id === data[0].id)) return prev;
+                            const filtered = prev.filter(m => m.id !== optimisticMsg.id && !(m.id < 0 && m.teks === data[0].teks));
+                            return [...filtered, data[0]];
+                        });
+
+                        // Trigger Oracle AI auto-reply if keyword matched
+                        const lowerTeks = teks.toLowerCase();
+                        const isOracleTrigger = lowerTeks.includes('@oracle') || lowerTeks.includes('/oracle') || lowerTeks.trim().startsWith('oracle ');
+                        if (isOracleTrigger) {
+                            let clnQuestion = teks.replace(/@oracle/gi, '').replace(/\/oracle/gi, '').trim();
+                            if (clnQuestion.toLowerCase().startsWith('oracle')) {
+                                clnQuestion = clnQuestion.substring(6).trim();
+                            }
+                            const targetRoom = currentRoomRef.current || 'A';
+                            setTimeout(() => {
+                                fetch('/api/oracle-tarot', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        username,
+                                        question: clnQuestion || "Sapaan kosmik",
+                                        ritual: 'chat',
+                                        room: targetRoom
+                                    })
+                                }).then(r => r.json()).then(resData => {
+                                    if (resData && resData.prophecy) {
+                                        handleSendOracleProphecy(resData.prophecy);
+                                    }
+                                }).catch(err => {
+                                    console.error("Oracle auto-reply failed:", err);
+                                });
+                            }, 1200);
+                        }
+                    }
+                });
             }
 
             setInputText('');
@@ -1428,7 +1562,27 @@ export default function SideA({ onBack }: { onBack: () => void }) {
         const encryptedNama = CryptoUtils.encrypt('ORACLE', encKey);
         const finalNama = currentRoomRef.current === 'B' ? `ROOM_B|${encryptedNama}` : `ROOM_A|${encryptedNama}`;
 
-        await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
+        const optimisticMsg = {
+            id: -Date.now(),
+            nama: finalNama,
+            teks: finalTeks,
+            created_at: new Date().toISOString(),
+            is_read: true,
+        };
+        setMessages(prev => [...prev, optimisticMsg]);
+
+        supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]).select().then(({ data, error }) => {
+            if (error) {
+                console.error("Gagal mengirim boardgame:", error);
+                setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+            } else if (data && data[0]) {
+                setMessages(prev => {
+                    if (prev.some(m => m.id === data[0].id)) return prev;
+                    const filtered = prev.filter(m => m.id !== optimisticMsg.id && !(m.id < 0 && m.teks === data[0].teks));
+                    return [...filtered, data[0]];
+                });
+            }
+        });
         setFateMode(false);
     };
 
@@ -1560,13 +1714,28 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                                 Side {currentRoom}
                             </span>
                         </h1>
-                        <div className="flex items-center gap-1.5">
-                            <div className={`w-1.5 h-1.5 rounded-full ${connStatus === 'ONLINE' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                            <p className="text-[10px] text-white/40 uppercase tracking-widest">{connStatus}</p>
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-1.5">
+                                <div className={`w-1.5 h-1.5 rounded-full ${connStatus === 'ONLINE' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                <p className="text-[10px] text-white/40 uppercase tracking-widest">{connStatus}</p>
+                            </div>
+                            {onlineUsers.filter(u => u.room === 'A').length > 0 && (
+                                <div className="flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20 text-[10px] text-red-300 font-mono">
+                                    <span className="w-1 h-1 rounded-full bg-red-400 animate-ping" />
+                                    <span>{onlineUsers.filter(u => u.room === 'A').length} SISI A ACTIVE</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
-                <button onClick={() => setShowMenu(!showMenu)} className="text-2xl opacity-60">⋮</button>
+                <button 
+                    onClick={() => setShowMenu(!showMenu)} 
+                    className="p-2 sm:p-2.5 rounded-xl bg-white/5 border border-white/10 text-white/70 hover:text-gold hover:bg-gold/10 hover:border-gold/30 transition-all duration-300 relative group flex items-center justify-center shadow-lg active:scale-95"
+                    title="Pengaturan"
+                >
+                    <Settings className="w-4.5 h-4.5 transition-transform duration-500 group-hover:rotate-45" />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-gold opacity-0 group-hover:opacity-100 transition-opacity"></span>
+                </button>
             </header>
 
             <main ref={feedRef as any} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
@@ -1704,6 +1873,13 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                     </div>
                 )}
                 <div className="flex items-center gap-2">
+                    <button 
+                        onClick={() => setShowOracleModal(true)} 
+                        className="w-12 h-12 rounded-full flex items-center justify-center bg-violet-600/25 border border-violet-500/20 hover:bg-violet-600/40 hover:scale-105 active:scale-95 transition-all outline-none"
+                        title="Ritual Oracle AI"
+                    >
+                        <span className="text-xl">🔮</span>
+                    </button>
                     {currentRoomRef.current === 'B' ? (
                         <div className="relative">
                             <button onClick={() => setBoardGameMenuOpen(!boardGameMenuOpen)} className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${boardGameMenuOpen ? 'bg-gold text-black' : 'bg-white/10'}`}>
@@ -1805,61 +1981,6 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                 </div>
             )}
 
-            {showPatchNotes && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[600] flex flex-col items-center justify-center p-6 animate-fade-in" onClick={() => {
-                    setShowPatchNotes(false);
-                    safeStorage.set('patch_v17_11_seen', 'true');
-                }}>
-                    <motion.div 
-                        initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                        animate={{ scale: 1, opacity: 1, y: 0 }}
-                        className="w-full max-w-md space-y-4 bg-zinc-900 border border-gold/30 rounded-3xl p-8 relative overflow-hidden shadow-[0_0_40px_rgba(212,175,55,0.1)]" 
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-gold/20 via-gold to-gold/20"></div>
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <h2 className="font-header text-gold text-2xl tracking-widest">ORACLE UPDATE</h2>
-                                <p className="text-[10px] text-white/50 uppercase tracking-widest mt-1">Version 17.11 - The Refinement</p>
-                            </div>
-                            <button onClick={() => {
-                                setShowPatchNotes(false);
-                                safeStorage.set('patch_v17_11_seen', 'true');
-                            }} className="text-white/50 hover:text-white text-2xl transition-colors">×</button>
-                        </div>
-                        
-                        <div className="space-y-6 mt-6 max-h-[60vh] overflow-y-auto custom-scrollbar pr-2">
-                            <div className="space-y-2">
-                                <h3 className="text-sm font-bold text-white flex items-center gap-2">🎤 Studio-Grade Voice Notes</h3>
-                                <p className="text-xs text-white/70 leading-relaxed">Kualitas rekaman suara ditingkatkan ke 128kbps (High-Fidelity) dengan peredam bising otomatis. Suara tidak lagi "mendem" atau terkompresi berlebihan.</p>
-                            </div>
-                            <div className="space-y-2">
-                                <h3 className="text-sm font-bold text-white flex items-center gap-2">💬 Smart Reply Layout</h3>
-                                <p className="text-xs text-white/70 leading-relaxed">Teks balasan (reply) yang panjang sekarang dibungkus rapi ke bawah dan tidak lagi merusak dimensi layar.</p>
-                            </div>
-                            <div className="space-y-2">
-                                <h3 className="text-sm font-bold text-white flex items-center gap-2">📜 Auto-Scroll & Image Fixes</h3>
-                                <p className="text-xs text-white/70 leading-relaxed">Layar akan otomatis turun saat Anda mengirim pesan atau saat gambar selesai dimuat. Gambar "Sekali Lihat" sekarang dilindungi dari klik kanan.</p>
-                            </div>
-                            <div className="space-y-2">
-                                <h3 className="text-sm font-bold text-white flex items-center gap-2">🔔 Unread Count Accuracy</h3>
-                                <p className="text-xs text-white/70 leading-relaxed">Notifikasi angka merah sekarang jauh lebih akurat saat Anda sedang scroll ke atas membaca pesan lama.</p>
-                            </div>
-                            <div className="space-y-2">
-                                <h3 className="text-sm font-bold text-white flex items-center gap-2">✨ UI Remodel</h3>
-                                <p className="text-xs text-white/70 leading-relaxed">Pembaruan antarmuka secara menyeluruh dengan desain glassmorphic yang lebih modern, animasi yang lebih halus, dan pengalaman pengguna yang lebih baik.</p>
-                            </div>
-                        </div>
-
-                        <button onClick={() => {
-                            setShowPatchNotes(false);
-                            safeStorage.set('patch_v17_11_seen', 'true');
-                        }} className="w-full py-4 mt-6 rounded-xl bg-gold text-black text-xs font-bold tracking-widest uppercase hover:bg-yellow-500 hover:scale-[1.02] active:scale-95 transition-all shadow-[0_0_15px_rgba(212,175,55,0.3)]">
-                            Lanjutkan
-                        </button>
-                    </motion.div>
-                </div>
-            )}
 
             {showChaosPinModal && (
                 <div className="fixed inset-0 bg-black/95 backdrop-blur-md z-[600] flex flex-col items-center justify-center p-6 animate-fade-in">
@@ -1952,72 +2073,101 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                 </div>
             )}
 
+            {/* Backdrop Overlay for Settings */}
             <AnimatePresence>
                 {showMenu && (
                     <motion.div 
-                        initial={{ opacity: 0, y: "100%" }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: "100%" }}
-                        transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                        className="fixed inset-0 z-[500] bg-zinc-950/95 backdrop-blur-2xl flex flex-col"
-                    >
-                        <div className="flex items-center justify-between p-6 border-b border-white/10 bg-black/50 sticky top-0 z-10 shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
-                            <h2 className="font-header text-2xl text-gold tracking-[8px]">PENGATURAN</h2>
-                            <button onClick={() => setShowMenu(false)} className="w-12 h-12 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white transition-colors text-xl">✕</button>
-                        </div>
-                    
-                    <div className="flex-1 overflow-y-auto p-6 md:p-8 lg:max-w-3xl lg:mx-auto lg:w-full space-y-10 custom-scrollbar pb-32">
-                        
-                        {updateAvailable && (
-                            <button onClick={() => window.location.reload()} className="w-full text-center px-6 py-4 rounded-2xl bg-green-500/20 border border-green-500/50 text-green-400 font-bold animate-pulse shadow-[0_0_20px_rgba(34,197,94,0.2)] hover:bg-green-500/30 transition-colors">
-                                🔄 UPDATE TERSEDIA - KLIK UNTUK MEMPERBARUI
-                            </button>
-                        )}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setShowMenu(false)}
+                        className="fixed inset-0 z-[490] bg-black/60 backdrop-blur-sm"
+                    />
+                )}
+            </AnimatePresence>
 
-                        {/* PROFIL PENGGUNA */}
-                        <section className="space-y-4">
-                            <div className="flex items-center gap-2 border-b border-white/10 pb-2">
-                                <span className="text-gold text-lg">👤</span>
-                                <h3 className="text-sm font-bold text-white uppercase tracking-widest">Profil Pengguna</h3>
+            <AnimatePresence>
+                {showMenu && (
+                    <motion.div 
+                        initial={{ x: "100%", opacity: 0.9 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: "100%", opacity: 0.9 }}
+                        transition={{ type: "spring", damping: 26, stiffness: 220 }}
+                        className="fixed right-0 top-0 bottom-0 z-[500] w-full sm:max-w-md bg-zinc-950/95 border-l border-white/10 backdrop-blur-3xl shadow-[-10px_0_50px_rgba(0,0,0,0.8)] flex flex-col h-full"
+                    >
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-6 border-b border-white/10 bg-black/40 backdrop-blur-md sticky top-0 z-15">
+                            <div className="flex items-center gap-3">
+                                <span className="p-2 rounded-lg bg-gold/10 border border-gold/30">
+                                    <Settings className="w-5 h-5 text-gold animate-spin-slow" />
+                                </span>
+                                <div>
+                                    <h2 className="font-header text-lg text-white font-bold tracking-wider">PENGATURAN</h2>
+                                    <p className="text-[10px] text-white/40 uppercase tracking-widest mt-0.5">SISI {currentRoom} PORTAL</p>
+                                </div>
                             </div>
+                            <button 
+                                onClick={() => setShowMenu(false)} 
+                                className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/75 hover:text-white transition-all hover:scale-105 active:scale-95"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar pb-16">
                             
-                            <div className="bg-white/5 rounded-xl p-4 space-y-4 border border-white/5">
-                                <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-                                    <div className="relative w-16 h-16 rounded-full bg-black/50 border border-white/10 flex items-center justify-center text-3xl overflow-hidden shrink-0">
-                                        {avatar.startsWith('http') || avatar.startsWith('data:image') ? (
-                                            <img src={avatar} alt="avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                        ) : (
-                                            avatar
-                                        )}
-                                        <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 hover:opacity-100 cursor-pointer transition-opacity">
-                                            <span className="text-[10px] uppercase font-bold text-white">Ubah</span>
-                                            <input 
-                                                type="file" 
-                                                accept="image/*" 
-                                                className="hidden" 
-                                                onChange={async e => {
-                                                    const file = e.target.files?.[0];
-                                                    if (file && storageManagerRef.current) {
-                                                        setIsUploading(true);
-                                                        try {
-                                                            const url = await storageManagerRef.current.uploadImage(file);
-                                                            setAvatar(url);
-                                                            safeStorage.set('oracle_avatar', url);
-                                                            showToast("Avatar berhasil diperbarui", "success");
-                                                        } catch (err: any) {
-                                                            showToast("Gagal upload avatar", "error");
-                                                        } finally {
-                                                            setIsUploading(false);
+                            {updateAvailable && (
+                                <button 
+                                    onClick={() => window.location.reload()} 
+                                    className="w-full text-center px-4 py-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-bold animate-pulse shadow-[0_0_15px_rgba(34,197,94,0.15)] hover:bg-green-500/20 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-ping"></span>
+                                    🔄 UPDATE TERSEDIA - KLIK UNTUK REFRESH
+                                </button>
+                            )}
+
+                            {/* PROFIL PENGGUNA */}
+                            <section className="space-y-3">
+                                <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                                    <User className="w-4 h-4 text-gold" />
+                                    <h3 className="text-xs font-mono font-bold text-white/50 uppercase tracking-widest">Profil Pengguna</h3>
+                                </div>
+                                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-4 shadow-inner">
+                                    <div className="flex items-center gap-4">
+                                        <div className="relative w-14 h-14 rounded-full bg-black/40 border border-white/10 flex items-center justify-center text-2xl overflow-hidden shrink-0 shadow-lg group">
+                                            {avatar.startsWith('http') || avatar.startsWith('data:image') ? (
+                                                <img src={avatar} alt="avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                            ) : (
+                                                avatar
+                                            )}
+                                            <label className="absolute inset-0 flex items-center justify-center bg-black/70 opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity duration-200">
+                                                <span className="text-[9px] uppercase font-bold text-white">UBAH</span>
+                                                <input 
+                                                    type="file" 
+                                                    accept="image/*" 
+                                                    className="hidden" 
+                                                    onChange={async e => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file && storageManagerRef.current) {
+                                                            setIsUploading(true);
+                                                            try {
+                                                                const url = await storageManagerRef.current.uploadImage(file);
+                                                                setAvatar(url);
+                                                                safeStorage.set('oracle_avatar', url);
+                                                                showToast("Avatar berhasil diperbarui", "success");
+                                                            } catch (err: any) {
+                                                                showToast("Gagal upload avatar", "error");
+                                                            } finally {
+                                                                setIsUploading(false);
+                                                            }
                                                         }
-                                                    }
-                                                }}
-                                            />
-                                        </label>
-                                    </div>
-                                    
-                                    <div className="flex-1 space-y-3 w-full">
-                                        <div>
-                                            <label className="block text-xs text-white/60 uppercase tracking-widest mb-1">Nama Panggilan</label>
+                                                    }}
+                                                />
+                                            </label>
+                                        </div>
+                                        <div className="flex-grow min-w-0">
+                                            <label className="block text-[10px] text-white/40 uppercase tracking-widest mb-1 font-mono font-bold">Nama Panggilan</label>
                                             <input 
                                                 type="text" 
                                                 value={username} 
@@ -2025,268 +2175,291 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                                                     setUsername(e.target.value);
                                                     safeStorage.set('oracle_user', e.target.value);
                                                 }} 
-                                                className="w-full bg-black/50 text-white p-3 rounded-lg border border-white/10 focus:border-gold/50 outline-none transition-all placeholder:text-white/30 text-sm" 
+                                                maxLength={20}
+                                                className="w-full bg-black/40 text-white px-3 py-2 rounded-xl border border-white/10 focus:border-gold/30 outline-none transition-all placeholder:text-white/20 text-xs font-mono font-medium" 
                                             />
                                         </div>
-                                        
-                                        <div>
-                                            <label className="block text-xs text-white/60 uppercase tracking-widest mb-1">Warna Nama</label>
-                                            <div className="flex gap-2 flex-wrap">
-                                                {['#D4AF37', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#D4A5A5', '#9B59B6'].map(color => (
-                                                    <button 
-                                                        key={color} 
-                                                        onClick={() => {
-                                                            setUserColor(color);
-                                                            safeStorage.set('oracle_color', color);
-                                                        }} 
-                                                        className={`w-6 h-6 rounded-full border-2 transition-transform ${userColor === color ? 'scale-125 border-white' : 'border-transparent hover:scale-110'}`} 
-                                                        style={{ backgroundColor: color }}
-                                                    />
-                                                ))}
-                                            </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="block text-[10px] text-white/40 uppercase tracking-widest mb-2 font-mono font-bold">Pilih Warna Nama</label>
+                                        <div className="flex gap-2 flex-wrap">
+                                            {['#D4AF37', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#D4A5A5', '#9B59B6'].map(color => (
+                                                <button 
+                                                    key={color} 
+                                                    onClick={() => {
+                                                        setUserColor(color);
+                                                        safeStorage.set('oracle_color', color);
+                                                    }} 
+                                                    className={`w-6 h-6 rounded-full border transition-all duration-300 ${userColor === color ? 'scale-110 border-white ring-2 ring-gold/40' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'}`} 
+                                                    style={{ backgroundColor: color }}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[10px] text-white/40 uppercase tracking-widest mb-1.5 font-mono font-bold">Avatar Emoji</label>
+                                        <div className="flex gap-1 text-lg justify-between flex-wrap bg-black/20 p-2 rounded-xl border border-white/5">
+                                            {['🔮', '👻', '💀', '👽', '🦊', '🦉', '🦋', '🕸️'].map(emoji => (
+                                                <button 
+                                                    key={emoji} 
+                                                    onClick={() => {
+                                                        setAvatar(emoji);
+                                                        safeStorage.set('oracle_avatar', emoji);
+                                                    }} 
+                                                    className={`hover:scale-125 transition-transform p-1 rounded-md ${avatar === emoji ? 'bg-white/5 scale-110' : ''}`}
+                                                >
+                                                    {emoji}
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
                                 </div>
-                                
-                                <div className="flex gap-2 text-xl justify-center flex-wrap bg-black/30 p-3 rounded-lg border border-white/5">
-                                    {['🔮', '👻', '💀', '👽', '🦊', '🦉', '🦋', '🕸️'].map(emoji => (
+                            </section>
+
+                            {/* AUDIO & NOTIFIKASI */}
+                            <section className="space-y-3">
+                                <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                                    <Volume2 className="w-4 h-4 text-gold" />
+                                    <h3 className="text-xs font-mono font-bold text-white/50 uppercase tracking-widest">Audio & Notifikasi</h3>
+                                </div>
+                                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-4 shadow-inner">
+                                    <div>
+                                        <label className="block text-[10px] text-white/40 uppercase tracking-widest mb-1.5 font-mono font-bold">Ambient Soundtrack</label>
+                                        <select 
+                                            value={bgmTrack} 
+                                            onChange={e => setBgmTrack(parseInt(e.target.value))}
+                                            className="w-full p-2.5 rounded-xl text-xs bg-black/40 border border-white/10 outline-none text-white focus:border-gold/30 transition-colors cursor-pointer"
+                                        >
+                                            {AVAILABLE_BGMS.map((track, idx) => (
+                                                <option key={track.id} value={idx}>{track.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-3 bg-black/30 p-2.5 rounded-xl border border-white/5">
                                         <button 
-                                            key={emoji} 
-                                            onClick={() => {
-                                                setAvatar(emoji);
-                                                safeStorage.set('oracle_avatar', emoji);
-                                            }} 
-                                            className="hover:scale-125 transition-transform p-1"
+                                            onClick={() => setIsBgmMuted(!isBgmMuted)} 
+                                            className="text-lg w-8 h-8 flex items-center justify-center rounded-lg bg-white/5 text-center hover:scale-105 transition-transform"
                                         >
-                                            {emoji}
+                                            {isBgmMuted ? '🔇' : '🔊'}
                                         </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </section>
+                                        <input 
+                                            type="range" 
+                                            min="0" 
+                                            max="1" 
+                                            step="0.05" 
+                                            value={bgmVolume} 
+                                            onChange={e => setBgmVolume(parseFloat(e.target.value))} 
+                                            className="w-full accent-gold h-1 bg-white/10 rounded-full appearance-none cursor-pointer"
+                                        />
+                                    </div>
 
-                        {/* AUDIO & NOTIFIKASI */}
-                        <section className="space-y-4">
-                            <div className="flex items-center gap-2 border-b border-white/10 pb-2">
-                                <span className="text-gold text-lg">🎵</span>
-                                <h3 className="text-sm font-bold text-white uppercase tracking-widest">Audio & Notifikasi</h3>
-                            </div>
-                            
-                            <div className="bg-white/5 rounded-xl p-4 space-y-4 border border-white/5">
-                                <div>
-                                    <label className="block text-xs text-white/60 uppercase tracking-widest mb-2">Background Music</label>
-                                    <select 
-                                        value={bgmTrack} 
-                                        onChange={e => setBgmTrack(parseInt(e.target.value))}
-                                        className="w-full p-3 rounded-lg text-sm bg-black/50 border border-white/10 outline-none text-white focus:border-gold/50 transition-colors"
+                                    <div className="grid grid-cols-1 gap-3">
+                                        <div>
+                                            <label className="block text-[10px] text-white/40 uppercase tracking-widest mb-1.5 font-mono font-bold">Mode Notifikasi</label>
+                                            <select 
+                                                className="w-full p-2.5 rounded-xl text-xs bg-black/40 border border-white/10 outline-none text-white focus:border-gold/30 transition-colors cursor-pointer"
+                                                value={notifSettings.mode}
+                                                onChange={(e) => setNotifSettings(prev => ({ ...prev, mode: e.target.value as any }))}
+                                            >
+                                                <option value="all">Semua Pesan</option>
+                                                <option value="mention">Hanya Mention (@nama)</option>
+                                                <option value="mute">Mute (Senyap)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] text-white/40 uppercase tracking-widest mb-1.5 font-mono font-bold">Anti-Spam Filter (Cooldown)</label>
+                                            <select 
+                                                className="w-full p-2.5 rounded-xl text-xs bg-black/40 border border-white/10 outline-none text-white focus:border-gold/30 transition-colors cursor-pointer"
+                                                value={notifSettings.cooldown}
+                                                onChange={(e) => setNotifSettings(prev => ({ ...prev, cooldown: parseInt(e.target.value) }))}
+                                            >
+                                                <option value="2">Cepat (2 dtk)</option>
+                                                <option value="10">Sedang (10 dtk)</option>
+                                                <option value="30">Lambat (30 dtk)</option>
+                                                <option value="60">Sangat Lambat (1 mnt)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <button 
+                                        onClick={async () => {
+                                            const permission = await Notification.requestPermission();
+                                            if (permission === 'granted') {
+                                                showToast("Izin Notifikasi Diberikan!", "success");
+                                            } else {
+                                                showToast("Izin ditolak. Jika di iOS, gunakan 'Add to Home Screen'.", "error");
+                                            }
+                                        }} 
+                                        className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] font-mono transition-all flex items-center justify-center gap-2 hover:scale-[1.01]"
                                     >
-                                        {AVAILABLE_BGMS.map((track, idx) => (
-                                            <option key={track.id} value={idx}>{track.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                                
-                                <div className="flex items-center gap-4 bg-black/30 p-3 rounded-lg">
-                                    <button onClick={() => setIsBgmMuted(!isBgmMuted)} className="text-2xl w-10 flex justify-center hover:scale-110 transition-transform">
-                                        {isBgmMuted ? '🔇' : '🔊'}
+                                        🔔 Aktifkan Notifikasi Portal
                                     </button>
-                                    <input 
-                                        type="range" 
-                                        min="0" 
-                                        max="1" 
-                                        step="0.1" 
-                                        value={bgmVolume} 
-                                        onChange={e => setBgmVolume(parseFloat(e.target.value))} 
-                                        className="w-full accent-gold h-2 bg-white/10 rounded-full appearance-none cursor-pointer"
-                                    />
                                 </div>
+                            </section>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                                    <div>
-                                        <label className="block text-xs text-white/60 uppercase tracking-widest mb-2">Mode Notifikasi</label>
-                                        <select 
-                                            className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-gold/50 transition-colors"
-                                            value={notifSettings.mode}
-                                            onChange={(e) => setNotifSettings(prev => ({ ...prev, mode: e.target.value as any }))}
-                                        >
-                                            <option value="all">Semua Pesan</option>
-                                            <option value="mention">Hanya Mention (@nama)</option>
-                                            <option value="mute">Senyap (Mute)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs text-white/60 uppercase tracking-widest mb-2">Anti-Spam (Cooldown)</label>
-                                        <select 
-                                            className="w-full bg-black/50 border border-white/10 rounded-lg p-3 text-sm focus:outline-none focus:border-gold/50 transition-colors"
-                                            value={notifSettings.cooldown}
-                                            onChange={(e) => setNotifSettings(prev => ({ ...prev, cooldown: parseInt(e.target.value) }))}
-                                        >
-                                            <option value="2">Cepat (2 Detik)</option>
-                                            <option value="10">Sedang (10 Detik)</option>
-                                            <option value="30">Lambat (30 Detik)</option>
-                                            <option value="60">Sangat Lambat (1 Menit)</option>
-                                        </select>
-                                    </div>
+                            {/* PRIVASI & ENKRIPSI */}
+                            <section className="space-y-3">
+                                <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                                    <Shield className="w-4 h-4 text-gold" />
+                                    <h3 className="text-xs font-mono font-bold text-white/50 uppercase tracking-widest">Enkripsi & Keamanan</h3>
                                 </div>
-                                
-                                <button onClick={async () => {
-                                    const permission = await Notification.requestPermission();
-                                    if (permission === 'granted') {
-                                        showToast("Izin Notifikasi Diberikan!", "success");
-                                    } else {
-                                        showToast("Izin ditolak. Jika di iOS, gunakan 'Add to Home Screen'.", "error");
-                                    }
-                                }} className="w-full py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-sm transition-colors flex items-center justify-center gap-2">
-                                    🔔 Minta Izin Notifikasi Browser
-                                </button>
-                            </div>
-                        </section>
-
-                        {/* PRIVASI & KEAMANAN */}
-                        <section className="space-y-4">
-                            <div className="flex items-center gap-2 border-b border-white/10 pb-2">
-                                <span className="text-gold text-lg">🔒</span>
-                                <h3 className="text-sm font-bold text-white uppercase tracking-widest">Privasi & Keamanan</h3>
-                            </div>
-                            
-                            <div className="bg-white/5 rounded-xl p-4 space-y-4 border border-white/5">
-                                <div>
-                                    <label className="block text-xs text-white/60 uppercase tracking-widest mb-2">Kunci Enkripsi Side {currentRoom}</label>
+                                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-3 shadow-inner">
+                                    <label className="block text-[10px] text-white/40 uppercase tracking-widest mb-1 font-mono font-bold font-bold">Kunci Enkripsi Side {currentRoom}</label>
                                     <input 
                                         type="password" 
-                                        placeholder="Masukkan kunci rahasia..." 
+                                        placeholder="Kunci rahasia chat enkripsi..." 
                                         value={encryptionKey}
                                         onChange={e => {
                                             setEncryptionKey(e.target.value);
                                         }}
-                                        className="w-full p-3 rounded-lg text-sm bg-black/50 border border-white/10 outline-none focus:border-gold/50 transition-colors text-white tracking-widest"
+                                        className="w-full p-2.5 rounded-xl text-xs bg-black/40 border border-white/10 outline-none text-white focus:border-gold/30 transition-colors text-center tracking-widest"
                                     />
-                                    <p className="text-xs text-white/40 mt-2 leading-relaxed">
-                                        Pesan yang dikirim saat kunci ini terisi akan dienkripsi. Hanya pengguna dengan kunci yang sama yang dapat membaca isi pesan, melihat gambar, atau memutar Voice Note.
+                                    <p className="text-[10px] text-white/30 leading-normal font-sans">
+                                        Semua pesan akan dienkripsi secara end-to-end secara otomatis. Anggota Side `{currentRoom}` yang tidak memiliki kecocokan sandi tidak akan bisa mendeskripsikan pesan ini.
                                     </p>
                                 </div>
-                            </div>
-                        </section>
+                            </section>
 
-                        {/* FILTER & TAMPILAN */}
-                        <section className="space-y-4">
-                            <div className="flex items-center gap-2 border-b border-white/10 pb-2">
-                                <span className="text-gold text-lg">👁️</span>
-                                <h3 className="text-sm font-bold text-white uppercase tracking-widest">Filter Chat</h3>
-                            </div>
-                            
-                            <div className="bg-white/5 rounded-xl p-4 border border-white/5">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* EXTRA FILTER */}
+                            <section className="space-y-3">
+                                <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                                    <Eye className="w-4 h-4 text-gold" />
+                                    <h3 className="text-xs font-mono font-bold text-white/50 uppercase tracking-widest">Filter Chat</h3>
+                                </div>
+                                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-3 shadow-inner">
+                                    <div className="grid grid-cols-1 gap-2.5">
+                                        <button 
+                                            onClick={() => setFilterType(filterType === 'unread' ? 'all' : 'unread')} 
+                                            className={`p-2.5 rounded-xl text-xs transition-all border font-mono ${filterType === 'unread' ? 'bg-gold text-black border-gold font-bold shadow-[0_0_10px_rgba(212,175,55,0.2)]' : 'bg-black/30 border-white/10 text-white/70 hover:bg-white/5'}`}
+                                        >
+                                            {filterType === 'unread' ? '✓ Filter: Belum Dibaca Aktif' : 'Tampilkan Belum Dibaca'}
+                                        </button>
+                                        <select 
+                                            onChange={e => { 
+                                                if (e.target.value) {
+                                                    setFilterType('sender'); 
+                                                    setFilterSender(e.target.value); 
+                                                } else {
+                                                    setFilterType('all');
+                                                    setFilterSender('');
+                                                }
+                                            }} 
+                                            className="p-2.5 rounded-xl text-xs bg-black/40 border border-white/10 outline-none focus:border-gold/30 text-white transition-colors cursor-pointer"
+                                            value={filterType === 'sender' ? filterSender : ''}
+                                        >
+                                            <option value="">Cari Berdasarkan Pengirim</option>
+                                            {uniqueSenders.map(s => <option key={s} value={s}>Dari: {s}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* SISTEM */}
+                            <section className="space-y-3">
+                                <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+                                    <Sliders className="w-4 h-4 text-gold" />
+                                    <h3 className="text-xs font-mono font-bold text-white/50 uppercase tracking-widest">Sistem</h3>
+                                </div>
+                                <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-4 space-y-2.5 shadow-inner">
+                                    {isIOS && (
+                                        <div className="p-2.5 bg-blue-500/10 border border-blue-500/20 rounded-xl text-[10px] text-blue-300 flex items-center gap-2 leading-relaxed font-sans">
+                                            <span>📱</span>
+                                            <span>Untuk PWA di iOS: tap ikon Share lalu pilih <strong>Add to Home Screen</strong>.</span>
+                                        </div>
+                                    )}
+                                    
                                     <button 
-                                        onClick={() => setFilterType(filterType === 'unread' ? 'all' : 'unread')} 
-                                        className={`p-3 rounded-lg text-sm transition-colors border ${filterType === 'unread' ? 'bg-gold text-black border-gold font-bold shadow-[0_0_10px_rgba(212,175,55,0.3)]' : 'bg-black/50 border-white/10 text-white/80 hover:bg-white/10'}`}
-                                    >
-                                        {filterType === 'unread' ? '✓ Menampilkan Belum Dibaca' : 'Tampilkan Belum Dibaca'}
-                                    </button>
-                                    <select 
-                                        onChange={e => { 
-                                            if (e.target.value) {
-                                                setFilterType('sender'); 
-                                                setFilterSender(e.target.value); 
+                                        onClick={async () => {
+                                            if (deferredPrompt) {
+                                                deferredPrompt.prompt();
+                                                const { outcome } = await deferredPrompt.userChoice;
+                                                if (outcome === 'accepted') setDeferredPrompt(null);
                                             } else {
-                                                setFilterType('all');
-                                                setFilterSender('');
+                                                showToast("Silakan instal menggunakan menu browser Anda.", "info");
                                             }
                                         }} 
-                                        className="p-3 rounded-lg text-sm bg-black/50 border border-white/10 outline-none focus:border-gold/50 transition-colors"
-                                        value={filterType === 'sender' ? filterSender : ''}
+                                        className="w-full text-left p-2.5 rounded-xl bg-black/40 hover:bg-white/5 border border-white/10 text-xs font-mono text-white/80 transition-all flex items-center gap-2.5"
                                     >
-                                        <option value="">Semua Pengirim</option>
-                                        {uniqueSenders.map(s => <option key={s} value={s}>Dari: {s}</option>)}
-                                    </select>
+                                        <span className="text-gold">⬇️</span> Pasang Portal Terdedikasi
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={() => {
+                                            showToast("Membersihkan sistem cache...", "info");
+                                            if ('serviceWorker' in navigator) {
+                                                caches.keys().then(names => {
+                                                    for (let name of names) caches.delete(name);
+                                                });
+                                            }
+                                            setTimeout(() => window.location.reload(), 1000);
+                                        }} 
+                                        className="w-full text-left p-2.5 rounded-xl bg-black/40 hover:bg-white/5 border border-white/10 text-xs font-mono text-white/80 transition-all flex items-center gap-2.5"
+                                    >
+                                        <span className="text-gold">🧹</span> Bersihkan Cache Virtual
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={() => {
+                                            const status = connStatus === 'ONLINE' ? "Koneksi Stabil, Latency <10ms" : "Koneksi Terputus/Loading";
+                                            showToast(`Status: ${status}`, connStatus === 'ONLINE' ? "success" : "error");
+                                        }} 
+                                        className="w-full text-left p-2.5 rounded-xl bg-black/40 hover:bg-white/5 border border-white/10 text-xs font-mono text-white/80 transition-all flex items-center gap-2.5"
+                                    >
+                                        <span className="text-gold">📡</span> Diagnostik Jaringan Supabase
+                                    </button>
                                 </div>
-                            </div>
-                        </section>
+                            </section>
 
-                        {/* GAME UI */}
-                        {/* SISTEM & MAINTENANCE */}
-                        <section className="space-y-4">
-                            <div className="flex items-center gap-2 border-b border-white/10 pb-2">
-                                <span className="text-gold text-lg">⚙️</span>
-                                <h3 className="text-sm font-bold text-white uppercase tracking-widest">Sistem & Maintenance</h3>
-                            </div>
-                            
-                            <div className="bg-white/5 rounded-xl p-4 space-y-3 border border-white/5">
-                                {isIOS && (
-                                    <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-sm text-blue-300 flex items-center gap-3">
-                                        <span className="text-xl">📱</span>
-                                        <span>Untuk pengalaman terbaik di iOS, tap ikon Share lalu pilih <strong>Add to Home Screen</strong>.</span>
-                                    </div>
-                                )}
-                                
-                                <button onClick={async () => {
-                                    if (deferredPrompt) {
-                                        deferredPrompt.prompt();
-                                        const { outcome } = await deferredPrompt.userChoice;
-                                        if (outcome === 'accepted') setDeferredPrompt(null);
-                                    } else {
-                                        showToast("Gunakan menu browser untuk install (Add to Home Screen)", "info");
-                                    }
-                                }} className="w-full text-left p-3 rounded-lg bg-black/50 hover:bg-white/10 border border-white/10 text-sm transition-colors flex items-center gap-3">
-                                    <span className="text-lg">⬇️</span> Install Aplikasi (PWA)
-                                </button>
-                                
-                                <button onClick={() => {
-                                    showToast("Membersihkan cache...", "info");
-                                    if ('serviceWorker' in navigator) {
-                                        caches.keys().then(names => {
-                                            for (let name of names) caches.delete(name);
-                                        });
-                                    }
-                                    setTimeout(() => window.location.reload(), 1000);
-                                }} className="w-full text-left p-3 rounded-lg bg-black/50 hover:bg-white/10 border border-white/10 text-sm transition-colors flex items-center gap-3">
-                                    <span className="text-lg">🧹</span> Bersihkan System Cache
-                                </button>
-                                
-                                <button onClick={() => {
-                                    const status = connStatus === 'ONLINE' ? "Koneksi Stabil" : "Koneksi Bermasalah";
-                                    showToast(`Status: ${status}`, connStatus === 'ONLINE' ? "success" : "error");
-                                }} className="w-full text-left p-3 rounded-lg bg-black/50 hover:bg-white/10 border border-white/10 text-sm transition-colors flex items-center gap-3">
-                                    <span className="text-lg">📡</span> Cek Status Koneksi
-                                </button>
-                            </div>
-                        </section>
+                            {/* ZONA MERAH */}
+                            <section className="space-y-3 pt-2">
+                                <div className="flex items-center gap-2 border-b border-red-500/20 pb-2">
+                                    <Trash2 className="w-4 h-4 text-red-400" />
+                                    <h3 className="text-xs font-mono font-bold text-red-400/60 uppercase tracking-widest">Zona Bahaya</h3>
+                                </div>
+                                <div className="bg-red-500/[0.02] border border-red-500/10 rounded-2xl p-4 space-y-2.5">
+                                    <button 
+                                        onClick={() => {
+                                            setShowMenu(false);
+                                            setShowDeleteConfirmModal(true);
+                                        }} 
+                                        className="w-full p-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-mono font-semibold transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" /> Bersihkan Seluruh Chat Room
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={() => {
+                                            if (window.confirm("Apakah Anda yakin ingin melakukan total reset identitas Anda?")) {
+                                                localStorage.clear();
+                                                sessionStorage.clear();
+                                                window.location.reload();
+                                            }
+                                        }} 
+                                        className="w-full p-2.5 rounded-xl bg-black/30 hover:bg-red-500/10 border border-white/5 text-white/50 hover:text-red-400 text-xs font-mono transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <LogOut className="w-3.5 h-3.5" /> Keluar & Hapus Identitas
+                                    </button>
+                                </div>
+                            </section>
 
-                        {/* DANGER ZONE */}
-                        <section className="space-y-4 pt-4">
-                            <div className="flex items-center gap-2 border-b border-red-500/30 pb-2">
-                                <span className="text-red-500 text-lg">⚠️</span>
-                                <h3 className="text-sm font-bold text-red-500 uppercase tracking-widest">Zona Berbahaya</h3>
+                            <div className="pt-6 text-center">
+                                <p className="text-[9px] text-white/10 uppercase tracking-[4px] font-mono">Oracle App v17.11</p>
+                                <p className="text-[8px] text-white/5 font-mono">The Refinement Suite</p>
                             </div>
-                            
-                            <div className="bg-red-500/5 rounded-xl p-4 space-y-3 border border-red-500/20">
-                                <button onClick={() => {
-                                    setShowMenu(false);
-                                    setShowDeleteConfirmModal(true);
-                                }} className="w-full p-3 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-bold transition-colors flex items-center justify-center gap-2">
-                                    🗑️ Hapus Seluruh Riwayat Pesan (Chaos Mode)
-                                </button>
-                                
-                                <button onClick={() => {
-                                    if (window.confirm("Apakah Anda yakin ingin mereset identitas? Anda akan diminta memasukkan nama dan avatar baru.")) {
-                                        localStorage.clear();
-                                        sessionStorage.clear();
-                                        window.location.reload();
-                                    }
-                                }} className="w-full p-3 rounded-lg bg-black/50 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white text-sm transition-colors flex items-center justify-center gap-2">
-                                    🚪 Keluar & Reset Identitas
-                                </button>
-                            </div>
-                        </section>
-
-                        <div className="pt-8 pb-4 text-center">
-                            <p className="text-[10px] text-white/20 uppercase tracking-[5px] font-mystic">Oracle App v17.11</p>
-                            <p className="text-[9px] text-white/10 mt-1">The Refinement Update</p>
                         </div>
-                    </div>
                     </motion.div>
                 )}
             </AnimatePresence>
+            <CosmicOracleModal 
+                isOpen={showOracleModal}
+                onClose={() => setShowOracleModal(false)}
+                onSendProphecy={handleSendOracleProphecy}
+                username={username}
+                room={currentRoom}
+            />
             {showLeaderboard && (
                 <Leaderboard onClose={() => setShowLeaderboard(false)} />
             )}

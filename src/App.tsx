@@ -191,14 +191,15 @@ const specialCardDetails: Record<string, {
         emoji: '⚔️',
         animation: {
             animate: {
-                scale: [0.8, 1.1, 1],
-                y: [0, -10, 0],
+                scale: [0.8, 1.3, 0.95, 1],
+                y: [50, -35, 5, 0],
+                rotate: [0, -12, 12, 0],
             },
             transition: {
                 type: 'spring',
-                damping: 10,
-                stiffness: 150,
-                duration: 0.6
+                damping: 12,
+                stiffness: 220,
+                duration: 0.95
             }
         },
         particleColor: 'bg-red-500'
@@ -207,19 +208,20 @@ const specialCardDetails: Record<string, {
         title: 'BURNING ATTACK +5',
         description: 'Pemain berikutnya harus mengambil 5 kartu!',
         gradient: 'from-orange-600/50 via-red-600/40 to-yellow-600/30 border-orange-500 animate-pulse',
-        glowColor: 'rgba(249, 115, 22, 0.6)',
+        glowColor: 'rgba(249, 115, 22, 0.7)',
         shimmerClass: 'bg-orange-500/20',
         emoji: '🔥',
         animation: {
             animate: {
-                scale: [0.5, 1.25, 1],
-                rotate: [0, 5, -5, 0],
+                scale: [0.3, 1.45, 0.9, 1.05, 1],
+                rotate: [0, 18, -18, 8, -8, 0],
+                y: [80, -40, 10, 0],
             },
             transition: {
                 type: 'spring',
-                damping: 8,
-                stiffness: 200,
-                duration: 0.8
+                damping: 7,
+                stiffness: 240,
+                duration: 1.1
             }
         },
         particleColor: 'bg-orange-500'
@@ -228,16 +230,17 @@ const specialCardDetails: Record<string, {
         title: 'DIMENSION SHIFT: FLIP!',
         description: 'Balik sisi tumpukan kartu sekarang!',
         gradient: 'from-indigo-600/40 via-purple-600/40 to-pink-600/30 border-purple-500',
-        glowColor: 'rgba(168, 85, 247, 0.5)',
+        glowColor: 'rgba(168, 85, 247, 0.6)',
         shimmerClass: 'bg-purple-500/20',
         emoji: '🌀',
         animation: {
             animate: {
-                rotateY: [0, 180, 360],
-                scale: [0.8, 1.1, 1],
+                rotateY: [0, 180, 360, 540, 720],
+                scale: [0.8, 1.35, 0.75, 1.1, 1],
+                rotateZ: [0, 15, -15, 0]
             },
             transition: {
-                duration: 1.2,
+                duration: 1.5,
                 ease: 'easeInOut',
             }
         },
@@ -252,12 +255,13 @@ const specialCardDetails: Record<string, {
         emoji: '❄️',
         animation: {
             animate: {
-                scale: [0.8, 1.05, 1],
-                x: [-15, 10, -5, 2, 0],
+                scale: [0.8, 1.2, 0.9, 1],
+                x: [-180, 25, -8, 0],
+                skewX: [-20, 12, -4, 0]
             },
             transition: {
-                duration: 0.7,
-                ease: 'easeOut'
+                duration: 0.9,
+                ease: [0.16, 1, 0.3, 1]
             }
         },
         particleColor: 'bg-sky-300'
@@ -271,14 +275,13 @@ const specialCardDetails: Record<string, {
         emoji: '❄️⚔️',
         animation: {
             animate: {
-                scale: [0.8, 1.15, 1],
-                y: [-20, 0],
+                scale: [0.8, 1.35, 0.85, 1.1, 1],
+                y: [-120, 15, -5, 0],
+                rotateY: [0, 180, 360]
             },
             transition: {
-                type: 'spring',
-                damping: 10,
-                stiffness: 120,
-                duration: 0.8
+                duration: 1.1,
+                ease: 'easeInOut'
             }
         },
         particleColor: 'bg-cyan-400'
@@ -287,17 +290,17 @@ const specialCardDetails: Record<string, {
         title: 'TEMPORAL FLUX: REVERSE',
         description: 'Balikkan arah putaran permainan!',
         gradient: 'from-emerald-600/30 to-teal-600/30 border-emerald-400',
-        glowColor: 'rgba(52, 211, 153, 0.4)',
+        glowColor: 'rgba(52, 211, 153, 0.5)',
         shimmerClass: 'bg-emerald-500/10',
         emoji: '🔄',
         animation: {
             animate: {
-                rotate: [0, -180, -360],
-                scale: [0.8, 1.05, 1],
+                rotate: [0, -360, -720],
+                scale: [0.8, 1.25, 0.9, 1.05, 1],
             },
             transition: {
-                duration: 0.9,
-                ease: 'easeInOut'
+                duration: 1.2,
+                ease: [0.34, 1.56, 0.64, 1]
             }
         },
         particleColor: 'bg-emerald-400'
@@ -306,17 +309,18 @@ const specialCardDetails: Record<string, {
         title: 'AURORA WILDCARD',
         description: 'Pilih warna baru yang kamu inginkan!',
         gradient: 'from-red-500/20 via-green-500/20 to-blue-500/20 border-white',
-        glowColor: 'rgba(255, 255, 255, 0.4)',
+        glowColor: 'rgba(255, 255, 255, 0.5)',
         shimmerClass: 'bg-gradient-to-r from-red-500/10 via-yellow-500/10 to-blue-500/10',
         emoji: '🔮',
         animation: {
             animate: {
-                y: [15, -4, 0],
-                scale: [0.9, 1.05, 1],
+                scale: [0.6, 1.4, 0.85, 1.1, 1],
+                rotateZ: [0, 360],
+                rotateY: [0, 180, 360],
             },
             transition: {
-                duration: 0.6,
-                ease: 'easeOut'
+                duration: 1.3,
+                ease: 'easeInOut'
             }
         },
         particleColor: 'bg-pink-400'
@@ -325,16 +329,17 @@ const specialCardDetails: Record<string, {
         title: 'TEMPEST WILD DRAW 2',
         description: 'Pilih warna & pemain berikutnya ambil 2 kartu!',
         gradient: 'from-yellow-500/30 via-pink-500/20 to-indigo-500/30 border-yellow-400',
-        glowColor: 'rgba(250, 204, 21, 0.5)',
+        glowColor: 'rgba(250, 204, 21, 0.6)',
         shimmerClass: 'bg-yellow-500/20 border-yellow-400',
         emoji: '⚡',
         animation: {
             animate: {
-                scale: [0.8, 1.1, 1],
-                rotateZ: [-5, 5, -3, 3, 0],
+                scale: [0.8, 1.3, 0.9, 1.05, 1],
+                rotateZ: [-15, 15, -10, 10, -5, 5, 0],
+                y: [30, -20, 0]
             },
             transition: {
-                duration: 0.8,
+                duration: 1.0,
                 ease: 'easeInOut'
             }
         },
@@ -344,16 +349,17 @@ const specialCardDetails: Record<string, {
         title: 'COSMIC WILD DRAW COLOR',
         description: 'Tarik kartu sampai warna pilihan cocok!',
         gradient: 'from-purple-600/40 via-red-500/20 to-blue-600/40 border-purple-400',
-        glowColor: 'rgba(192, 132, 252, 0.5)',
+        glowColor: 'rgba(192, 132, 252, 0.6)',
         shimmerClass: 'bg-purple-500/20',
         emoji: '🌌',
         animation: {
             animate: {
-                scale: [0.8, 1.15, 1],
-                skewX: [-5, 5, 0],
+                scale: [0.8, 1.35, 0.85, 1.1, 1],
+                skewX: [-15, 15, -5, 5, 0],
+                rotateY: [0, 360]
             },
             transition: {
-                duration: 0.9,
+                duration: 1.4,
                 ease: 'easeInOut'
             }
         },
@@ -806,6 +812,7 @@ function App() {
         return safeStorage.get('oracle_unlocked') === 'true' ? 'LOBBY' : 'SECURITY';
     });
 
+    const [isTransitioningTo, setIsTransitioningTo] = useState<'A' | 'B' | null>(null);
     const [currentRoom, setCurrentRoom] = useState<'A' | 'B'>('A');
     const currentRoomRef = useRef<'A' | 'B'>('A');
     useEffect(() => { currentRoomRef.current = currentRoom; }, [currentRoom]);
@@ -848,6 +855,9 @@ function App() {
     const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
     const [showPatchNotes, setShowPatchNotes] = useState(() => {
         try { return safeStorage.get('patch_v17_11_seen') !== 'true'; } catch { return false; }
+    });
+    const [showLobbyUpdate, setShowLobbyUpdate] = useState(() => {
+        try { return safeStorage.get('lobby_update_seen') !== 'true'; } catch { return true; }
     });
     const [chaosPinInput, setChaosPinInput] = useState('');
     const [isChaosUnlocked, setIsChaosUnlocked] = useState(() => {
@@ -1018,7 +1028,11 @@ function App() {
                     if (currentRoomRef.current === 'B' && !isRoomB) return;
                     if (currentRoomRef.current === 'A' && isRoomB) return;
 
-                    setMessages(prev => [...prev, newMsg]);
+                    setMessages(prev => {
+                        if (prev.some(m => m.id === newMsg.id)) return prev;
+                        const filtered = prev.filter(m => !(m.id < 0 && m.teks === newMsg.teks));
+                        return [...filtered, newMsg];
+                    });
                     
                     // Decrypt nama for notifications and effects
                     let rawNama = newMsg.nama;
@@ -1111,6 +1125,11 @@ function App() {
                         if (currentRoomRef.current === 'B' && !isRoomB) return;
                         if (currentRoomRef.current === 'A' && isRoomB) return;
                         setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
+                    } else if (event.type === 'DELETE') {
+                        const deletedId = event.payload.old?.id;
+                        if (deletedId) {
+                            setMessages(prev => prev.filter(m => m.id !== deletedId));
+                        }
                     } else if (event.type === 'TYPING') {
                         let typer = event.payload.payload.user;
                         const isRoomB = typer.startsWith('ROOM_B|');
@@ -1326,10 +1345,28 @@ function App() {
         const encryptedNama = CryptoUtils.encrypt('ORACLE', encKey);
         const finalNama = currentRoomRef.current === 'B' ? `ROOM_B|${encryptedNama}` : `ROOM_A|${encryptedNama}`;
 
+        const optimisticMsg = {
+            id: -Date.now(),
+            nama: finalNama,
+            teks: finalTeks,
+            created_at: new Date().toISOString(),
+            is_read: true,
+        };
+        setMessages(prev => [...prev, optimisticMsg]);
+
         setFateMode(false);
-        supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]).catch(err => {
-            console.error("Gagal mengirim takdir:", err);
-            showToast("Gagal mengirim takdir ke obrolan", "error");
+        supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]).select().then(({ data, error }) => {
+            if (error) {
+                console.error("Gagal mengirim takdir:", error);
+                setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+                showToast("Gagal mengirim takdir ke obrolan", "error");
+            } else if (data && data[0]) {
+                setMessages(prev => {
+                    if (prev.some(m => m.id === data[0].id)) return prev;
+                    const filtered = prev.filter(m => m.id !== optimisticMsg.id && !(m.id < 0 && m.teks === data[0].teks));
+                    return [...filtered, data[0]];
+                });
+            }
         });
     };
     const drawRemiCard = () => { return { suit: 'hearts', value: 'A' }; };
@@ -1380,7 +1417,13 @@ function App() {
                 }
                 const encKey = getEncKey();
                 const finalTeks = CryptoUtils.encrypt(teks, encKey);
-                await supabaseClient.from('Pesan').update({ teks: finalTeks }).eq('id', editingMsg.id);
+                supabaseClient.from('Pesan').update({ teks: finalTeks }).eq('id', editingMsg.id).select().then(({ data, error }) => {
+                    if (error) {
+                        console.error("Gagal update pesan:", error);
+                    } else if (data && data[0]) {
+                        setMessages(prev => prev.map(m => m.id === data[0].id ? data[0] : m));
+                    }
+                });
                 setEditingMsg(null);
                 showToast("Pesan diperbarui", "success");
             } else {
@@ -1389,7 +1432,29 @@ function App() {
                 const encryptedNama = CryptoUtils.encrypt(nama, encKey);
                 const finalNama = currentRoomRef.current === 'B' ? `ROOM_B|${encryptedNama}` : `ROOM_A|${encryptedNama}`;
                 forceScrollRef.current = true;
-                await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
+
+                const optimisticMsg = {
+                    id: -Date.now(),
+                    nama: finalNama,
+                    teks: finalTeks,
+                    created_at: new Date().toISOString(),
+                    is_read: true,
+                };
+                setMessages(prev => [...prev, optimisticMsg]);
+
+                supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]).select().then(({ data, error }) => {
+                    if (error) {
+                        console.error("Gagal mengirim pesan:", error);
+                        setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+                        showToast("Gagal mengirim pesan", "error");
+                    } else if (data && data[0]) {
+                        setMessages(prev => {
+                            if (prev.some(m => m.id === data[0].id)) return prev;
+                            const filtered = prev.filter(m => m.id !== optimisticMsg.id && !(m.id < 0 && m.teks === data[0].teks));
+                            return [...filtered, data[0]];
+                        });
+                    }
+                });
             }
 
             setInputText('');
@@ -1429,7 +1494,27 @@ function App() {
         const encryptedNama = CryptoUtils.encrypt('ORACLE', encKey);
         const finalNama = currentRoomRef.current === 'B' ? `ROOM_B|${encryptedNama}` : `ROOM_A|${encryptedNama}`;
 
-        await supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]);
+        const optimisticMsg = {
+            id: -Date.now(),
+            nama: finalNama,
+            teks: finalTeks,
+            created_at: new Date().toISOString(),
+            is_read: true,
+        };
+        setMessages(prev => [...prev, optimisticMsg]);
+
+        supabaseClient.from('Pesan').insert([{ nama: finalNama, teks: finalTeks }]).select().then(({ data, error }) => {
+            if (error) {
+                console.error("Gagal mengirim pesan boardgame:", error);
+                setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
+            } else if (data && data[0]) {
+                setMessages(prev => {
+                    if (prev.some(m => m.id === data[0].id)) return prev;
+                    const filtered = prev.filter(m => m.id !== optimisticMsg.id && !(m.id < 0 && m.teks === data[0].teks));
+                    return [...filtered, data[0]];
+                });
+            }
+        });
         setFateMode(false);
     };
 
@@ -1698,29 +1783,288 @@ function App() {
     );
 
     if (layer === 'LOBBY') return (
-        <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 to-zinc-900 flex flex-col items-center justify-center text-center p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black overflow-y-auto flex items-center justify-center p-4 md:p-8">
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                <div className="absolute top-1/4 -left-20 w-80 h-80 rounded-full bg-red-900/10 blur-[100px] animate-pulse" />
+                <div className="absolute bottom-1/4 -right-20 w-80 h-80 rounded-full bg-purple-900/10 blur-[100px] animate-pulse" style={{ animationDelay: '1.5s' }} />
+            </div>
+
             <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
+                initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="bg-white/5 p-8 rounded-3xl border border-white/10 backdrop-blur-xl shadow-2xl flex flex-col items-center w-full max-w-sm"
+                transition={{ duration: 0.5 }}
+                className="relative z-10 w-full max-w-md bg-white/[0.02] border border-white/10 rounded-[32px] backdrop-blur-2xl shadow-[0_0_60px_rgba(0,0,0,0.8)] overflow-hidden p-6 md:p-8 flex flex-col justify-between gap-6"
             >
-                <div className="w-20 h-20 bg-gold/20 rounded-full flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(212,175,55,0.3)]">
-                    <span className="text-4xl">🏛️</span>
+                <div>
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="w-10 h-10 bg-gold/15 rounded-xl flex items-center justify-center border border-gold/30 shadow-[0_0_15px_rgba(212,175,55,0.2)]">
+                            <span className="text-xl">🏛️</span>
+                        </div>
+                        <div>
+                            <h1 className="font-header text-lg text-gold tracking-widest uppercase font-bold">ORACLE GATE</h1>
+                            <p className="text-[10px] text-zinc-500 uppercase tracking-widest">Dimension Bridge V2.1</p>
+                        </div>
+                    </div>
+
+                    {/* Interactive Identity Card */}
+                    <div className="bg-white/[0.03] border border-white/5 rounded-2xl p-4 mb-6 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-2 opacity-30 group-hover:opacity-100 transition-opacity">
+                            <span className="text-[9px] text-gold uppercase tracking-wider">Active User</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-full border-2 flex items-center justify-center text-3xl bg-zinc-900/80 shadow-md relative group-hover:scale-105 transition-transform overflow-hidden" style={{ borderColor: userColor }}>
+                                {(avatar.startsWith('http') || avatar.startsWith('data:image')) ? (
+                                    <img src={avatar} alt="avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                ) : (
+                                    <span>{avatar}</span>
+                                )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <input 
+                                        type="text" 
+                                        value={username} 
+                                        onChange={e => {
+                                            setUsername(e.target.value);
+                                            safeStorage.set('oracle_user', e.target.value);
+                                        }}
+                                        className="bg-transparent text-white font-bold text-base outline-none border-b border-transparent focus:border-gold/30 w-full"
+                                        placeholder="Nama Anda"
+                                    />
+                                </div>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <div className="w-2 h-2 rounded-full animate-ping" style={{ backgroundColor: userColor }} />
+                                    <span className="text-xs text-zinc-400 font-mono tracking-wide">Sync Connected</span>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Color Theme Selector Inline Upgrade */}
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5 text-[10px] text-zinc-400">
+                            <span className="uppercase tracking-widest font-mono">Customize Aura:</span>
+                            <div className="flex items-center gap-2">
+                                <div className="relative w-5 h-5 rounded-full overflow-hidden border border-white/20">
+                                    <input type="color" value={userColor} onChange={e => {
+                                        setUserColor(e.target.value);
+                                        safeStorage.set('oracle_color', e.target.value);
+                                    }} className="absolute -inset-2 cursor-pointer w-10 h-10" />
+                                </div>
+                                <button onClick={() => setLayer('NAME')} className="text-[9px] uppercase tracking-wider text-gold font-bold hover:underline">
+                                    Ganti Avatar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p className="text-zinc-400 text-xs mb-6 leading-relaxed">Pilihlah portal dimensi di bawah ini untuk memulai obrolan terenkripsi Anda.</p>
+
+                    {/* Interactive Dimensi Buttons */}
+                    <div className="flex flex-col gap-4">
+                        <button 
+                            onClick={() => {
+                                setIsTransitioningTo('A');
+                                setTimeout(() => {
+                                    setCurrentRoom('A');
+                                    setLayer('MAIN');
+                                    setIsTransitioningTo(null);
+                                }, 1000);
+                            }} 
+                            className="w-full p-5 bg-gradient-to-r from-white/[0.02] to-white/[0.04] border border-white/10 text-white font-bold rounded-2xl hover:bg-white/10 hover:border-red-500/50 hover:shadow-[0_0_25px_rgba(239,68,68,0.15)] group hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all tracking-widest uppercase flex items-center justify-between text-left"
+                        >
+                            <div>
+                                <span className="block font-header text-sm text-white group-hover:text-red-400 transition-colors">DIMENSI SISI A</span>
+                                <span className="text-[9px] text-zinc-400 tracking-wider lowercase block mt-0.5 font-sans font-normal">lumina / classic secure chat layout</span>
+                            </div>
+                            <span className="text-red-500 text-xl group-hover:translate-x-1 transition-transform">→</span>
+                        </button>
+                        
+                        <button 
+                            onClick={() => {
+                                setIsTransitioningTo('B');
+                                setTimeout(() => {
+                                    setCurrentRoom('B');
+                                    setLayer('MAIN');
+                                    setIsTransitioningTo(null);
+                                }, 1000);
+                            }} 
+                            className="w-full p-5 bg-gradient-to-r from-white/[0.02] to-white/[0.04] border border-white/10 text-white font-bold rounded-2xl hover:bg-white/10 hover:border-purple-500/50 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)] group hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all tracking-widest uppercase flex items-center justify-between text-left"
+                        >
+                            <div>
+                                <span className="block font-header text-sm text-white group-hover:text-purple-400 transition-colors">DIMENSI SISI B</span>
+                                <span className="text-[9px] text-zinc-400 tracking-wider lowercase block mt-0.5 font-sans font-normal">nox / immersive gaming & chaos chaos</span>
+                            </div>
+                            <span className="text-purple-500 text-xl group-hover:translate-x-1 transition-transform">→</span>
+                        </button>
+                    </div>
                 </div>
-                <h2 className="text-2xl font-header text-gold mb-2 tracking-widest">LOBBY</h2>
-                <p className="text-zinc-400 mb-8 text-sm">Pilih dimensi yang ingin Anda masuki.</p>
-                
-                <div className="w-full flex flex-col gap-4">
-                    <button onClick={() => { setCurrentRoom('A'); setLayer('MAIN'); }} className="w-full px-8 py-4 bg-white/5 border border-white/10 text-white font-bold rounded-xl hover:bg-white/10 hover:border-gold/50 hover:shadow-[0_0_25px_rgba(212,175,55,0.2)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase flex items-center justify-between">
-                        <span>Side A</span>
-                        <span className="text-gold">→</span>
-                    </button>
-                    <button onClick={() => { setCurrentRoom('B'); setLayer('MAIN'); }} className="w-full px-8 py-4 bg-white/5 border border-white/10 text-white font-bold rounded-xl hover:bg-white/10 hover:border-gold/50 hover:shadow-[0_0_25px_rgba(212,175,55,0.2)] hover:scale-105 active:scale-95 transition-all tracking-widest uppercase flex items-center justify-between">
-                        <span>Side B</span>
-                        <span className="text-gold">→</span>
+
+                <div className="mt-8 pt-4 border-t border-white/5 flex flex-col items-center gap-3">
+                    <div className="text-[9px] text-zinc-600 font-mono text-center uppercase">
+                        ORACLE SECURITY PROTOCOL • HIGH ENCRYPTED END-TO-END
+                    </div>
+                    <button 
+                        onClick={() => setShowPatchNotes(true)}
+                        className="text-[10px] text-emerald-400/80 hover:text-emerald-300 transition-colors font-mono tracking-widest uppercase flex items-center gap-1.5 hover:underline"
+                    >
+                        <span>📢</span> Lihat Log Update V2.1
                     </button>
                 </div>
             </motion.div>
+
+            {/* Floating Patch Notes Modal Overlay */}
+            <AnimatePresence>
+                {showPatchNotes && (
+                    <div 
+                        className="fixed inset-0 bg-black/85 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto"
+                        onClick={() => {
+                            setShowPatchNotes(false);
+                            safeStorage.set('patch_v17_11_seen', 'true');
+                        }}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, y: 15 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 15 }}
+                            transition={{ duration: 0.3 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="relative z-10 w-full max-w-lg bg-zinc-900 border border-emerald-500/30 rounded-3xl p-6 md:p-8 shadow-[0_0_50px_rgba(16,185,129,0.2)] overflow-hidden flex flex-col my-8"
+                        >
+                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500/20 via-emerald-500 to-emerald-500/20" />
+                            
+                            {/* Close Button "X" */}
+                            <button 
+                                onClick={() => {
+                                    setShowPatchNotes(false);
+                                    safeStorage.set('patch_v17_11_seen', 'true');
+                                }}
+                                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition-colors text-sm"
+                                title="Tutup"
+                            >
+                                ✕
+                            </button>
+
+                            <div className="mb-6 pr-8">
+                                <div className="flex items-center gap-2">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    <h3 className="font-header text-sm text-emerald-400 tracking-widest uppercase font-bold">MAJOR SYSTEM UPDATE (ORACLE V2)</h3>
+                                </div>
+                                <p className="text-[9px] text-zinc-500 font-mono uppercase tracking-widest mt-1">Version 17.11 - Active Patches</p>
+                            </div>
+
+                            <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-1 select-none custom-scrollbar">
+                                {/* Card 1: Animasi Dynamic Spesial */}
+                                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl hover:border-white/10 transition-colors">
+                                    <div className="flex gap-3">
+                                        <span className="text-xl">✨</span>
+                                        <div>
+                                            <h4 className="text-xs uppercase tracking-wider text-gold font-bold font-header">New Kinetic Card Animations</h4>
+                                            <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                                                Sistem penarikan kartu spesial (<code className="text-red-400 bg-red-400/10 px-1 rounded">+1</code>, <code className="text-orange-400 bg-orange-400/10 px-1 rounded">+5</code>, <code className="text-purple-400 bg-purple-400/10 px-1 rounded">Flip</code>, <code className="text-indigo-400 bg-indigo-400/10 px-1 rounded">Skip</code>, <code className="text-emerald-400 bg-emerald-400/10 px-1 rounded">Reverse</code>, & <code className="text-pink-400 bg-pink-400/10 px-1 rounded">Wildcard</code>) kini dilengkapi dengan efek animasi transisi 3D, shimmering beam, ledakan partikel fuchsia-gold, dan backglow berpendar yang dinamis!
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Card 2: Safe Flow & Anti-Lag Engine */}
+                                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl hover:border-white/10 transition-colors">
+                                    <div className="flex gap-3">
+                                        <span className="text-xl">⚡</span>
+                                        <div>
+                                            <h4 className="text-xs uppercase tracking-wider text-gold font-bold font-header">Non-Blocking Particle Engine</h4>
+                                            <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                                                Animasi partikel dan vibrator dikonfigurasi secara asinkron. Animasi tidak akan memblokir aktivitas ketik ataupun merusak jalannya permainan kartu Anda—tetap mulus dan responsif di perangkat mobile maupun desktop.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Card 3: Backend & Sync Optimizations */}
+                                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl hover:border-white/10 transition-colors">
+                                    <div className="flex gap-3">
+                                        <span className="text-xl">⚙️</span>
+                                        <div>
+                                            <h4 className="text-xs uppercase tracking-wider text-gold font-bold font-header">Supabase Connection Manager v2</h4>
+                                            <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                                                Penanganan pengiriman takdir (Oracle/Draw) kini didelegasikan menggunakan antrian asinkron non-blocking yang diproteksi interseptor error. Menghindari crash atau delay ketika jaringan tidak stabil.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Card 4: Modernized Minimalist Frontend Sizing */}
+                                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl hover:border-white/10 transition-colors">
+                                    <div className="flex gap-3">
+                                        <span className="text-xl">🎨</span>
+                                        <div>
+                                            <h4 className="text-xs uppercase tracking-wider text-gold font-bold font-header">Aesthetics Re-fresh & Typography</h4>
+                                            <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                                                Memperbaiki visual kaku di panel input. Teks diatur menggunakan Inter dan display Space Grotesk halus dengan tracking-widest. Spacing dinamis memberikan kesan elegan, misterius, dan modern.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 pt-4 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                <span className="text-[10px] text-zinc-500">SYSTEM OPTIMIZED • STABLE</span>
+                                <button
+                                    onClick={() => {
+                                        setShowPatchNotes(false);
+                                        safeStorage.set('patch_v17_11_seen', 'true');
+                                    }}
+                                    className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-[10px] uppercase tracking-widest font-bold rounded-xl transition-colors whitespace-nowrap"
+                                >
+                                    Mengerti & Tutup
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Portal Transition Overlay */}
+            <AnimatePresence>
+                {isTransitioningTo && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-zinc-950 overflow-hidden"
+                    >
+                        {/* 3D Spinning Oracle Dimension Vortex */}
+                        <motion.div
+                            animate={{ 
+                                rotate: 360,
+                                scale: [1, 2, 12],
+                            }}
+                            transition={{ duration: 1.0, ease: "easeInOut" }}
+                            className={`w-72 h-72 rounded-full blur-[80px] opacity-70 ${isTransitioningTo === 'A' ? 'bg-gradient-to-r from-red-600 via-amber-500 to-indigo-700' : 'bg-gradient-to-r from-purple-600 via-fuchsia-500 to-sky-700'}`}
+                        />
+                        
+                        {/* Portal Ring Overlay */}
+                        <motion.div
+                            initial={{ scale: 0.3, rotate: 0, opacity: 0 }}
+                            animate={{ scale: [0.3, 2, 5], rotate: [0, 180, 360], opacity: [0, 0.8, 0] }}
+                            transition={{ duration: 1.0, ease: "easeOut" }}
+                            className="absolute w-96 h-96 border-4 border-dashed rounded-full pointer-events-none"
+                            style={{ borderColor: isTransitioningTo === 'A' ? '#EF4444' : '#A855F7' }}
+                        />
+
+                        {/* Mystical Text */}
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: [0.9, 1.05, 1.2], opacity: [0, 1, 0] }}
+                            transition={{ duration: 0.9, ease: "easeInOut" }}
+                            className="absolute text-center px-4"
+                        >
+                            <h2 className="font-header text-xl md:text-3xl tracking-[10px] text-white font-bold uppercase mb-3 text-gold">
+                                {isTransitioningTo === 'A' ? 'MEMASUKI DIMENSI LUMINA' : 'MEMASUKI DIMENSI NOX'}
+                            </h2>
+                            <p className="font-mono text-xs tracking-widest text-white/50 uppercase opacity-80">Menggeser Koordinat Realitas...</p>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 

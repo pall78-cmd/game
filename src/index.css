@@ -1,8 +1,11 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
-  --font-header: "Cinzel", serif;
+  --font-sans: "Outfit", "Inter", "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-header: "Space Grotesk", "Cinzel", serif;
+  --font-space: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
   --font-mystic: "Cormorant Garamond", serif;
   --color-gold: #D4AF37;
   --color-void: #050508;
@@ -109,21 +112,28 @@
     font-family: var(--font-mystic);
   }
 
-  /* Message Bubble Styling */
+  /* Message Bubble Styling with premium glassmorphism and depth */
   .message-content {
-    padding: 8px 12px;
-    margin-bottom: 2px;
-    border-radius: 12px;
-    box-shadow: 0 1px 0.5px rgba(0,0,0,0.13);
+    padding: 10px 14px;
+    margin-bottom: 4px;
+    border-radius: 16px;
     position: relative;
+    backdrop-filter: blur(12px) saturate(120%);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: all 0.2s ease-in-out;
   }
 
   .message-content.is-me {
-    border-top-right-radius: 0;
+    border-top-right-radius: 3px;
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.15), rgba(212, 175, 55, 0.04));
+    border-color: rgba(212, 175, 55, 0.25);
   }
 
   .message-content.is-other {
-    border-top-left-radius: 0;
+    border-top-left-radius: 3px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.02));
+    border-color: rgba(255, 255, 255, 0.12);
   }
 
   /* Avatar Animation */

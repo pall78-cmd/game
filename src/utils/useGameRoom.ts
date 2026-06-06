@@ -12,6 +12,21 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
     const engineRef = useRef<UnoEngine | TebakKataEngine | null>(null);
     const channelRef = useRef<any>(null);
 
+    const saveToDb = async (state: any) => {
+        if (!gameId || !state) return;
+        try {
+            await supabaseClient.from('boardgame_state').upsert({
+                match_id: gameId,
+                state: state,
+                initial_state: state,
+                metadata: { type: gameType, last_updated: new Date().toISOString() },
+                log: []
+            }, { onConflict: 'match_id' });
+        } catch (err) {
+            console.error("Gagal melakukan penulisan state game ke database:", err);
+        }
+    };
+
     // Keep isHost state synced in a ref for callbacks to avoid re-subscribing the channel
     const isHostRef = useRef(isHost);
     useEffect(() => {
@@ -20,6 +35,24 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
 
     useEffect(() => {
         if (!gameId) return;
+
+        const loadInitialState = async () => {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('boardgame_state')
+                    .select('state')
+                    .eq('match_id', gameId)
+                    .single();
+                if (!error && data && data.state) {
+                    setGameState(data.state);
+                    if (engineRef.current) {
+                        engineRef.current.state = data.state;
+                    }
+                }
+            } catch (err) {
+                console.error("Gagal mengambil state awal game dari database:", err);
+            }
+        };
 
         const channelName = `${gameType.toLowerCase()}-${gameId}`;
         const channel = supabaseClient.channel(channelName, {
@@ -62,6 +95,7 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
                         } else {
                             engine[action](args);
                         }
+                        saveToDb(engine.state);
                         channel.send({
                             type: 'broadcast',
                             event: 'state_update',
@@ -80,6 +114,7 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
             .subscribe(async (status) => {
                 if (status === 'SUBSCRIBED') {
                     await channel.track({ playerId: playerID, gameType, name: playerName });
+                    await loadInitialState();
                     channel.send({
                         type: 'broadcast',
                         event: 'request_state',
@@ -111,6 +146,7 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
                     const playerNames = players.map(p => p.name);
                     const engine = new UnoEngine(playerIds, playerNames);
                     engineRef.current = engine;
+                    saveToDb(engine.state);
                     channelRef.current?.send({
                         type: 'broadcast',
                         event: 'state_update',
@@ -120,6 +156,7 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
                 } else {
                     const engine = new TebakKataEngine(players.map(p => p.id));
                     engineRef.current = engine;
+                    saveToDb(engine.state);
                     channelRef.current?.send({
                         type: 'broadcast',
                         event: 'state_update',
@@ -146,6 +183,7 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
              const engine = engineRef.current as any;
              if (typeof engine[action] === 'function') {
                  engine[action](...args);
+                 saveToDb(engine.state);
                  channelRef.current?.send({
                      type: 'broadcast',
                      event: 'state_update',

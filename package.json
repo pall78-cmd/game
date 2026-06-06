@@ -13,6 +13,7 @@
     "lint": "echo 'Linter skipped'"
   },
   "dependencies": {
+    "@google/genai": "^2.8.0",
     "@supabase/supabase-js": "^2.48.1",
     "@tailwindcss/vite": "^4.2.0",
     "@types/express": "^5.0.6",

@@ -6,11 +6,12 @@ import { Server } from "socket.io";
 import storage from "node-persist";
 import multer from "multer";
 import fs from "fs";
+import { GoogleGenAI } from "@google/genai";
 
 async function startServer() {
     const app = express();
     const server = http.createServer(app);
-    const PORT = process.env.PORT || 3000;
+    const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
     await storage.init({ dir: '.data' });
 
@@ -34,6 +35,138 @@ async function startServer() {
     // API routes FIRST
     app.get("/api/health", (req, res) => {
         res.json({ status: "ok" });
+    });
+
+    const TAROT_DECK = [
+        { name: "The Fool (Sang Pengembara)", meaning: "Awal baru, spontanitas, petualangan tak terduga, kepolosan." },
+        { name: "The Magician (Sang Penyihir)", meaning: "Kekuatan kehendak, manifestasi, kepiawaian, fokus tinggi." },
+        { name: "The High Priestess (Pendeta Agung)", meaning: "Intuisi tinggi, rahasia batin, misteri, kesadaran spiritual." },
+        { name: "The Empress (Sang Permaisuri)", meaning: "Kelimpahan, kesuburan, cinta kasih, keindahan alam semesta." },
+        { name: "The Emperor (Sang Kaisar)", meaning: "Otoritas, perlindungan, figur kokoh, kestabilan emosi." },
+        { name: "The Hierophant (Sang Penasihat)", meaning: "Kebijaksanaan tradisi, pembelajaran spiritual, bimbingan batin." },
+        { name: "The Lovers (Dua Sejoli)", meaning: "Pilihan hati, harmoni hubungan, ketertarikan mendalam." },
+        { name: "The Chariot (Kereta Perang)", meaning: "Kemenangan lewat tekad, disiplin, mengatasi rintangan." },
+        { name: "Strength (Kekuatan Jiwa)", meaning: "Keberanian tenang, kesabaran, menjinakkan amarah, kekuatan batin." },
+        { name: "The Hermit (Sang Pertapa)", meaning: "Refleksi diri, pencarian kebenaran batin, keheningan." },
+        { name: "Wheel of Fortune (Roda Keberuntungan)", meaning: "Perubahan takdir, siklus kehidupan, keberuntungan mendadak." },
+        { name: "Justice (Keadilan Semesta)", meaning: "Keputusan adil, kejujuran batin, konsekuensi tindakan." },
+        { name: "The Hanged Man (Sang Tergantung)", meaning: "Sudut pandang baru, pengorbanan ikhlas, melepaskan kendali." },
+        { name: "Death (Kematian & Regenerasi)", meaning: "Akhir yang perlu, transformasi total, melepaskan masa lalu." },
+        { name: "Temperance (Keselarasan)", meaning: "Keseimbangan emosi, kesabaran, moderasi, kedamaian batin." },
+        { name: "The Devil (Sang Penggoda)", meaning: "Keterikatan material, godaan ego, bayang-bayang batin." },
+        { name: "The Tower (Menara Hancur)", meaning: "Goncangan mendadak, hancurnya ilusi, pencerahan radikal." },
+        { name: "The Star (Bintang Harapan)", meaning: "Harapan baru, kesembuhan spiritual, kedamaian pikiran." },
+        { name: "The Moon (Khayalan Malam)", meaning: "Ketakutan bawah sadar, ilusi, intuisi mimpi, kecemasan." },
+        { name: "The Sun (Terang Semesta)", meaning: "Kegembiraan murni, kesuksesan, kejelasan jiwa, vitalitas." },
+        { name: "Judgement (Kebangkitan)", meaning: "Panggilan jiwa, pengampunan, kebangkitan kedewasaan." },
+        { name: "The World (Semesta Raya)", meaning: "Pencapaian sempurna, integrasi hidup, kedamaian mutlak." }
+    ];
+
+    let aiClient: any = null;
+    function getGeminiClient() {
+        if (!aiClient) {
+            const key = process.env.GEMINI_API_KEY;
+            if (!key) {
+                throw new Error("GEMINI_API_KEY belum dikonfigurasi di panel Secrets.");
+            }
+            aiClient = new GoogleGenAI({
+                apiKey: key,
+                httpOptions: {
+                    headers: {
+                        'User-Agent': 'aistudio-build',
+                    }
+                }
+            });
+        }
+        return aiClient;
+    }
+
+    app.post("/api/oracle-tarot", async (req, res) => {
+        try {
+            const { username, question, ritual, room } = req.body;
+            if (!username) {
+                return res.status(400).json({ error: "Username wajib diisi." });
+            }
+
+            const ritualName = ritual || "tarot";
+            let prompt = "";
+            let cardSelected = "";
+
+            if (ritualName === "tarot") {
+                const randomCard = TAROT_DECK[Math.floor(Math.random() * TAROT_DECK.length)];
+                cardSelected = randomCard.name;
+                prompt = `Ritual: Penarikan Kartu Tarot Takdir.
+Kartu yang ditarik: ${randomCard.name} (maksud kartu: ${randomCard.meaning}).
+Nama pemanggil: ${username}.
+Pertanyaan/Misteri yang diajukan pemanggil: "${question || 'Mengharap petunjuk takdir'}".
+Ruang dimensi chat: Room ${room || 'A'}.
+
+Tolong buat teks ramalan mistis yang menjelaskan arti penarikan kartu ${randomCard.name} ini untuk dirinya. Hubungkan dengan pertanyaannya secara magis, puitis, puitis dan beri wejangan kosmik bijak singkat (maksimal 3-4 kalimat).`;
+            } else if (ritualName === "star") {
+                prompt = `Ritual: Pembacaan Rasi Bintang Harmoni.
+Nama pemanggil: ${username}.
+Misteri batin: "${question || 'Petunjuk arah jalan kehidupan'}".
+Ruang dimensi chat: Room ${room || 'A'}.
+
+Tolong buat ramalan astrologi mistis berdasarkan konstelasi bintang magis acak yang Anda ciptakan (misal: Rasi Bintang Phoenix, Rasi Serpens, dsb.) relevan dengan pertanyaan atau jalannya kehidupan mereka. Buat teks puitis, puitis dan puitis (maksimal 3-4 kalimat).`;
+            } else if (ritualName === "chat") {
+                prompt = `Interaksi Langsung: Pemanggil ${username} bertanya langsung kepada-mu dalam ruang dimensi chat Room ${room || 'A'}.
+Pertanyaan/Pernyataan batin: "${question || 'Menyapa keheningan takdir'}"
+
+Tolong berikan balasan langsung secara mistis, bijaksana, puitis, dan penuh metafora kosmos. Bimbing mereka atau jawab keresahan mereka (maksimal 3 kalimat).`;
+            } else {
+                prompt = `Ritual: Bisikan Semesta Sunyi.
+Nama pemanggil: ${username}.
+Keresahan batin: "${question || 'Ketenangan jiwa dan takdir'}".
+Ruang dimensi chat: Room ${room || 'A'}.
+
+Tolong sampaikan bisikan takdir semesta sunyi yang sangat puitis, puitis dan membawa kedamaian atau pencerahan magis terhadap batin mereka. (maksimal 3-4 kalimat).`;
+            }
+
+            const client = getGeminiClient();
+            const response = await client.models.generateContent({
+                model: "gemini-3.5-flash",
+                contents: prompt,
+                config: {
+                    systemInstruction: `Anda adalah ORACLE HARMONI, entitas mistis takdir penjaga gerbang dimensi waktu dan ruang chat Oracle.
+Tugas Anda adalah meramal nasib pemanggil dengan bahasa Indonesia yang sangat mistis, puitis, penuh kiasan kosmik, tetapi tetap memberikan nasihat bijaksana yang relevan.
+Gunakan gaya bahasa mistis puitis klasik yang anggun.
+Selalu sapa pemanggil menggunakan nama alias mereka dengan rasa hormat kosmik.
+Gaya penulisan:
+- Gunakan metafora alam, rasi bintang, waktu, dan dimensi takdir.
+- Jawab secara ringkas namun mendalam (maksimal 3-4 kalimat) agar pas dengan kartu takdir di UI.
+- Hindari bahasa terlalu modern atau slang.`,
+                    temperature: 1.0,
+                },
+            });
+
+            const prophecyResult = response.text || "Bisikan takdir teredam oleh badai kosmik...";
+            
+            // Format output so client-side message parsing converts it nicely to Fate Card Display format:
+            // "TYPE_NAME: Content text"
+            let finalCardType = "ORACLE PROBING";
+            let cleanProphecy = prophecyResult.trim();
+
+            if (ritualName === "tarot") {
+                finalCardType = `TAROT: ${cardSelected.toUpperCase()}`;
+            } else if (ritualName === "star") {
+                finalCardType = "COSMIC ASTROLOGY";
+            } else if (ritualName === "chat") {
+                finalCardType = "ORACLE HARMONI SPEAKS";
+            } else {
+                finalCardType = "UNIVERSE WHISPERS";
+            }
+
+            const formattedContent = `${finalCardType}: ${cleanProphecy}`;
+
+            res.json({
+                prophecy: formattedContent,
+                cardSelected: cardSelected || null
+            });
+        } catch (err: any) {
+            console.error("Error generating Oracle Tarot response:", err);
+            res.status(500).json({ error: err.message || "Ramalan terganggu oleh badai kosmik." });
+        }
     });
 
     app.post("/api/upload", upload.single('file'), (req, res) => {
@@ -137,7 +270,7 @@ async function startServer() {
         });
     }
 
-    server.listen(PORT as number, "0.0.0.0", () => {
+    server.listen(PORT, "0.0.0.0", () => {
         console.log(`Server running on port ${PORT}`);
     });
 }

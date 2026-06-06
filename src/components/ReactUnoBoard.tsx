@@ -739,18 +739,18 @@ export const ReactUnoBoard: React.FC<UnoBoardProps> = ({ G, ctx, moves, playerID
 
                             {/* Chat Entry Submission Form at footer */}
                             {chatTab === 'chat' && (
-                                <form onSubmit={sendChat} className="p-3 border-t border-white/5 bg-zinc-950 flex gap-2">
+                                <form onSubmit={sendChat} className="p-3 border-t border-white/5 bg-zinc-950 flex gap-2 items-center w-full">
                                     <input 
                                         type="text"
                                         placeholder="Ketik obrolan disini..."
                                         value={chatInput}
                                         onChange={(e) => setChatInput(e.target.value)}
-                                        className="flex-1 bg-zinc-850 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 placeholder-white/30"
+                                        className="flex-1 min-w-0 bg-zinc-800 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 placeholder-white/30"
                                         maxLength={100}
                                     />
                                     <button 
                                         type="submit"
-                                        className="p-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl duration-100 flex items-center justify-center active:scale-95"
+                                        className="w-8 h-8 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl duration-100 flex items-center justify-center active:scale-95 shrink-0"
                                         title="Kirim pesan"
                                     >
                                         <Send className="w-3.5 h-3.5" />
