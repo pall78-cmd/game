@@ -178,6 +178,65 @@ export function useGameRoom(gameId: string, playerID: string, playerName: string
         }
     }, [isHost, players.length, gameType, gameState]);
 
+    // Sync players in lobby if game status is 'waiting'
+    useEffect(() => {
+        if (!isHost || !engineRef.current || players.length === 0) return;
+        
+        const stateStatus = engineRef.current.state?.status || (gameState as any)?.status;
+        if (stateStatus !== 'waiting') return;
+
+        if (gameType === 'UNO') {
+            const enginePlayers = (engineRef.current.state as UnoGameState).players || [];
+            const presenceIds = players.map(p => p.id).join(',');
+            const engineIds = enginePlayers.map(p => p.id).join(',');
+            
+            if (presenceIds !== engineIds) {
+                const updatedPlayers = players.map((p, idx) => {
+                    const existing = enginePlayers.find(ep => ep.id === p.id);
+                    return {
+                        id: p.id,
+                        name: p.name || existing?.name || `Player ${idx + 1}`,
+                        hand: existing?.hand || [],
+                        score: existing?.score || 0,
+                        hasCalledUno: existing?.hasCalledUno || false
+                    };
+                });
+                
+                engineRef.current.state.players = updatedPlayers;
+                saveToDb(engineRef.current.state);
+                channelRef.current?.send({
+                    type: 'broadcast',
+                    event: 'state_update',
+                    payload: { state: engineRef.current.state }
+                });
+                setGameState({ ...engineRef.current.state });
+            }
+        } else {
+            const enginePlayers = (engineRef.current.state as TebakKataState).players || [];
+            const presenceIds = players.map(p => p.id).join(',');
+            const engineIds = enginePlayers.join(',');
+            
+            if (presenceIds !== engineIds) {
+                const state = engineRef.current.state as TebakKataState;
+                state.players = players.map(p => p.id);
+                
+                const newScores: Record<string, number> = {};
+                players.forEach(p => {
+                    newScores[p.id] = state.scores[p.id] || 0;
+                });
+                state.scores = newScores;
+                
+                saveToDb(state);
+                channelRef.current?.send({
+                    type: 'broadcast',
+                    event: 'state_update',
+                    payload: { state: state }
+                });
+                setGameState({ ...state });
+            }
+        }
+    }, [isHost, players, gameType, gameState]);
+
     const sendAction = (action: string, ...args: any[]) => {
         if (isHost && engineRef.current) {
              const engine = engineRef.current as any;
