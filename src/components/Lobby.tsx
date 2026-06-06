@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Flame, TrendingUp, X } from 'lucide-react';
+import { StreakManager } from '../utils/StreakManager';
+import { TebakKataStats } from './TebakKataStats';
 
 interface GameLobby {
     id: string;
@@ -26,6 +29,27 @@ export const Lobby: React.FC<LobbyProps> = ({ onJoinGame, onCreateGame, currentA
     const [lobbies, setLobbies] = useState<GameLobby[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    
+    const [showStatsModal, setShowStatsModal] = useState(false);
+    const [streakCount, setStreakCount] = useState(() => {
+        try {
+            return StreakManager.load().streakCount;
+        } catch (e) {
+            return 0;
+        }
+    });
+
+    // Check streak updates periodically or on focus
+    useEffect(() => {
+        const updateStreak = () => {
+            try {
+                setStreakCount(StreakManager.load().streakCount);
+            } catch (e) {}
+        };
+        updateStreak();
+        window.addEventListener('focus', updateStreak);
+        return () => window.removeEventListener('focus', updateStreak);
+    }, []);
     
     // Preferences Form
     const [gameType, setGameType] = useState('UNO');
@@ -158,17 +182,41 @@ export const Lobby: React.FC<LobbyProps> = ({ onJoinGame, onCreateGame, currentA
 
     return (
         <div className="w-full max-w-4xl mx-auto p-4 flex flex-col gap-6">
-            <div className="flex justify-between items-center bg-gray-900/80 p-4 rounded-2xl border border-gray-700/50 shadow-xl backdrop-blur-sm">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-900/80 p-4 rounded-2xl border border-gray-700/50 shadow-xl backdrop-blur-sm gap-4">
                 <div>
                     <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Game Lobby</h2>
                     <p className="text-sm text-gray-400">Main bareng orang lain yuk!</p>
                 </div>
-                <button 
-                    onClick={() => setShowCreateModal(true)}
-                    className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 rounded-xl font-bold transition-all shadow-lg hover:shadow-emerald-500/50 hover:-translate-y-1"
-                >
-                    + Buat Room
-                </button>
+                <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                    <motion.button 
+                        onClick={() => setShowStatsModal(true)}
+                        className="bg-zinc-800/80 hover:bg-zinc-800 border border-yellow-500/30 hover:border-yellow-500/60 py-2.5 px-4 rounded-xl text-xs font-mono font-bold text-yellow-400 cursor-pointer transition-all flex items-center gap-2 shadow-lg"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        animate={{ 
+                            boxShadow: streakCount > 0 
+                                ? ["0 0 4px rgba(234,179,8,0.15)", "0 0 12px rgba(234,179,8,0.35)", "0 0 4px rgba(234,179,8,0.15)"]
+                                : "0 0 0px rgba(0,0,0,0)"
+                        }}
+                        transition={{ repeat: Infinity, duration: 3 }}
+                    >
+                        <span className="relative flex h-2 w-2">
+                            {streakCount > 0 && (
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                            )}
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                        </span>
+                        <Flame className={`w-4 h-4 ${streakCount > 0 ? "text-amber-500 animate-pulse" : "text-zinc-500"}`} />
+                        <span>{streakCount} HARI STREAK</span>
+                    </motion.button>
+
+                    <button 
+                        onClick={() => setShowCreateModal(true)}
+                        className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 rounded-xl font-bold transition-all shadow-lg hover:shadow-emerald-500/50 hover:-translate-y-1 text-sm text-white shrink-0"
+                    >
+                        + Buat Room
+                    </button>
+                </div>
             </div>
 
             <div className="bg-gray-900/60 p-4 sm:p-6 rounded-2xl border border-gray-700/50 shadow-xl backdrop-blur-sm min-h-[300px]">
@@ -283,6 +331,32 @@ export const Lobby: React.FC<LobbyProps> = ({ onJoinGame, onCreateGame, currentA
                     </motion.div>
                 </div>
             )}
+
+            {/* STATS & WEEKLY ANALYTICS MODAL OVERLAY */}
+            <AnimatePresence>
+                {showStatsModal && (
+                    <div className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center z-[1000] p-4 overflow-y-auto no-scrollbar">
+                        <motion.div 
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.95, opacity: 0 }}
+                            className="bg-zinc-950 border border-white/10 p-5 sm:p-7 rounded-3xl w-full max-w-4xl shadow-2xl relative"
+                        >
+                            <button 
+                                onClick={() => setShowStatsModal(false)}
+                                className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                            
+                            <TebakKataStats 
+                                username={currentAlias || 'Pengembara'} 
+                                onClose={() => setShowStatsModal(false)}
+                            />
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

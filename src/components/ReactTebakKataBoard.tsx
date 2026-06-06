@@ -3,10 +3,26 @@ import { BoardProps } from 'boardgame.io/react';
 import { TebakKataState } from '../game/TebakKataGame';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, HelpCircle, LogOut, Check, Sparkles } from 'lucide-react';
+import { StreakManager } from '../utils/StreakManager';
 
 export const ReactTebakKataBoard: React.FC<BoardProps<TebakKataState> & { onLeave?: () => void, onGameEnd?: (winner: string, players: string[]) => void }> = ({ G, ctx, moves, playerID, onLeave, onGameEnd }) => {
     const isPlayerTurn = playerID === ctx.currentPlayer;
     const [input, setInput] = useState('');
+
+    React.useEffect(() => {
+        try {
+            const res = StreakManager.recordPlayToday();
+            if (res.isNewMilestone) {
+                localStorage.setItem('tebak_kata_new_milestone_claim', JSON.stringify({
+                    streakCount: res.state.streakCount,
+                    unlocked: true,
+                    timestamp: Date.now()
+                }));
+            }
+        } catch (e) {
+            console.error("Gagal mencatat streak bermain harian:", e);
+        }
+    }, []);
 
     React.useEffect(() => {
         if (ctx.gameover && onGameEnd) {

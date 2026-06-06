@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Reply, Check, CheckCheck, Copy, Settings, X, User, Volume2, Shield, Eye, Trash2, LogOut, Sliders } from 'lucide-react';
+import { Reply, Check, CheckCheck, Copy, Settings, X, User, Volume2, Shield, Eye, Trash2, LogOut, Sliders, Download } from 'lucide-react';
 import { UNO_CARD_SVG } from '../constants/boardGameDeck';
+import { StreakManager } from '../utils/StreakManager';
 
 import { ConnectionManager } from '../utils/ConnectionManager';
 import { supabaseClient } from '../../supabase';
@@ -41,6 +42,7 @@ const AudioPlayer = ({ url, isPlaying, onToggle }: { url: string, isPlaying: boo
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
     const audioRef = useRef<HTMLAudioElement>(null);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
         if (isPlaying) {
@@ -58,6 +60,54 @@ const AudioPlayer = ({ url, isPlaying, onToggle }: { url: string, isPlaying: boo
         };
     }, [isPlaying]); // Removed onToggle from dependencies to prevent re-running on every render
 
+    // Waveform canvas rendering
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        let animationId: number;
+        const draw = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const bars = 24;
+            const barWidth = 3;
+            const barSpacing = 2;
+            const centerY = canvas.height / 2;
+
+            for (let i = 0; i < bars; i++) {
+                const barX = i * (barWidth + barSpacing);
+                const progressRatio = i / bars;
+                const isPlayed = progressRatio < (progress / 100);
+
+                let height = 4;
+                if (isPlaying) {
+                    // Simulated waveform calculation using active play math for realism
+                    const wave1 = Math.sin((Date.now() * 0.006) + (i * 0.3));
+                    const wave2 = Math.cos((Date.now() * 0.01) + (i * 0.4));
+                    height = Math.abs(wave1 + wave2) * 8 + 4;
+                } else if (isPlayed) {
+                    height = 6;
+                }
+
+                ctx.fillStyle = isPlayed ? '#EAB308' : 'rgba(255, 255, 255, 0.2)';
+                
+                // Draw pill rounded rectangles manually
+                ctx.beginPath();
+                const rx = barX;
+                const ry = centerY - height / 2;
+                const rw = barWidth;
+                const rh = height;
+                ctx.roundRect ? ctx.roundRect(rx, ry, rw, rh, 1.5) : ctx.rect(rx, ry, rw, rh);
+                ctx.fill();
+            }
+            animationId = requestAnimationFrame(draw);
+        };
+
+        draw();
+        return () => cancelAnimationFrame(animationId);
+    }, [isPlaying, progress]);
+
     const formatTime = (time: number) => {
         if (isNaN(time) || !isFinite(time)) return "0:00";
         const minutes = Math.floor(time / 60);
@@ -70,36 +120,35 @@ const AudioPlayer = ({ url, isPlaying, onToggle }: { url: string, isPlaying: boo
             <button onClick={onToggle} className="w-10 h-10 rounded-full bg-gold/20 border border-gold/40 text-gold flex items-center justify-center active:scale-90 transition-transform shadow-lg shrink-0">
                 {isPlaying ? <span className="text-[10px] font-bold">||</span> : <span className="ml-0.5 text-sm">▶</span>}
             </button>
-            <span className="text-xs text-white/80 font-mono tracking-tighter shrink-0 w-16 text-center">
+            <span className="text-xs text-white/50 font-mono tracking-tighter shrink-0 w-8 text-center bg-black/10 py-0.5 rounded border border-white/5">
                 {formatTime(currentTime)}
             </span>
-            <div className="flex-1 flex flex-col justify-center gap-1.5 min-w-[100px]">
-                <div className="flex items-end gap-[2px] h-4 w-full">
-                    {Array.from({ length: 24 }).map((_, i) => (
-                        <motion.div 
-                            key={i}
-                            className="w-1 bg-gold/60 rounded-full"
-                            animate={isPlaying ? { 
-                                height: ['20%', `${Math.random() * 60 + 40}%`, '20%'] 
-                            } : { height: '20%' }}
-                            transition={{ 
-                                repeat: Infinity, 
-                                duration: 0.5 + Math.random() * 0.5, 
-                                delay: Math.random() * 0.5 
-                            }}
-                            style={{ height: '20%' }}
-                        />
-                    ))}
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                    <div className="h-1 bg-white/10 rounded-full overflow-hidden w-full">
-                        <div className="h-full bg-gold transition-all duration-100" style={{ width: `${progress}%` }}></div>
-                    </div>
+            <div className="flex-1 flex flex-col justify-center min-w-[100px] relative px-1">
+                {/* Dynamically Visualized Canvas-Based Waveform */}
+                <canvas 
+                    ref={canvasRef} 
+                    width={118} 
+                    height={20} 
+                    className="w-full h-5 rounded opacity-90"
+                />
+                <div className="h-[2px] bg-white/10 rounded-full overflow-hidden w-full mt-1">
+                    <div className="h-full bg-gold transition-all duration-100" style={{ width: `${progress}%` }}></div>
                 </div>
             </div>
-            <span className="text-[10px] text-white/50 font-mono tracking-tighter shrink-0">
+            <span className="text-[10px] text-white/40 font-mono tracking-tighter shrink-0">
                 {formatTime(duration)}
             </span>
+            <a 
+                href={url} 
+                download={`voice-note-${Date.now()}.mp3`}
+                target="_blank" 
+                rel="noreferrer"
+                className="w-8 h-8 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white flex items-center justify-center shrink-0 active:scale-90 duration-100"
+                title="Download Voice Note"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <Download className="w-3.5 h-3.5" />
+            </a>
             <audio 
                 ref={audioRef} 
                 src={url} 
@@ -883,6 +932,12 @@ export default function SideA({ onBack }: { onBack: () => void }) {
     const [bgmVolume, setBgmVolume] = useState(0.3);
     const [isBgmMuted, setIsBgmMuted] = useState(false);
     const [bgmTrack, setBgmTrack] = useState(() => bgmManager.getTrackIndex());
+    const [streakReminderEnabled, setStreakReminderEnabled] = useState(() => {
+        try { return StreakManager.load().reminderEnabled; } catch { return true; }
+    });
+    const [streakReminderTime, setStreakReminderTime] = useState(() => {
+        try { return StreakManager.load().reminderTime; } catch { return "19:00"; }
+    });
 
     const [isIOS, setIsIOS] = useState(false);
 
@@ -2297,6 +2352,41 @@ export default function SideA({ onBack }: { onBack: () => void }) {
                                     >
                                         🔔 Aktifkan Notifikasi Portal
                                     </button>
+
+                                    {/* STREAK REMINDER SETTINGS */}
+                                    <div className="border-t border-white/5 pt-3 mt-3 space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex flex-col">
+                                                <span className="block text-[10px] text-white/50 uppercase tracking-widest font-mono font-bold font-semibold">Pengingat Streak Tebak Kata</span>
+                                                <span className="text-[8px] text-zinc-500 font-mono">Kirim notifikasi dorongan harian</span>
+                                            </div>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={streakReminderEnabled}
+                                                onChange={(e) => {
+                                                    const val = e.target.checked;
+                                                    setStreakReminderEnabled(val);
+                                                    StreakManager.updateSettings({ reminderEnabled: val });
+                                                }}
+                                                className="w-4 h-4 rounded bg-black border border-white/10 text-gold focus:ring-amber-500 cursor-pointer accent-yellow-500"
+                                            />
+                                        </div>
+                                        {streakReminderEnabled && (
+                                            <div className="space-y-1">
+                                                <label className="block text-[10px] text-zinc-400 uppercase tracking-widest font-mono font-semibold">Waktu Notifikasi</label>
+                                                <input 
+                                                    type="time" 
+                                                    value={streakReminderTime}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setStreakReminderTime(val);
+                                                        StreakManager.updateSettings({ reminderTime: val });
+                                                    }}
+                                                    className="w-full p-2.5 rounded-xl text-xs bg-black/40 border border-white/15 outline-none text-white focus:border-yellow-500/50 transition-colors cursor-pointer"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </section>
 
