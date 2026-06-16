@@ -37,6 +37,63 @@ async function startServer() {
         res.json({ status: "ok" });
     });
 
+    // In-memory player registry for lightning-fast server-side player detection
+    const activePlayersRegistry = new Map<string, {
+        username: string;
+        room: string;
+        lastSeen: number;
+        gameType?: string;
+    }>();
+
+    // Clean inactive players every 10 seconds (25 seconds grace period for heartbeat losses)
+    setInterval(() => {
+        const expiredCutoff = Date.now() - 25000;
+        for (const [key, value] of activePlayersRegistry.entries()) {
+            if (value.lastSeen < expiredCutoff) {
+                activePlayersRegistry.delete(key);
+                console.log(`[ServerRegistry] Connection expired for: ${value.username} in Room ${value.room}`);
+            }
+        }
+    }, 10000);
+
+    // Heartbeat API endpoint to register or refresh player activity
+    app.post("/api/players/heartbeat", (req, res) => {
+        const { username, room, gameType } = req.body;
+        if (!username) {
+            return res.status(400).json({ error: "Username is required." });
+        }
+        const key = `${room || 'A'}_${username}`;
+        activePlayersRegistry.set(key, {
+            username,
+            room: room || 'A',
+            lastSeen: Date.now(),
+            gameType: gameType || undefined
+        });
+        res.json({ success: true, count: activePlayersRegistry.size });
+    });
+
+    // Explicit leave API endpoint when user closes/logs out
+    app.post("/api/players/leave", (req, res) => {
+        const { username, room } = req.body;
+        if (username) {
+            const key = `${room || 'A'}_${username}`;
+            activePlayersRegistry.delete(key);
+            console.log(`[ServerRegistry] Player explicitly left: ${username} in Room ${room}`);
+        }
+        res.json({ success: true });
+    });
+
+    // Active players query endpoint
+    app.get("/api/players/active", (req, res) => {
+        const list = Array.from(activePlayersRegistry.values()).map(p => ({
+            username: p.username,
+            room: p.room,
+            gameType: p.gameType,
+            isOnline: true
+        }));
+        res.json({ players: list, count: list.length });
+    });
+
     const TAROT_DECK = [
         { name: "The Fool (Sang Pengembara)", meaning: "Awal baru, spontanitas, petualangan tak terduga, kepolosan." },
         { name: "The Magician (Sang Penyihir)", meaning: "Kekuatan kehendak, manifestasi, kepiawaian, fokus tinggi." },

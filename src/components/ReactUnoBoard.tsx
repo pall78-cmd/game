@@ -200,7 +200,7 @@ export const ReactUnoBoard: React.FC<UnoBoardProps> = ({ G, ctx, moves, playerID
     const currentGlow = colorClasses[G.currentColor || 'Black'] || colorClasses['Black'];
 
     return (
-        <div className="fixed inset-0 bg-zinc-950 z-[1000] flex flex-col font-sans overflow-hidden text-white select-none">
+        <div className="fixed inset-0 bg-zinc-950 z-[100] flex flex-col font-sans overflow-hidden text-white select-none">
             {/* Outside-click dismiss backdrop for the options menu */}
             {showMenu && (
                 <div 

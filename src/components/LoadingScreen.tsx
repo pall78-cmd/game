@@ -20,10 +20,10 @@ export const LoadingScreen = ({ error, onCancel }: { error?: string, onCancel?: 
     };
 
     return (
-        <div className="fixed inset-0 flex flex-col items-center justify-center bg-zinc-950 text-gold z-50">
+        <div className="fixed inset-0 flex flex-col items-center justify-center bg-zinc-950 text-gold z-[1200]">
             <button 
                 onClick={handleCancel}
-                className="absolute top-4 right-4 text-white/50 hover:text-white z-50"
+                className="absolute top-4 right-4 text-white/50 hover:text-white z-[1205]"
             >
                 Batal
             </button>

@@ -38,90 +38,7 @@ const safeStorage = {
 // --- COMPONENTS ---
 
 
-const AudioPlayer = ({ url, isPlaying, onToggle }: { url: string, isPlaying: boolean, onToggle: () => void }) => {
-    const [progress, setProgress] = useState(0);
-    const [duration, setDuration] = useState(0);
-    const [currentTime, setCurrentTime] = useState(0);
-    const audioRef = useRef<HTMLAudioElement>(null);
-
-    useEffect(() => {
-        if (isPlaying) {
-            audioRef.current?.play().catch(() => onToggle());
-            bgmManager.onVoiceNotePlay();
-        } else {
-            audioRef.current?.pause();
-            bgmManager.onVoiceNoteEnd();
-        }
-
-        return () => {
-            if (isPlaying) {
-                bgmManager.onVoiceNoteEnd();
-            }
-        };
-    }, [isPlaying]); // Removed onToggle from dependencies to prevent re-running on every render
-
-    const formatTime = (time: number) => {
-        if (isNaN(time) || !isFinite(time)) return "0:00";
-        const minutes = Math.floor(time / 60);
-        const seconds = Math.floor(time % 60);
-        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    };
-
-    return (
-        <div className="flex items-center gap-3 min-w-[200px] py-2 px-3 bg-black/20 rounded-xl">
-            <button onClick={onToggle} className="w-10 h-10 rounded-full bg-gold/20 border border-gold/40 text-gold flex items-center justify-center active:scale-90 transition-transform shadow-lg shrink-0">
-                {isPlaying ? <span className="text-[10px] font-bold">||</span> : <span className="ml-0.5 text-sm">▶</span>}
-            </button>
-            <span className="text-xs text-white/80 font-mono tracking-tighter shrink-0 w-16 text-center">
-                {formatTime(currentTime)}
-            </span>
-            <div className="flex-1 flex flex-col justify-center gap-1.5 min-w-[100px]">
-                <div className="flex items-end gap-[2px] h-4 w-full">
-                    {Array.from({ length: 24 }).map((_, i) => (
-                        <motion.div 
-                            key={i}
-                            className="w-1 bg-gold/60 rounded-full"
-                            animate={isPlaying ? { 
-                                height: ['20%', `${Math.random() * 60 + 40}%`, '20%'] 
-                            } : { height: '20%' }}
-                            transition={{ 
-                                repeat: Infinity, 
-                                duration: 0.5 + Math.random() * 0.5, 
-                                delay: Math.random() * 0.5 
-                            }}
-                            style={{ height: '20%' }}
-                        />
-                    ))}
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                    <div className="h-1 bg-white/10 rounded-full overflow-hidden w-full">
-                        <div className="h-full bg-gold transition-all duration-100" style={{ width: `${progress}%` }}></div>
-                    </div>
-                </div>
-            </div>
-            <span className="text-[10px] text-white/50 font-mono tracking-tighter shrink-0">
-                {formatTime(duration)}
-            </span>
-            <audio 
-                ref={audioRef} 
-                src={url} 
-                onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
-                onTimeUpdate={() => {
-                    if (audioRef.current) {
-                        setCurrentTime(audioRef.current.currentTime);
-                        setProgress((audioRef.current.currentTime / audioRef.current.duration) * 100);
-                    }
-                }} 
-                onEnded={() => {
-                    onToggle();
-                    setCurrentTime(0);
-                    setProgress(0);
-                }} 
-                className="hidden" 
-            />
-        </div>
-    );
-};
+const AudioPlayer = null;
 
 const FateCardDisplay = ({ raw }: { raw: string }) => {
     try {
@@ -1710,8 +1627,9 @@ function App() {
                     <input 
                         type="text" 
                         value={username} 
-                        onChange={e => setUsername(e.target.value)} 
+                        onChange={e => setUsername(e.target.value.replace(/\|/g, '').substring(0, 20))} 
                         placeholder="Nama Panggilan" 
+                        maxLength={20}
                         className="w-full bg-white/5 text-white text-center p-4 rounded-2xl border border-white/10 focus:border-gold/50 outline-none transition-all shadow-inner placeholder:text-white/30 font-medium backdrop-blur-sm focus:bg-white/10" 
                     />
                 </div>
@@ -1735,11 +1653,13 @@ function App() {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.3 }}
                 onClick={() => { 
-                    if (!username.trim()) {
-                        showToast("Nama tidak boleh kosong", "error");
+                    const sanitized = username.trim().replace(/\|/g, '').substring(0, 20);
+                    if (!sanitized) {
+                        showToast("Nama tidak valid", "error");
                         return;
                     }
-                    safeStorage.set('oracle_user', username); 
+                    setUsername(sanitized);
+                    safeStorage.set('oracle_user', sanitized); 
                     safeStorage.set('oracle_avatar', avatar); 
                     safeStorage.set('oracle_color', userColor); 
                     setLayer('SECURITY'); 
@@ -1865,7 +1785,9 @@ function App() {
                                 setTimeout(() => {
                                     setCurrentRoom('A');
                                     setLayer('MAIN');
-                                    setIsTransitioningTo(null);
+                                    setTimeout(() => {
+                                        setIsTransitioningTo(null);
+                                    }, 100);
                                 }, 1000);
                             }} 
                             className="w-full p-5 bg-gradient-to-r from-white/[0.02] to-white/[0.04] border border-white/10 text-white font-bold rounded-2xl hover:bg-white/10 hover:border-red-500/50 hover:shadow-[0_0_25px_rgba(239,68,68,0.15)] group hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all tracking-widest uppercase flex items-center justify-between text-left"
@@ -1883,7 +1805,9 @@ function App() {
                                 setTimeout(() => {
                                     setCurrentRoom('B');
                                     setLayer('MAIN');
-                                    setIsTransitioningTo(null);
+                                    setTimeout(() => {
+                                        setIsTransitioningTo(null);
+                                    }, 100);
                                 }, 1000);
                             }} 
                             className="w-full p-5 bg-gradient-to-r from-white/[0.02] to-white/[0.04] border border-white/10 text-white font-bold rounded-2xl hover:bg-white/10 hover:border-purple-500/50 hover:shadow-[0_0_25px_rgba(168,85,247,0.15)] group hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] transition-all tracking-widest uppercase flex items-center justify-between text-left"
@@ -2069,11 +1993,61 @@ function App() {
     );
 
     if (layer === 'MAIN') {
-        if (currentRoom === 'A') {
-            return <SideA onBack={() => setLayer('LOBBY')} />;
-        } else {
-            return <SideB onBack={() => setLayer('LOBBY')} />;
-        }
+        const sideEl = currentRoom === 'A' 
+            ? <SideA onBack={() => {
+                setLayer('LOBBY');
+              }} /> 
+            : <SideB onBack={() => {
+                setLayer('LOBBY');
+              }} />;
+        return (
+            <div className="relative w-full h-full min-h-screen">
+                {sideEl}
+                <AnimatePresence>
+                    {isTransitioningTo && (
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="fixed inset-0 z-[2000] flex flex-col items-center justify-center bg-zinc-950 overflow-hidden"
+                        >
+                            {/* 3D Spinning Oracle Dimension Vortex */}
+                            <motion.div
+                                animate={{ 
+                                    rotate: 360,
+                                    scale: [1, 2, 12],
+                                }}
+                                transition={{ duration: 1.0, ease: "easeInOut" }}
+                                className={`w-72 h-72 rounded-full blur-[80px] opacity-70 ${isTransitioningTo === 'A' ? 'bg-gradient-to-r from-red-600 via-amber-500 to-indigo-700' : 'bg-gradient-to-r from-purple-600 via-fuchsia-500 to-sky-700'}`}
+                            />
+                            
+                            {/* Portal Ring Overlay */}
+                            <motion.div
+                                initial={{ scale: 0.3, rotate: 0, opacity: 0 }}
+                                animate={{ scale: [0.3, 2, 5], rotate: [0, 180, 360], opacity: [0, 0.8, 0] }}
+                                transition={{ duration: 1.0, ease: "easeOut" }}
+                                className="absolute w-96 h-96 border-4 border-dashed rounded-full pointer-events-none"
+                                style={{ borderColor: isTransitioningTo === 'A' ? '#EF4444' : '#A855F7' }}
+                            />
+
+                            {/* Mystical Text */}
+                            <motion.div
+                                initial={{ scale: 0.9, opacity: 0 }}
+                                animate={{ scale: [0.9, 1.05, 1.2], opacity: [0, 1, 0] }}
+                                transition={{ duration: 0.9, ease: "easeInOut" }}
+                                className="absolute text-center px-4"
+                            >
+                                <h2 className="font-header text-xl md:text-3xl tracking-[10px] text-white font-bold uppercase mb-3 text-gold">
+                                    {isTransitioningTo === 'A' ? 'MEMASUKI DIMENSI LUMINA' : 'MEMASUKI DIMENSI NOX'}
+                                </h2>
+                                <p className="font-mono text-xs tracking-widest text-white/50 uppercase opacity-80">Menggeser Koordinat Realitas...</p>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        );
     }
 
     return null;

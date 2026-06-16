@@ -130,6 +130,12 @@ export class UnoEngine extends BaseGameEngine {
         this.state.status = 'playing';
         this.deal();
         
+        // Randomize turn direction (1 = Clockwise / Right, -1 = Counterclockwise / Left)
+        this.state.direction = Math.random() < 0.5 ? 1 : -1;
+        
+        // Randomize first player index
+        this.state.currentPlayerIndex = Math.floor(Math.random() * this.state.players.length);
+        
         // Flip first card
         let firstCard = this.state.deck.pop()!;
         while (firstCard.light.color === 'Black') {
@@ -138,7 +144,7 @@ export class UnoEngine extends BaseGameEngine {
         }
         this.state.discardPile.push(firstCard);
         this.state.currentColor = firstCard.light.color;
-        this.log(`Game started! First card is ${firstCard.light.color} ${firstCard.light.value}.`);
+        this.log(`Game started! First card is ${firstCard.light.color} ${firstCard.light.value}. Arah permainan: ${this.state.direction === 1 ? 'Kanan (Searah Jarum Jam)' : 'Kiri (Berlawanan Jarum Jam)'}. Pemain pertama: ${this.state.players[this.state.currentPlayerIndex].name}.`);
     }
 
     deal() {

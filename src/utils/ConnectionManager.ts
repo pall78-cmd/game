@@ -19,6 +19,12 @@ export class ConnectionManager {
     private reconnectTimeoutId: any = null;
     private isInactive: boolean = false;
     private idleTimer: any = null;
+    private presenceKey: string = 'user_presence';
+
+    // Server-level heartbeat state tracking properties
+    private trackUsername: string | null = null;
+    private trackRoom: 'A' | 'B' | null = null;
+    private serverHeartbeatInterval: any = null;
 
     constructor(supabaseClient: SupabaseClient, onStatusChange?: (status: ConnectionStatus) => void) {
         this.supabase = supabaseClient;
@@ -59,8 +65,7 @@ export class ConnectionManager {
                 this.isInactive = false;
                 this.resetAndReconnect();
             } else {
-                console.log("[ConnectionManager] Tab backgrounded, marking as inactive.");
-                this.isInactive = true;
+                console.log("[ConnectionManager] Tab backgrounded, keeping connection alive.");
             }
         };
 
@@ -88,10 +93,17 @@ export class ConnectionManager {
         }
     }
 
-    async subscribe(channelName: string, onPayload: (event: any) => void, onPresenceChange?: (presences: any[]) => void) {
+    async subscribe(channelName: string, onPayload: (event: any) => void, onPresenceChange?: (presences: any[]) => void, presenceKey?: string) {
         this.channelName = channelName;
         this.onPayload = onPayload;
         this.onPresenceChange = onPresenceChange || null;
+        
+        if (presenceKey) {
+            this.presenceKey = presenceKey;
+        } else if (this.presenceKey === 'user_presence') {
+            // Generate a unique fallback key per connection to prevent different tabs/clients from stomping each other's status
+            this.presenceKey = 'user_' + Math.random().toString(36).substring(2, 11);
+        }
         
         if (this.channel) {
             try {
@@ -112,13 +124,13 @@ export class ConnectionManager {
             }
         }
 
-        console.log(`[ConnectionManager] Subscribing to channel ${channelName}...`);
+        console.log(`[ConnectionManager] Subscribing to channel ${channelName} with presence key: ${this.presenceKey}...`);
         this.onStatusChange('CONNECTING');
 
         const newChannel = this.supabase.channel(channelName, {
             config: {
                 presence: {
-                    key: 'user_presence'
+                    key: this.presenceKey
                 }
             }
         });
@@ -174,6 +186,9 @@ export class ConnectionManager {
     }
 
     public trackUser(username: string, room: 'A' | 'B') {
+        this.trackUsername = username;
+        this.trackRoom = room;
+
         if (this.channel) {
             try {
                 this.channel.track({
@@ -185,6 +200,35 @@ export class ConnectionManager {
                 console.error("[ConnectionManager] Error tracking user", err);
             }
         }
+
+        this.startServerHeartbeat();
+    }
+
+    private startServerHeartbeat() {
+        if (this.serverHeartbeatInterval) {
+            clearInterval(this.serverHeartbeatInterval);
+        }
+
+        const sendHeartbeat = () => {
+            if (!this.trackUsername || !this.trackRoom || this.isInactive) return;
+
+            fetch('/api/players/heartbeat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: this.trackUsername,
+                    room: this.trackRoom
+                })
+            }).catch(err => {
+                console.warn('[ConnectionManager] Server heartbeat ping failed', err);
+            });
+        };
+
+        // Send immediately
+        sendHeartbeat();
+
+        // Heartbeat repeat every 10 seconds (aligned with server registry 10s cleaner cycle)
+        this.serverHeartbeatInterval = setInterval(sendHeartbeat, 10000);
     }
 
     handleStatus(status: string, err?: any) {
@@ -294,6 +338,23 @@ export class ConnectionManager {
         if (this.idleTimer) clearTimeout(this.idleTimer);
         if (this.reconnectTimeoutId) clearTimeout(this.reconnectTimeoutId);
         if (this.checkInterval) clearInterval(this.checkInterval);
+        if (this.serverHeartbeatInterval) {
+            clearInterval(this.serverHeartbeatInterval);
+            this.serverHeartbeatInterval = null;
+        }
+
+        // Notify server registry of leave
+        if (this.trackUsername && this.trackRoom) {
+            fetch('/api/players/leave', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: this.trackUsername,
+                    room: this.trackRoom
+                })
+            }).catch(() => {});
+        }
+
         if (this.channel) {
             try {
                 this.supabase.removeChannel(this.channel);

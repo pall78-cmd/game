@@ -108,7 +108,7 @@ export const CosmicOracleModal: React.FC<CosmicOracleModalProps> = ({
     return (
         <AnimatePresence>
             {isOpen && (
-                <div id="oracle-modal-overlay" className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+                <div id="oracle-modal-overlay" className="fixed inset-0 z-[600] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
                     <div className="absolute inset-0" onClick={!loading ? onClose : undefined} />
                     
                     <motion.div 

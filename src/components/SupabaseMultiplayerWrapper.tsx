@@ -9,12 +9,13 @@ interface Props {
     gameType: 'UNO' | 'TEBAK_KATA';
     playerID: string;
     playerName: string;
-    onLeave?: () => void;
+    onLeave?: (isHostPlayer?: boolean) => void;
     onGameEnd?: (winner: string, players: string[]) => void;
+    isHost?: boolean;
 }
 
-export const SupabaseMultiplayerWrapper: React.FC<Props> = ({ gameId, gameType, playerID, playerName, onLeave, onGameEnd }) => {
-    const { gameState, isHost, sendAction, error, players } = useGameRoom(gameId, playerID, playerName, gameType);
+export const SupabaseMultiplayerWrapper: React.FC<Props> = ({ gameId, gameType, playerID, playerName, onLeave, onGameEnd, isHost }) => {
+    const { gameState, isHost: activeIsHost, sendAction, error, players } = useGameRoom(gameId, playerID, playerName, gameType, isHost);
     const [hasEnded, setHasEnded] = useState(false);
 
     useEffect(() => {
@@ -27,8 +28,8 @@ export const SupabaseMultiplayerWrapper: React.FC<Props> = ({ gameId, gameType, 
     if (error) {
         return (
              <div className="fixed inset-0 bg-black text-red-500 flex items-center justify-center p-4">
-                 Error: {error}
-                 <button onClick={onLeave} className="ml-4 px-4 py-2 border rounded">Back</button>
+                  Error: {error}
+                  <button onClick={() => onLeave?.(activeIsHost)} className="ml-4 px-4 py-2 border rounded">Back</button>
              </div>
         );
     }
@@ -73,13 +74,14 @@ export const SupabaseMultiplayerWrapper: React.FC<Props> = ({ gameId, gameType, 
                 matchID={gameId} 
                 displayGameId={gameId}
                 username={playerName}
-                onLeave={onLeave}
+                onLeave={() => onLeave?.(activeIsHost)}
                 onGameEnd={onGameEnd}
             />
         );
     } else {
         const moves = {
-            guessLetter: (letter: string) => sendAction('guessLetter', playerID, letter)
+            guessLetter: (letter: string) => sendAction('guessLetter', playerID, letter),
+            startGame: () => sendAction('start')
         };
 
         return (
@@ -88,7 +90,8 @@ export const SupabaseMultiplayerWrapper: React.FC<Props> = ({ gameId, gameType, 
                 ctx={ctx} 
                 moves={moves} 
                 playerID={playerID} 
-                onLeave={onLeave}
+                displayGameId={gameId}
+                onLeave={() => onLeave?.(activeIsHost)}
                 onGameEnd={onGameEnd}
             />
         );

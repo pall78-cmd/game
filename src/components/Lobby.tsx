@@ -59,15 +59,21 @@ export const Lobby: React.FC<LobbyProps> = ({ onJoinGame, onCreateGame, currentA
         fetchLobbies();
         fetchPreferences();
 
-            const channelName = 'game_lobbies_' + Math.random().toString(36).substring(7);
-            const channel = supabase.channel(channelName);
-            channel.on('postgres_changes', { event: '*', schema: 'public', table: 'game_lobbies' }, payload => {
-                fetchLobbies();
-            });
-            channel.subscribe();
+        const channelName = 'game_lobbies_' + Math.random().toString(36).substring(7);
+        const channel = supabase.channel(channelName);
+        channel.on('postgres_changes', { event: '*', schema: 'public', table: 'game_lobbies' }, payload => {
+            fetchLobbies();
+        });
+        channel.subscribe();
+
+        // 5-second safety fallback polling for ultra-reliable multiplayer room listings
+        const interval = setInterval(() => {
+            fetchLobbies();
+        }, 5000);
 
         return () => {
             supabase.removeChannel(channel);
+            clearInterval(interval);
         };
     }, []);
 
@@ -146,27 +152,31 @@ export const Lobby: React.FC<LobbyProps> = ({ onJoinGame, onCreateGame, currentA
         
         const newMatchId = Math.random().toString(36).substring(2, 8).toUpperCase();
         
-        // Let the actual server (through onCreateGame prop) create the boardgame match
-        onCreateGame(gameType, maxPlayers, {}, newMatchId);
-        
-        // Insert into supabase
+        setShowCreateModal(false);
+
+        // 1. Insert into supabase first and wait for DB registration to complete
         try {
-            await supabase.from('game_lobbies').insert({
-                id: crypto.randomUUID ? crypto.randomUUID() : undefined, // let supabase generate id or supply matching
+            const isCryptoSafe = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function';
+            const { error: insertError } = await supabase.from('game_lobbies').insert({
+                ...(isCryptoSafe ? { id: crypto.randomUUID() } : {}),
                 host_id: deviceId,
                 host_name: currentAlias || 'Anonymous',
                 game_type: gameType,
                 status: 'waiting',
-                current_players: 1, // Will update when someone joins (could be tracked on server ideally, but we'll do what we can)
+                current_players: 1, // Initialize with 1 (the host)
                 max_players: maxPlayers,
                 settings: { maxPlayers },
                 match_id: newMatchId
             });
+            if (insertError) {
+                console.error('Error inserting lobby to DB:', insertError);
+            }
         } catch (err) {
             console.error('Failed to create lobby in supabase', err);
         }
         
-        setShowCreateModal(false);
+        // 2. Launch the actual game engine board with the verified matchId
+        onCreateGame(gameType, maxPlayers, {}, newMatchId);
     };
 
     const handleJoin = (lobby: GameLobby) => {
@@ -289,7 +299,13 @@ export const Lobby: React.FC<LobbyProps> = ({ onJoinGame, onCreateGame, currentA
                                 <label className="block text-sm font-medium text-gray-400 mb-1">Game Type</label>
                                 <select 
                                     value={gameType} 
-                                    onChange={(e) => setGameType(e.target.value)}
+                                    onChange={(e) => {
+                                        const newType = e.target.value;
+                                        setGameType(newType);
+                                        if (newType === 'UNO' && maxPlayers < 2) {
+                                            setMaxPlayers(2);
+                                        }
+                                    }}
                                     className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:ring-2 focus:ring-purple-500 focus:outline-none"
                                 >
                                     <option value="UNO">UNO</option>
@@ -301,13 +317,13 @@ export const Lobby: React.FC<LobbyProps> = ({ onJoinGame, onCreateGame, currentA
                                 <label className="block text-sm font-medium text-gray-400 mb-1">Pemain Maksimal ({maxPlayers})</label>
                                 <input 
                                     type="range" 
-                                    min="2" max="10" 
+                                    min={gameType === 'UNO' ? "2" : "1"} max="10" 
                                     value={maxPlayers} 
                                     onChange={(e) => setMaxPlayers(parseInt(e.target.value))}
                                     className="w-full accent-purple-500" 
                                 />
                                 <div className="flex justify-between text-xs text-gray-500 mt-1">
-                                    <span>2</span>
+                                    <span>{gameType === 'UNO' ? "2" : "1"}</span>
                                     <span>10</span>
                                 </div>
                             </div>

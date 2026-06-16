@@ -136,10 +136,21 @@ export const StreakManager = {
         return state.lastPlayedDate === yesterday && state.lastPlayedDate !== today;
     },
 
-    updateSettings(reminderEnabled: boolean, reminderTime: string): StreakState {
+    updateSettings(enabledOrObject: boolean | Partial<{ reminderEnabled: boolean; reminderTime: string }>, reminderTime?: string): StreakState {
         const state = this.load();
-        state.reminderEnabled = reminderEnabled;
-        state.reminderTime = reminderTime;
+        if (typeof enabledOrObject === 'object' && enabledOrObject !== null) {
+            if (enabledOrObject.reminderEnabled !== undefined) {
+                state.reminderEnabled = enabledOrObject.reminderEnabled;
+            }
+            if (enabledOrObject.reminderTime !== undefined) {
+                state.reminderTime = enabledOrObject.reminderTime;
+            }
+        } else {
+            state.reminderEnabled = !!enabledOrObject;
+            if (reminderTime !== undefined) {
+                state.reminderTime = reminderTime;
+            }
+        }
         this.save(state);
         this.triggerLocalNotification(state);
         return state;
